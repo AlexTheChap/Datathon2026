@@ -1,8 +1,9 @@
-"""Registre de preuves local (L15) — un fichier JSONL par exécution.
+"""Local evidence ledger (L15) — one JSONL file per run.
 
-Chaque appel d'outil = une ligne (seq E-001, E-002…). L'`evidence_id` stable
-produit par risk_tools permet de citer une preuve même appelée plusieurs fois.
-Équivalent DynamoDB (RUN#id / EVID#…) prévu plus tard : même interface.
+Every tool call = one line (seq E-001, E-002…). The stable `evidence_id`
+produced by risk_tools lets a single piece of evidence be cited even when
+called several times. DynamoDB equivalent (RUN#id / EVID#…) planned later:
+same interface.
 """
 from __future__ import annotations
 
@@ -11,8 +12,8 @@ import time
 from pathlib import Path
 from typing import Any, Protocol
 
-# Au-delà, on tronque la charge utile (ex. replay : une valeur par jour) en
-# gardant un marqueur : la preuve complète reste recalculable via son evidence_id.
+# Beyond this, the payload is truncated (e.g. replay: one value per day) with a
+# marker kept: the full evidence stays recomputable via its evidence_id.
 _MAX_CHARS = 200_000
 
 
@@ -26,12 +27,12 @@ def _truncate(value: Any) -> Any:
     s = json.dumps(value, ensure_ascii=False, default=str)
     if len(s) <= _MAX_CHARS:
         return value
-    return {"tronque": True, "apercu": s[:2000],
-            "note": "Charge utile complète recalculable via evidence_id (fonctions déterministes)."}
+    return {"truncated": True, "preview": s[:2000],
+            "note": "Full payload recomputable via evidence_id (deterministic functions)."}
 
 
 class JsonlLedger:
-    """Registre local : data/runs/{run_id}.jsonl (créé à la première preuve)."""
+    """Local ledger: data/runs/{run_id}.jsonl (created on first evidence)."""
 
     def __init__(self, runs_dir: str | Path):
         self.dir = Path(runs_dir)
@@ -59,7 +60,7 @@ class JsonlLedger:
         return [json.loads(line) for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
 
     def evidence_ids(self, run_id: str) -> list[str]:
-        """Identifiants uniques, ordre de première apparition."""
+        """Unique ids, in order of first appearance."""
         seen: list[str] = []
         for r in self.records(run_id):
             eid = r.get("evidence_id")

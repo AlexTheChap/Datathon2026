@@ -1,9 +1,9 @@
-"""Outils quantitatifs exposés à l'agent (L12 : Gateway MCP en prod, appel direct ici).
+"""Quantitative tools exposed to the agent (L12: MCP Gateway in prod, direct call here).
 
-Adaptateur mince autour de risk_tools.py et governance_check.py : les fonctions
-restent déterministes et renvoient leur PREUVE (evidence_id, say, hypothèses) —
-le LLM ne calcule jamais, il cite les preuves. Le profil investisseur transit
-par une ContextVar (une par exécution), car un outil Strands est sans état.
+A thin adapter around risk_tools.py and governance_check.py: the functions stay
+deterministic and return their EVIDENCE envelope (evidence_id, say, assumptions) —
+the LLM never computes, it cites evidence. The investor profile travels via a
+ContextVar (one per run) because a Strands tool is stateless.
 """
 from __future__ import annotations
 
@@ -12,11 +12,11 @@ from typing import Any
 
 from strands import tool
 
-from app.agents.governance import governance_check as _gov  # alias : le @tool ci-dessous s'appelle governance_check
+from app.agents.governance import governance_check as _gov  # alias: the @tool below is named governance_check
 from app.core.config import get_settings
 from app.tools.risk_tools import RiskTools
 
-# Profil validé par l'Intake, posé par l'orchestrateur au début de l'exécution.
+# Profile validated by the Intake, set by the orchestrator at the start of a run.
 current_profile: ContextVar[dict[str, Any] | None] = ContextVar("af_current_profile", default=None)
 
 _rt: RiskTools | None = None
@@ -31,50 +31,50 @@ def _tools() -> RiskTools:
 
 
 def _guard(fn, *args, **kwargs):
-    """Erreur d'entrée (ticker inconnu, fenêtre vide…) -> dict d'erreur pour que le modèle réagisse."""
+    """Input error (unknown ticker, empty window…) -> error dict so the model can react."""
     try:
         return fn(*args, **kwargs)
     except (KeyError, ValueError) as e:
-        return {"erreur": str(e), "note": "Corrige les arguments et rappelle l'outil."}
+        return {"error": str(e), "note": "Fix the arguments and call the tool again."}
 
 
 @tool
 def metrics(tickers: list[str], start: str | None = None, end: str | None = None,
             as_of: str | None = None) -> dict:
-    """Rendement total, volatilité annualisée, pire baisse (max drawdown), VaR/CVaR 95 %
-    quotidiennes par actif, en CAD, preuve (evidence_id) à l'appui.
+    """Total return, annualized volatility, worst drawdown, daily 95% VaR/CVaR
+    per asset, in CAD, with an evidence record (evidence_id).
 
     Args:
-        tickers: Actifs de l'univers (ex. ["NVDA", "XBB.TO"]).
-        start/end: Fenêtre optionnelle "YYYY-MM-DD".
-        as_of: Date de référence point-in-time (rien après cette date).
+        tickers: Assets from the universe (e.g. ["NVDA", "XBB.TO"]).
+        start/end: Optional "YYYY-MM-DD" window.
+        as_of: Point-in-time reference date (nothing after this date).
     """
     return _guard(_tools().metrics, tickers, start=start, end=end, as_of=as_of)
 
 
 @tool
 def stress(weights: dict[str, float], window: str = "2022", capital: float | None = None) -> dict:
-    """Rejeu historique d'une allocation sur une fenêtre de crise (2022 par défaut :
-    actions et obligations en baisse ensemble). Renvoie perte totale, pire moment
-    (max drawdown) et, si `capital` est donné, les montants en dollars CAD.
+    """Historical replay of an allocation over a crisis window (default 2022:
+    stocks and bonds falling together). Returns total loss, worst moment
+    (max drawdown) and, when `capital` is given, dollar amounts in CAD.
 
     Args:
-        weights: Pondérations, ex. {"XIU.TO": 0.3, "NVDA": 0.2} (normalisées au besoin).
-        window: "2022" ou "2022_H1".
-        capital: Capital fictif en CAD (optionnel).
+        weights: Weights, e.g. {"XIU.TO": 0.3, "NVDA": 0.2} (normalized as needed).
+        window: "2022" or "2022_H1".
+        capital: Fictional capital in CAD (optional).
     """
     return _guard(_tools().stress, weights, window=window, capital=capital)
 
 
 @tool
 def concentration(weights: dict[str, float], look_through: bool = True) -> dict:
-    """Expositions par société, secteur, classe d'actifs et devise, avec indice de
-    concentration (HHI) et nombre effectif de positions. Décompose les FNB d'actions
-    (SPY, QQQ, XIU…) via leurs avoirs publiés.
+    """Exposures by company, sector, asset class and currency, with a concentration
+    index (HHI) and effective number of positions. Decomposes equity ETFs
+    (SPY, QQQ, XIU…) via their published holdings.
 
     Args:
-        weights: Pondérations du portefeuille.
-        look_through: True (défaut) pour décomposer les FNB d'actions.
+        weights: Portfolio weights.
+        look_through: True (default) to decompose equity ETFs.
     """
     return _guard(_tools().concentration, weights, look_through=look_through)
 
@@ -82,11 +82,11 @@ def concentration(weights: dict[str, float], look_through: bool = True) -> dict:
 @tool
 def correlation(tickers: list[str], start: str | None = None, end: str | None = None,
                 as_of: str | None = None) -> dict:
-    """Matrice de corrélation des rendements quotidiens en CAD entre actifs.
+    """Correlation matrix of daily returns in CAD between assets.
 
     Args:
-        tickers: Au moins deux actifs de l'univers.
-        start/end/as_of: Fenêtre optionnelle (comparer avec 2022 est instructif).
+        tickers: At least two assets from the universe.
+        start/end/as_of: Optional window (comparing with 2022 is instructive).
     """
     return _guard(_tools().correlation, tickers, start=start, end=end, as_of=as_of)
 
@@ -94,12 +94,12 @@ def correlation(tickers: list[str], start: str | None = None, end: str | None = 
 @tool
 def risk_contribution(weights: dict[str, float], start: str | None = None,
                       end: str | None = None, as_of: str | None = None) -> dict:
-    """Part du risque total du portefeuille générée par chaque position et ratio de
-    diversification (identifie qui « pèse » dans le risque au-delà du poids).
+    """Share of total portfolio risk generated by each position, plus the
+    diversification ratio (identifies what "weighs" on risk beyond its weight).
 
     Args:
-        weights: Pondérations du portefeuille.
-        start/end/as_of: Fenêtre optionnelle.
+        weights: Portfolio weights.
+        start/end/as_of: Optional window.
     """
     return _guard(_tools().risk_contribution, weights, start=start, end=end, as_of=as_of)
 
@@ -107,32 +107,32 @@ def risk_contribution(weights: dict[str, float], start: str | None = None,
 @tool
 def max_position(base_weights: dict[str, float], asset: str, max_drawdown_limit: float,
                  window: str = "2022") -> dict:
-    """Plus grande part de `asset` (autres positions réduites au prorata) qui respecte
-    la perte maximale tolérée `max_drawdown_limit` dans le scénario de crise `window`.
-    Outil clé pour répondre « jusqu'à combien ? » en restant dans le profil.
+    """Largest share of `asset` (other positions scaled down pro rata) that still
+    respects the tolerated max loss `max_drawdown_limit` in the `window` crisis
+    scenario. The key tool to answer "how much could I hold?" within the profile.
 
     Args:
-        base_weights: Portefeuille actuel (sans la part à tester).
-        asset: Ticker à tester, ex. "NVDA".
-        max_drawdown_limit: Perte maximale tolérée, ex. 0.15 pour -15 %.
-        window: "2022" par défaut.
+        base_weights: Current portfolio (without the share being tested).
+        asset: Ticker to test, e.g. "NVDA".
+        max_drawdown_limit: Tolerated max loss, e.g. 0.15 for -15%.
+        window: "2022" by default.
     """
     return _guard(_tools().max_position, base_weights, asset, max_drawdown_limit, window=window)
 
 
 @tool
 def governance_check(weights: dict[str, float]) -> dict:
-    """Vérifie une allocation contre le profil de l'investisseur et les règles
-    documentées (rules.yaml) : limites de perte en scénario de crise, position
-    unique, secteur, crypto, horizon, exclusions (ESG, controverses).
-    Renvoie un verdict global PASS / WARN / BLOCK avec chaque contrôle détaillé.
+    """Checks an allocation against the investor's profile and the documented
+    rules (rules.yaml): crisis-scenario loss limits, single position, sector,
+    crypto, horizon, exclusions (ESG, controversies).
+    Returns an overall PASS / WARN / BLOCK verdict with every check detailed.
 
     Args:
-        weights: Pondérations à vérifier (le profil de l'exécution en cours est utilisé).
+        weights: Weights to check (the current run's profile is used).
     """
     profile = current_profile.get()
     if profile is None:
-        return {"erreur": "Aucun profil actif pour cette exécution."}
+        return {"error": "No active profile for this run."}
     s = get_settings()
     return _guard(_gov.check, weights, profile,
                   s.abs_path(s.rules_path), _tools(),

@@ -1,8 +1,8 @@
-"""Création unique de la ressource AgentCore Memory (L17) et impression du memory_id.
+"""One-time creation of the AgentCore Memory resource (L17); prints the memory_id.
 
-Stratégies : résumé de session (mémoire court terme) + préférences par utilisateur
-(mémoire longue durée des « soft preferences »). Exporter ensuite :
-    export AF_MEMORY_ID=<id imprimé>
+Strategies: session summary (short-term memory) + per-user preferences
+(long-term memory of "soft preferences"). Then export:
+    export AF_MEMORY_ID=<printed id>
 """
 from __future__ import annotations
 
@@ -12,11 +12,11 @@ from app.core.config import get_settings
 
 STRATEGIES = [
     {"summaryMemoryStrategy": {
-        "name": "ResumeSession",
+        "name": "SessionSummarizer",
         "namespaces": ["/summaries/{actorId}/{sessionId}/"],
     }},
     {"userPreferenceMemoryStrategy": {
-        "name": "PreferencesUsager",
+        "name": "PreferenceLearner",
         "namespaces": ["/preferences/{actorId}/"],
     }},
 ]
@@ -30,7 +30,7 @@ def main() -> int:
     memory = client.create_memory_and_wait(name="alphaforge", strategies=STRATEGIES)
     memory_id = getattr(memory, "id", None) or getattr(memory, "memory_id", None)
     if not memory_id:
-        print(f"Réponse inattendue de create_memory_and_wait : {memory!r}", file=sys.stderr)
+        print(f"Unexpected response from create_memory_and_wait: {memory!r}", file=sys.stderr)
         return 1
     print(memory_id)
     print(f"# export AF_MEMORY_ID={memory_id}", file=sys.stderr)

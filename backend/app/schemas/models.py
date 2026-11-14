@@ -1,9 +1,9 @@
-"""Schémas Pydantic — les nœuds violets du schéma docs/architecture.mmd.
+"""Pydantic schemas — the violet JSON nodes of docs/architecture.mmd.
 
-Champs alignés sur les exemples de l'équipe (app/schemas/examples/*.json) et sur
-core/personas.json (le profil réel : risk_band, horizon_years, exclusions…).
-`extra="allow"` : les exemples contiennent des champs descriptifs (test, hypothese…)
-que l'on conserve sans les valider.
+Fields aligned with the team's examples (app/schemas/examples/*.json) and with
+core/personas.json (the actual profile shape: risk_band, horizon_years,
+exclusions…). `extra="allow"`: the examples carry descriptive fields (test,
+hypothese…) that we preserve without validating.
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ class PortfolioRef(BaseModel):
 
 
 class Profile(BaseModel):
-    """Profil investisseur validé par l'Intake (nœud ③) — forme de personas.json."""
+    """Investor profile validated by the Intake (node ③) — shape of personas.json."""
 
     model_config = ConfigDict(extra="allow")
 
@@ -41,7 +41,7 @@ class Profile(BaseModel):
 
 
 class AnalysisRequest(BaseModel):
-    """Requête validée par l'Intake — forme de examples/request.example.json."""
+    """Request validated by the Intake — shape of examples/request.example.json."""
 
     model_config = ConfigDict(extra="allow")
 
@@ -65,8 +65,8 @@ class PlanAgent(BaseModel):
 
 
 class ExecutionPlan(BaseModel):
-    """Sortie du Plan resolver (nœud ④) — forme de examples/execution_plan.example.json.
-    Phase actuelle (orchestrateur seul) : porté tel quel dans le payload, pas encore résolu."""
+    """Output of the Plan resolver (node ④) — shape of examples/execution_plan.example.json.
+    Current phase (orchestrator only): carried as-is in the payload, not yet resolved."""
 
     model_config = ConfigDict(extra="allow")
 
@@ -84,8 +84,8 @@ class ExecutionPlan(BaseModel):
 
 
 class OrchestratorInput(BaseModel):
-    """Payload reçu par l'entrypoint AgentCore (L6) : profil + requête + portefeuille.
-    `portfolio_weights` : pondérations actuelles en ligne (phase Intake/upload plus tard)."""
+    """Payload received by the AgentCore entrypoint (L6): profile + request + portfolio.
+    `portfolio_weights`: current weights inline (Intake/upload phase comes later)."""
 
     model_config = ConfigDict(extra="allow")
 
@@ -100,7 +100,7 @@ class OrchestratorInput(BaseModel):
 
 
 class OrchestratorOutput(BaseModel):
-    """Résultat écrit par l'orchestrateur (RunResult complet = travail de l'Explainer, nœud ⑤)."""
+    """Result written by the orchestrator (full RunResult = the Explainer's job, node ⑤)."""
 
     run_id: str
     status: Literal["DONE", "FAILED"] = "DONE"

@@ -1,13 +1,13 @@
-"""Configuration centrale (AF_* variables d'environnement, aucune clé en dur).
+"""Central configuration (AF_* environment variables, no secrets in code).
 
-Correspond au traversant « IAM / config » du schéma docs/architecture.mmd :
-le code est identique en local et sur AgentCore Runtime ; seuls les variables
-d'environnement changent (modèle, région, mémoire AgentCore, chemins de données).
+Maps to the cross-cutting "IAM / config" concern of docs/architecture.mmd:
+the code is identical locally and on AgentCore Runtime; only environment
+variables change (model, region, AgentCore memory, data paths).
 
-Développement local : un fichier .env à la racine du dépôt (jamais committé,
-voir .gitignore et .env.example) fournit AWS_* et AF_*. L'environnement réel
-prime toujours (os.environ.setdefault). Utile seulement en local : sur AgentCore
-Runtime, les rôles IAM remplacent les clés.
+Local development: a .env file at the repo root (never committed — see
+.gitignore and .env.example) supplies AWS_* and AF_*. The real environment
+always wins (os.environ.setdefault). Local-only convenience: on AgentCore
+Runtime, IAM roles replace keys.
 """
 from __future__ import annotations
 
@@ -17,12 +17,12 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# backend/app/core/config.py -> backend/app/core -> backend/app -> backend -> racine du dépôt
+# backend/app/core/config.py -> backend/app/core -> backend/app -> backend -> repo root
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _load_dotenv(path: Path) -> None:
-    """Injecte les variables de .env (KEY=value) sans écraser l'environnement réel."""
+    """Inject variables from .env (KEY=value) without overriding the real environment."""
     if not path.exists():
         return
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -37,29 +37,29 @@ _load_dotenv(REPO_ROOT / ".env")
 
 
 class Settings(BaseSettings):
-    """Tous les réglages sont surchargeables par l'environnement (préfixe AF_)."""
+    """Every setting is overridable via the environment (AF_ prefix)."""
 
     model_config = SettingsConfigDict(env_prefix="AF_", env_file=str(REPO_ROOT / ".env"),
                                       env_file_encoding="utf-8", extra="ignore")
 
-    # Modèles Bedrock — nœud ⑤ : Sonnet pour l'orchestrateur (et l'Explainer plus tard).
+    # Bedrock models — node ⑤: Sonnet for the orchestrator (and the Explainer later).
     model_orchestrator: str = "anthropic.claude-sonnet-4-5-v1:0"
     aws_region: str = "us-east-1"
 
-    # AgentCore Memory (L17) — vide = pas de mémoire persistante (développement local).
+    # AgentCore Memory (L17) — empty = no persistent memory (local development).
     memory_id: str | None = None
 
-    # Données et règles (nœud ⑥) — relatifs à la racine du dépôt par défaut.
+    # Data and rules (node ⑥) — repo-root-relative by default.
     curated_dir: Path = REPO_ROOT / "data" / "curated"
     rules_path: Path = REPO_ROOT / "backend" / "app" / "core" / "rules.yaml"
     personas_path: Path = REPO_ROOT / "backend" / "app" / "core" / "personas.json"
     prompts_dir: Path = REPO_ROOT / "backend" / "app" / "prompts"
 
-    # Registre de preuves local (L15) — un fichier JSONL par exécution.
+    # Local evidence ledger (L15) — one JSONL file per run.
     runs_dir: Path = REPO_ROOT / "data" / "runs"
 
     def abs_path(self, p: Path) -> Path:
-        """Résout un chemin relatif contre la racine du dépôt."""
+        """Resolve a relative path against the repo root."""
         return p if p.is_absolute() else REPO_ROOT / p
 
 

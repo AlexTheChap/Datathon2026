@@ -1,4 +1,4 @@
-"""Les schémas Pydantic acceptent les exemples de l'équipe et personas.json."""
+"""Pydantic schemas accept the team's examples and personas.json."""
 from __future__ import annotations
 
 import json
@@ -20,6 +20,12 @@ def test_request_example():
     assert req.toggles == {"stress_tests": True, "include_rag": False}
 
 
+def test_profile_example():
+    prof = Profile.model_validate(json.loads((EXAMPLES / "profile.example.json").read_text()))
+    assert prof.id == "amira" and prof.risk_band == "eleve"
+    assert prof.horizon_years == [15, None]
+
+
 def test_execution_plan_example():
     plan = ExecutionPlan.model_validate(json.loads((EXAMPLES / "execution_plan.example.json").read_text()))
     assert [a.agent for a in plan.enabled_agents] == ["risk", "macro_scenarios"]
@@ -27,14 +33,14 @@ def test_execution_plan_example():
 
 
 @pytest.mark.parametrize("persona_id", ["amira", "mateo", "robert"])
-def test_personas_sont_des_profils_valides(persona_id):
+def test_personas_are_valid_profiles(persona_id):
     personas = json.loads(PERSONAS.read_text(encoding="utf-8"))["personas"]
     p = Profile.model_validate(next(x for x in personas if x["id"] == persona_id))
     assert p.language in ("fr", "en")
     assert len(p.horizon_years) == 2
 
 
-def test_payload_orchestrator_minimal():
+def test_minimal_orchestrator_payload():
     personas = json.loads(PERSONAS.read_text(encoding="utf-8"))["personas"]
     inp = OrchestratorInput(
         run_id="run-1", actor_id="a1", language="fr",

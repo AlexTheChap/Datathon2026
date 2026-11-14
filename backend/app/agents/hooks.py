@@ -1,9 +1,9 @@
-"""Crochet L15 : chaque appel d'outil devient une preuve dans le registre.
+"""Hook L15: every tool call becomes one evidence record in the ledger.
 
-HookProvider Strands (Agent(hooks=[…])) : la méthode register_hooks abonne
-_on_tool_call à AfterToolCallEvent. Les outils risk_tools renvoient déjà une
-preuve complète (evidence_id, say, hypothèses) : on l'enregistre telle quelle,
-y compris quand l'outil échoue (champ exception).
+Strands HookProvider (Agent(hooks=[…])): register_hooks subscribes
+_on_tool_call to AfterToolCallEvent. The risk_tools already return a complete
+evidence envelope (evidence_id, say, assumptions): we record it as-is,
+including when the tool fails (exception field).
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from app.store.ledger import EvidenceLedger, _truncate
 
 
 def _block_value(b: Any) -> Any:
-    """Valeur d'un bloc de contenu : {"json": …} tel quel ; {"text": …} décodé si JSON."""
+    """Value of a content block: {"json": …} as-is; {"text": …} decoded when JSON."""
     if isinstance(b, dict):
         for key in ("json", "text"):
             v = b.get(key)
@@ -39,10 +39,10 @@ def _block_value(b: Any) -> Any:
 
 
 def _payload(result: Any) -> Any:
-    """Extrait une charge sérialisable du résultat d'outil.
+    """Extract a serializable payload from a tool result.
 
-    Forme observée (Strands ≥ 1.10) : dict {"content": [{"text": "<json>"}], …}.
-    Anciennes formes acceptées : dict direct, objet .content, objet .json/.text.
+    Observed shape (Strands ≥ 1.10): dict {"content": [{"text": "<json>"}], …}.
+    Older shapes accepted: plain dict, .content object, .json/.text object.
     """
     if isinstance(result, dict) and "content" in result:
         c = result["content"]
@@ -62,7 +62,7 @@ def _payload(result: Any) -> Any:
 
 
 class EvidenceHook:
-    """Provider à passer à Agent(hooks=[EvidenceHook(ledger, run_id)])."""
+    """Provider to pass to Agent(hooks=[EvidenceHook(ledger, run_id)])."""
 
     def __init__(self, ledger: EvidenceLedger, run_id: str):
         self.ledger = ledger
@@ -83,10 +83,10 @@ class EvidenceHook:
             "tool_input": getattr(tool_use, "input", None),
         }
         if getattr(event, "exception", None) is not None:
-            record["erreur"] = f"{type(event.exception).__name__}: {event.exception}"
+            record["error"] = f"{type(event.exception).__name__}: {event.exception}"
         payload = _payload(getattr(event, "result", None))
         record["payload"] = payload
-        # evidence_id quand l'outil renvoie une preuve risk_tools (dict ou bloc {json: …})
+        # evidence_id when the tool returns a risk_tools envelope (dict or {json: …} block)
         candidate = payload if isinstance(payload, dict) else None
         if candidate is None and isinstance(payload, list):
             candidate = next((b for b in payload if isinstance(b, dict) and "evidence_id" in b), None)

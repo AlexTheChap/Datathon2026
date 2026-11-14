@@ -1,13 +1,13 @@
-"""Nœud ⑤ — Agent orchestrateur principal (Claude Sonnet via Bedrock).
+"""Node ⑤ — Main orchestrator agent (Claude Sonnet via Bedrock).
 
-Construit l'agent Strands pour UNE exécution : gabarit de prompt (L5/L7),
-outils quantitatifs (L12), registre de preuves (L15), mémoire AgentCore (L17)
-optionnelle (AF_MEMORY_ID). `run_orchestrator` encapsule l'appel et renvoie un
-OrchestratorOutput citant les preuves produites.
+Builds the Strands Agent for ONE run: prompt template (L5/L7), quant tools
+(L12), evidence ledger (L15), optional AgentCore Memory (L17) via AF_MEMORY_ID.
+`run_orchestrator` wraps the call and returns an OrchestratorOutput citing the
+evidence produced.
 
-Extension prévue (voir docs/architecture.mmd) : les sous-agents du plan seront
-des nœuds du graphe Strands (strands.multiagent.GraphBuilder, Swarm en parallèle)
-ou des outils — l'orchestrateur devient alors le nœud de synthèse du graphe.
+Planned extension (see docs/architecture.mmd): the plan's sub-agents will be
+Strands graph nodes (strands.multiagent.GraphBuilder, Swarm in parallel) or
+tools — the orchestrator then becomes the graph's synthesis node.
 """
 from __future__ import annotations
 
@@ -18,65 +18,63 @@ from strands import Agent
 
 from app.agents.hooks import EvidenceHook
 from app.context.prompt_loader import load_prompt
+from app.context.tool_guide import tools_block
 from app.core.config import Settings, get_settings
 from app.schemas.models import OrchestratorInput, OrchestratorOutput, Profile
 from app.store.ledger import JsonlLedger
 from app.tools import agent_tools
 
-_RISK_BAND_FR = {"faible": "faible", "faible_a_modere": "faible à modéré",
-                 "modere": "modéré", "eleve": "élevé"}
 _RISK_BAND_EN = {"faible": "low", "faible_a_modere": "low to moderate",
                  "modere": "moderate", "eleve": "high"}
 
 
 def persona_block(profile: Profile, language: str) -> str:
-    """Résumé structuré du profil injecté dans le gabarit (source : personas.json)."""
+    """Structured profile summary injected into the template (source: personas.json)."""
     h = profile.horizon_years
-    horizon = f"{h[0]} à {h[1]} ans" if h[1] else f"{h[0]} ans ou plus"
-    band = (_RISK_BAND_FR if language == "fr" else _RISK_BAND_EN).get(profile.risk_band, profile.risk_band)
+    horizon = f"{h[0]} to {h[1]} years" if h[1] else f"{h[0]}+ years"
+    band = _RISK_BAND_EN.get(profile.risk_band, profile.risk_band)
     lines = [
-        f"- id: {profile.id} · risque {band} · horizon {horizon} · expérience : {profile.experience or 'n/d'}",
-        f"- objectif : {profile.objectif or 'n/d'}",
+        f"- id: {profile.id} · risk {band} · horizon {horizon} · experience: {profile.experience or 'n/a'}",
+        f"- objective: {profile.objectif or 'n/a'}",
     ]
     if profile.preferences:
-        lines.append("- préférences : " + " ; ".join(profile.preferences))
+        lines.append("- preferences: " + "; ".join(profile.preferences))
     if profile.contraintes:
-        lines.append("- contraintes : " + " ; ".join(profile.contraintes))
+        lines.append("- constraints: " + "; ".join(profile.contraintes))
     if profile.exclusions:
-        lines.append("- exclusions : " + " ; ".join(
+        lines.append("- exclusions: " + "; ".join(
             f"{e.get('type')}={e.get('value', e.get('min_severity', ''))}".rstrip("=") for e in profile.exclusions))
     if profile.capacite_perte is not None:
-        lines.append(f"- capacité de perte déclarée : {profile.capacite_perte:.0%}")
+        lines.append(f"- stated loss capacity: {profile.capacite_perte:.0%}")
     elif profile.capital_fictif and "valeur" in (profile.capital_fictif or {}):
-        lines.append(f"- capital fictif (hypothèse) : {profile.capital_fictif['valeur']:,.0f} $ CAD".replace(",", " "))
+        lines.append(f"- fictional capital (assumption): {profile.capital_fictif['valeur']:,.0f} $ CAD".replace(",", " "))
     return "\n".join(lines)
 
 
 def compose_user_message(inp: OrchestratorInput) -> str:
-    """Message utilisateur : demande + portefeuille actuel + rappel as_of."""
-    fr = inp.language == "fr"
-    parts = [inp.request.user_message or (inp.request.task if fr else inp.request.task)]
+    """User message: request + current portfolio + as_of reminder."""
+    parts = [inp.request.user_message or inp.request.task]
     if inp.portfolio_weights:
         w = ", ".join(f"{t} {v:.0%}" for t, v in inp.portfolio_weights.items())
-        parts.append((f"Portefeuille actuel (fictif) : {w}." if fr else f"Current (fictional) portfolio: {w}."))
-    elif fr:
-        parts.append("Aucun portefeuille fourni : propose une analyse en fonction de la demande.")
+        parts.append(f"Current (fictional) portfolio: {w}.")
     else:
         parts.append("No portfolio provided: analyze according to the request.")
     if inp.as_of:
-        parts.append(f"as_of = {inp.as_of}" if not fr else f"Date de référence : {inp.as_of}.")
+        parts.append(f"Reference date (as_of): {inp.as_of}.")
     return "\n\n".join(p for p in parts if p)
 
 
 def build_orchestrator(inp: OrchestratorInput, ledger: JsonlLedger | None = None,
                        settings: Settings | None = None) -> Agent:
-    """Agent Strands pour une exécution (jamais réutilisé entre exécutions)."""
+    """Strands Agent for one run (never reused across runs)."""
     s = settings or get_settings()
     system_prompt = load_prompt(
-        "orchestrator", inp.language,
+        "orchestrator", "en",
         persona_block=persona_block(inp.profile, inp.language),
         task=inp.request.task,
         as_of=inp.as_of or "2026-11-12",
+        reply_language=inp.language,                # reply language follows the investor
+        tools_block=tools_block(inp.request.task),
     )
 
     session_manager = None
@@ -88,7 +86,7 @@ def build_orchestrator(inp: OrchestratorInput, ledger: JsonlLedger | None = None
         session_manager = AgentCoreMemorySessionManager(
             agentcore_memory_config=AgentCoreMemoryConfig(
                 memory_id=s.memory_id,
-                session_id=inp.session_id or inp.run_id,   # une session isolée par analyse
+                session_id=inp.session_id or inp.run_id,   # one isolated session per analysis
                 actor_id=inp.actor_id,
             ),
             region_name=s.aws_region,
@@ -104,7 +102,7 @@ def build_orchestrator(inp: OrchestratorInput, ledger: JsonlLedger | None = None
 
 
 def _final_text(result: Any) -> str:
-    """Dernier message assistant de l'AgentResult, robuste aux variantes de l'API."""
+    """Last assistant message of the AgentResult, robust to API variations."""
     direct = getattr(result, "result", None)
     if isinstance(direct, str) and direct.strip():
         return direct
@@ -124,7 +122,7 @@ def _final_text(result: Any) -> str:
 
 
 def run_orchestrator(inp: OrchestratorInput, settings: Settings | None = None) -> OrchestratorOutput:
-    """Exécute l'analyse de bout en bout pour un payload validé."""
+    """Runs the end-to-end analysis for one validated payload."""
     s = settings or get_settings()
     led = JsonlLedger(s.abs_path(s.runs_dir))
     agent_tools.current_profile.set(inp.profile.model_dump())
@@ -140,7 +138,7 @@ def run_orchestrator(inp: OrchestratorInput, settings: Settings | None = None) -
             session_id=inp.session_id or inp.run_id if s.memory_id else None,
             duration_ms=int((time.perf_counter() - start) * 1000),
         )
-    except Exception as e:  # défaillance visible, jamais silencieuse
+    except Exception as e:  # visible failure, never silent
         return OrchestratorOutput(
             run_id=inp.run_id, status="FAILED", language=inp.language,
             evidence_ids=led.evidence_ids(inp.run_id), model=s.model_orchestrator,

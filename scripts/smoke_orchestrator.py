@@ -1,11 +1,11 @@
-"""Test de bout en bout de l'orchestrateur : le scénario « Robert » de l'énoncé.
+"""End-to-end orchestrator smoke test: the "Robert" scenario from the brief.
 
-« Je pense mettre 20 % dans Nvidia, tout le monde en parle. » — Robert, profil
-prudent, horizon 3-5 ans. L'orchestrateur doit appeler les outils (gouvernance,
-stress), identifier le conflit avec le profil et remettre la demande en question
-au lieu d'acquiescer. Nécessite des identifiants AWS (Bedrock).
+"I'm thinking of putting 20% into Nvidia, everyone's talking about it." —
+Robert, conservative profile, 3-5 year horizon. The orchestrator must call the
+tools (governance, stress), identify the conflict with the profile and
+challenge the request instead of agreeing. Requires AWS credentials (Bedrock).
 
-Usage : .venv/bin/python scripts/smoke_orchestrator.py [--personna amira|mateo|robert]
+Usage: .venv/bin/python scripts/smoke_orchestrator.py [--persona amira|mateo|robert]
 """
 from __future__ import annotations
 
@@ -22,7 +22,9 @@ from app.core.config import get_settings  # noqa: E402
 from app.schemas.models import AnalysisRequest, OrchestratorInput, Profile  # noqa: E402
 from app.store.ledger import JsonlLedger  # noqa: E402
 
-# Portefeuille fictif actuel de Robert (personas.json, champ demande_demo)
+# Robert's current fictional portfolio (personas.json, demande_demo field).
+# The personas' messages stay in their own language (French for Robert/Mateo):
+# that is input data, and the agent replies in the investor's language.
 ROBERT_PORTFOLIO = {"XIU.TO": 0.30, "XBB.TO": 0.30, "ZST.TO": 0.10, "RY.TO": 0.10,
                     "FTS.TO": 0.10, "JNJ": 0.10}
 MESSAGES = {
@@ -31,7 +33,7 @@ MESSAGES = {
     "amira": ("Should I go all-in on tech and crypto? I'm 26 and can take risk.",
               "risk_review", None),
     "mateo": ("Propose-moi un équilibre croissance/stabilité en évitant les entreprises controversées.",
-              "risk_review", {"XIU.TO": 0.5, "XBB.TO": 0.3, "ENB.TO": 0.2}),
+              "allocation_proposal", {"XIU.TO": 0.5, "XBB.TO": 0.3, "ENB.TO": 0.2}),
 }
 
 
@@ -61,9 +63,9 @@ def main() -> int:
     out = run_orchestrator(inp)
     print(f"=== {out.run_id} · {out.status} · {out.model} · {out.duration_ms} ms ===")
     print(out.summary)
-    print(f"\nPreuves ({len(out.evidence_ids)}) : {', '.join(out.evidence_ids)}")
+    print(f"\nEvidence ({len(out.evidence_ids)}): {', '.join(out.evidence_ids)}")
     if out.error:
-        print(f"ERREUR : {out.error}")
+        print(f"ERROR: {out.error}")
     for r in JsonlLedger(s.abs_path(s.runs_dir)).records(out.run_id):
         print(f"  {r['seq']} {r.get('evidence_id', '-')} {r['tool']}")
     return 0 if out.status == "DONE" else 1
