@@ -1,0 +1,15 @@
+[project]
+name = "alphaforge"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = ["boto3", "strands-agents", "pydantic", "pandas", "numpy", "pyyaml"]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+# Data-collection scripts in scripts/ (network access to SEC, iShares, NBIM, etc.)
+scripts = ["requests", "beautifulsoup4", "lxml", "openpyxl"]
+
+# The repo is not a single importable package yet; this lets `pip install -e .`
+# install dependencies without setuptools auto-discovery failing on the layout.
+[tool.setuptools]
+py-modules = []

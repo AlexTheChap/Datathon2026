@@ -29,7 +29,7 @@ from pathlib import Path
 
 import pandas as pd
 
-MODEL = "anthropic.claude-opus-5-5"
+MODEL = "anthropic.claude-haiku-4-5"
 FALLBACK_MODEL = "anthropic.claude-opus-4-8"
 COLUMNS = ["ticker", "date_publication", "categorie", "description_fr", "citation_en", "gravite", "statut",
            "devise_montant", "montant", "source_doc", "section", "source_url", "reviseur", "date_revision"]
@@ -149,7 +149,7 @@ def call_claude(client, ticker: str, sources: dict[str, str]) -> list[dict]:
         model=MODEL,
         max_tokens=32000,
         system=SYSTEM,
-        output_config={"effort": "high", "format": {"type": "json_schema", "schema": SCHEMA}},
+        output_config={"format": {"type": "json_schema", "schema": SCHEMA}},
         messages=[{"role": "user", "content": f"Company ticker: {ticker}\n\n{doc}\n\nExtract the controversies."}],
     ) as stream:
         resp = stream.get_final_message()
