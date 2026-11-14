@@ -22,6 +22,7 @@ from app.context.tool_guide import tools_block
 from app.core.config import Settings, get_settings
 from app.schemas.models import OrchestratorInput, OrchestratorOutput, Profile
 from app.store.ledger import JsonlLedger
+from app.agents.subagents.risk import SUBAGENT_TOOLS
 from app.tools import agent_tools
 
 _RISK_BAND_EN = {"faible": "low", "faible_a_modere": "low to moderate",
@@ -95,7 +96,7 @@ def build_orchestrator(inp: OrchestratorInput, ledger: JsonlLedger | None = None
     led = ledger or JsonlLedger(s.abs_path(s.runs_dir))
     return Agent(
         system_prompt=system_prompt,
-        tools=agent_tools.ALL_TOOLS,
+        tools=[*agent_tools.ALL_TOOLS, *SUBAGENT_TOOLS],
         hooks=[EvidenceHook(led, inp.run_id)],
         session_manager=session_manager,
     )

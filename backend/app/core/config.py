@@ -42,8 +42,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="AF_", env_file=str(REPO_ROOT / ".env"),
                                       env_file_encoding="utf-8", extra="ignore")
 
-    # Bedrock models — node ⑤: Sonnet for the orchestrator (and the Explainer later).
+    # Bedrock models — node ⑤: Sonnet for the orchestrator (and the Explainer later),
+    # Haiku for the sub-agents.
     model_orchestrator: str = "anthropic.claude-sonnet-4-5-v1:0"
+    model_subagent: str = "us.anthropic.claude-haiku-5-5"
     aws_region: str = "us-east-1"
 
     # AgentCore Memory (L17) — empty = no persistent memory (local development).

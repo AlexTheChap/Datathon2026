@@ -22,6 +22,8 @@ TOOL_GUIDES: dict[str, str] = {
    - "where is the risk?" → **`risk_contribution`** (risk share vs weight) and
      **`concentration`** (true exposures, ETFs decomposed);
    - comparing assets → **`metrics`** (+ `correlation` for several assets).
+   - qualitative context ("what should I worry about?") → **`risk_subagent`**
+     (SIMULATED briefing: label it as simulated, never mix its numbers with real tools).
 4. A BLOCK verdict is never negotiable: explain the conflict, propose the calibrated
    alternative (`max_position`), do not endorse the request as-is.""",
     "allocation_proposal": """### Strategy for "allocation_proposal"
@@ -43,6 +45,8 @@ GENERIC_GUIDE = """### Available tools — general strategy
 - `metrics(tickers)` / `correlation(tickers)`: returns, volatility, max drawdown / correlations.
 - `concentration(weights)`: true exposures by company, sector, class (ETFs decomposed).
 - `risk_contribution(weights)`: risk share per position.
+- `risk_subagent(subject)`: qualitative risk briefing from the Risk sub-agent —
+  content is SIMULATED (prototype); label it as such.
 Call `governance_check` on any allocation you present; cite every evidence_id."""
 
 
