@@ -5,13 +5,14 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
-from risk_tools import RiskTools          # noqa: E402
-from governance_check import check        # noqa: E402
+ROOT = Path(__file__).resolve().parents[2]          # racine du dépôt
+RULES = ROOT / "backend" / "app" / "core" / "rules.yaml"
+from app.tools.risk_tools import RiskTools               # noqa: E402
+from app.agents.governance.governance_check import check  # noqa: E402
 
 rt = RiskTools(ROOT / "data/curated")
-PERSONAS = {p["id"]: p for p in json.loads((ROOT / "config/personas.json").read_text(encoding="utf-8"))["personas"]}
+PERSONAS = {p["id"]: p for p in json.loads(
+    (ROOT / "backend" / "app" / "core" / "personas.json").read_text(encoding="utf-8"))["personas"]}
 
 
 def test_evidence_format():
@@ -54,12 +55,12 @@ def test_robert_nvda_blocked():
     base = PERSONAS["robert"]["demande_demo"]["portefeuille_actuel_fictif"]
     w = {k: v * 0.8 for k, v in base.items()}
     w["NVDA"] = 0.20
-    v = check(w, PERSONAS["robert"], ROOT / "config/rules.yaml", rt, ROOT / "data")
+    v = check(w, PERSONAS["robert"], RULES, rt, ROOT / "data")
     assert v["verdict"] == "BLOCK"
 
 
 def test_exclusions_never_pass_without_data(tmp_path):
-    v = check({"ESGV": .6, "XBB.TO": .4}, PERSONAS["mateo"], ROOT / "config/rules.yaml", rt, tmp_path)
+    v = check({"ESGV": .6, "XBB.TO": .4}, PERSONAS["mateo"], RULES, rt, tmp_path)
     excl = [c for c in v["checks"] if c["id"].startswith("EXCLUSION_")]
     assert excl and all(c["status"] == "NON_VERIFIE" for c in excl)
 
@@ -78,19 +79,19 @@ def _contro(v):
 
 def test_controversy_verified_major_blocks(tmp_path):
     d = _controversy_dir(tmp_path, [("TSLA", "majeure", "verifie")])
-    v = check({"TSLA": .1, "XBB.TO": .9}, PERSONAS["mateo"], ROOT / "config/rules.yaml", rt, d)
+    v = check({"TSLA": .1, "XBB.TO": .9}, PERSONAS["mateo"], RULES, rt, d)
     assert _contro(v)["status"] == "BLOCK" and _contro(v)["value"] == ["TSLA"]
 
 
 def test_controversy_unreviewed_rows_never_block_nor_pass(tmp_path):
     d = _controversy_dir(tmp_path, [("TSLA", "majeure", "a_verifier")])
-    v = check({"TSLA": .1, "XBB.TO": .9}, PERSONAS["mateo"], ROOT / "config/rules.yaml", rt, d)
+    v = check({"TSLA": .1, "XBB.TO": .9}, PERSONAS["mateo"], RULES, rt, d)
     assert _contro(v)["status"] == "NON_VERIFIE"
 
 
 def test_controversy_below_threshold_passes(tmp_path):
     d = _controversy_dir(tmp_path, [("TSLA", "moderee", "verifie")])
-    v = check({"TSLA": .1, "XBB.TO": .9}, PERSONAS["mateo"], ROOT / "config/rules.yaml", rt, d)
+    v = check({"TSLA": .1, "XBB.TO": .9}, PERSONAS["mateo"], RULES, rt, d)
     assert _contro(v)["status"] == "PASS"
 
 
@@ -110,7 +111,7 @@ def test_lookthrough_adds_direct_and_etf_exposure():
 @needs_holdings
 def test_robert_current_flags_hidden_rbc_concentration():
     v = check(PERSONAS["robert"]["demande_demo"]["portefeuille_actuel_fictif"], PERSONAS["robert"],
-              ROOT / "config/rules.yaml", rt, ROOT / "data")
+              RULES, rt, ROOT / "data")
     pos = next(c for c in v["checks"] if c["id"] == "POSITION_UNIQUE")
     assert pos["status"] == "WARN" and "RY.TO" in pos["detail"]   # 10 % direct + RY dans XIU
 
@@ -118,7 +119,7 @@ def test_robert_current_flags_hidden_rbc_concentration():
 @needs_holdings
 def test_controversy_indirect_via_etf_warns(tmp_path):
     d = _controversy_dir(tmp_path, [("ENB.TO", "majeure", "verifie")])
-    v = check({"XIU.TO": .5, "XBB.TO": .5}, PERSONAS["mateo"], ROOT / "config/rules.yaml", rt, d)
+    v = check({"XIU.TO": .5, "XBB.TO": .5}, PERSONAS["mateo"], RULES, rt, d)
     c = _contro(v)
     assert c["status"] == "WARN" and "ENB.TO" in c["detail"] and c["value"] == []
 
@@ -140,26 +141,26 @@ def _esg(v):
 
 def test_esg_direct_fossil_blocks(tmp_path):
     d = _esg_dir(tmp_path, [("XOM", "0.95", "x"), ("JNJ", "0", "x")])
-    v = check({"XOM": .05, "JNJ": .05, "XBB.TO": .9}, FOSSIL, ROOT / "config/rules.yaml", rt, d)
+    v = check({"XOM": .05, "JNJ": .05, "XBB.TO": .9}, FOSSIL, RULES, rt, d)
     assert _esg(v)["status"] == "BLOCK" and _esg(v)["value"] == ["XOM"]
 
 
 def test_esg_unreviewed_or_missing_is_non_verifie(tmp_path):
     d = _esg_dir(tmp_path, [("XOM", "95%", ""), ("JNJ", "0", "x")])       # XOM non relu
-    v = check({"XOM": .05, "JNJ": .05, "XBB.TO": .9}, FOSSIL, ROOT / "config/rules.yaml", rt, d)
+    v = check({"XOM": .05, "JNJ": .05, "XBB.TO": .9}, FOSSIL, RULES, rt, d)
     assert _esg(v)["status"] == "NON_VERIFIE" and "XOM" in _esg(v)["detail"]
 
 
 def test_esg_below_threshold_passes(tmp_path):
     d = _esg_dir(tmp_path, [("JNJ", "0", "x")])
-    v = check({"JNJ": .1, "XBB.TO": .9}, FOSSIL, ROOT / "config/rules.yaml", rt, d)
+    v = check({"JNJ": .1, "XBB.TO": .9}, FOSSIL, RULES, rt, d)
     assert _esg(v)["status"] == "PASS"
 
 
 @needs_holdings
 def test_esg_indirect_via_etf_warns(tmp_path):
     d = _esg_dir(tmp_path, [("ENB.TO", "90", "x"), ("CNQ.TO", "100", "x")])
-    v = check({"XIU.TO": .5, "XBB.TO": .5}, FOSSIL, ROOT / "config/rules.yaml", rt, d)
+    v = check({"XIU.TO": .5, "XBB.TO": .5}, FOSSIL, RULES, rt, d)
     assert _esg(v)["status"] == "WARN" and "ENB.TO" in _esg(v)["detail"]
 
 
@@ -198,7 +199,7 @@ needs_screen = pytest.mark.skipif(not (ROOT / "data/curated/esg_index_screen.csv
 
 @needs_screen
 def test_esg_preference_warns_on_index_excluded_stock():
-    v = check({"XOM": .05, "AAPL": .05, "XBB.TO": .9}, PERSONAS["mateo"], ROOT / "config/rules.yaml", rt, ROOT / "data")
+    v = check({"XOM": .05, "AAPL": .05, "XBB.TO": .9}, PERSONAS["mateo"], RULES, rt, ROOT / "data")
     c = _esg_index(v)
     assert c["status"] == "WARN" and c["value"] == ["XOM"]
     assert "Exclue de l'indice" in c["detail"] and "ne respecte" not in c["detail"]
@@ -206,10 +207,10 @@ def test_esg_preference_warns_on_index_excluded_stock():
 
 @needs_screen
 def test_esg_preference_passes_when_all_in_index():
-    v = check({"AAPL": .05, "MSFT": .05, "XBB.TO": .9}, PERSONAS["mateo"], ROOT / "config/rules.yaml", rt, ROOT / "data")
+    v = check({"AAPL": .05, "MSFT": .05, "XBB.TO": .9}, PERSONAS["mateo"], RULES, rt, ROOT / "data")
     assert _esg_index(v)["status"] == "PASS"
 
 
 def test_esg_preference_only_for_profiles_that_state_it():
-    v = check({"XOM": .05, "XBB.TO": .95}, PERSONAS["robert"], ROOT / "config/rules.yaml", rt, ROOT / "data")
+    v = check({"XOM": .05, "XBB.TO": .95}, PERSONAS["robert"], RULES, rt, ROOT / "data")
     assert _esg_index(v) is None                              # Robert n'a pas de préférence ESG

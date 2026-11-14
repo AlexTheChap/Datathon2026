@@ -1,0 +1,29 @@
+[project]
+name = "alphaforge"
+version = "0.1.0"
+description = "AlphaForge AI — agent orchestrator (node ⑤ of docs/architecture.mmd), Strands + Bedrock"
+requires-python = ">=3.11"
+dependencies = [
+    "strands-agents>=1.0",
+    "bedrock-agentcore[strands-agents]>=0.4",
+    "boto3>=1.34",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "requests>=2.31"]   # requests : scripts/ (nbim_exclusions…) testés par tests/unit
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["backend"]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
