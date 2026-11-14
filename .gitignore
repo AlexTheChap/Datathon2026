@@ -12,7 +12,7 @@ venv/
 .pytest_cache/
 .ruff_cache/
 
-# Éditeurs / OS
+# Editors / OS
 .vscode/
 .idea/
 .DS_Store

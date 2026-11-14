@@ -1,1 +1,1 @@
-ticker,date_publication,categorie,description_fr,citation_en,gravite,statut,devise_montant,montant,source_doc,section,source_url,reviseur,date_revision
+ticker,publication_date,category,description,quote,severity,status,amount_currency,amount,source_doc,section,source_url,reviewer,review_date

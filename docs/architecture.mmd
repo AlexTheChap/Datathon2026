@@ -1,23 +1,23 @@
 %% =====================================================================================
-%% AlphaForge — architecture des agents (schéma v2)
-%% Les liaisons et les nœuds sont INCHANGÉS. Les lignes « %% » sont des commentaires :
-%% Mermaid ne les affiche pas. Elles indiquent, pour chaque liaison, les outils AWS utilisés.
-%% Glossaire des outils AWS (1-2 lignes chacun) : en bas de ce fichier.
-%% Détail et alternatives : docs/AWS.md · Explication lien par lien : docs/ARCHITECTURE.md
-%% Légende couleurs : orange = service AWS · vert = agent LLM · bleu = code déterministe
-%%                    violet = données JSON · blanc = interface
+%% AlphaForge — agent architecture (diagram v2)
+%% Links and nodes are UNCHANGED. Lines starting with "%%" are comments:
+%% Mermaid does not render them. For each link, they list the AWS tools used.
+%% Glossary of AWS tools (1-2 lines each): at the bottom of this file.
+%% Details and alternatives: docs/AWS.md · Link-by-link explanation: docs/ARCHITECTURE.md
+%% Color legend: orange = AWS service · green = LLM agent · blue = deterministic code
+%%                 violet = JSON data · white = interface
 %% =====================================================================================
 flowchart TB
   %% ===== 1. Frontend =====
-  %% AWS : ECS sur Fargate (recommandé : ECS Express Mode) · ALB · Cognito · S3 (URL présignées)
+  %% AWS: ECS on Fargate (recommended: ECS Express Mode) · ALB · Cognito · S3 (presigned URLs)
   UI["① Frontend — Streamlit on ECS Fargate · Cognito login<br/>chat · profile form · file upload (presigned S3 URL)"]
 
   %% ===== 2. API =====
-  %% AWS : API Gateway (HTTP API + autorisateur JWT Cognito) · Lambda (FastAPI + Mangum)
+  %% AWS: API Gateway (HTTP API + Cognito JWT authorizer) · Lambda (FastAPI + Mangum)
   API["② API Gateway HTTP + Lambda (FastAPI)<br/>POST /v1/runs → 202 run_id · GET /v1/runs/id"]
 
   %% ===== 3. Intake =====
-  %% AWS : Bedrock (Claude Haiku, API Converse + structured outputs JSON Schema) · Guardrails (entrée)
+  %% AWS: Bedrock (Claude Haiku, Converse API + structured outputs JSON Schema) · Guardrails (input)
   subgraph INTAKE["③ Intake — Bedrock Haiku, structured output (Pydantic)"]
     ING["Intake agent (ingester)<br/>free text → validated JSON"]
     PROF[/"Profile JSON<br/>risk band · horizon · ESG / crypto prefs<br/>language · experience · agent toggles"/]
@@ -25,14 +25,14 @@ flowchart TB
   end
 
   %% ===== 4. Context =====
-  %% AWS : Lambda (code Python pur) · S3 ou Bedrock Prompt Management (gabarits versionnés)
+  %% AWS: Lambda (plain Python code) · S3 or Bedrock Prompt Management (versioned templates)
   subgraph CTX["④ Context resolution — deterministic code, no LLM"]
     PLAN{{"Plan resolver<br/>task × profile × toggles → enabled sub-agents"}}
     LOAD{{"Prompt loader<br/>base prompts by language · experience · role<br/>(versioned agent.md templates in S3)"}}
   end
 
   %% ===== 5. Agents =====
-  %% AWS : Bedrock AgentCore Runtime (héberge le graphe Strands) · Bedrock (Sonnet, Haiku) · AgentCore Memory
+  %% AWS: Bedrock AgentCore Runtime (hosts the Strands graph) · Bedrock (Sonnet, Haiku) · AgentCore Memory
   subgraph RT["⑤ Amazon Bedrock AgentCore Runtime — Strands graph"]
     ORCH["Main agent · orchestrator<br/>Claude Sonnet"]
     MEM[("AgentCore Memory<br/>session · soft preferences")]
@@ -49,7 +49,7 @@ flowchart TB
   end
 
   %% ===== 6. Tools & data =====
-  %% AWS : AgentCore Gateway (MCP) · Lambda · Bedrock Knowledge Bases · S3 Vectors · S3 · DynamoDB
+  %% AWS: AgentCore Gateway (MCP) · Lambda · Bedrock Knowledge Bases · S3 Vectors · S3 · DynamoDB
   subgraph DATA["⑥ Tools & data"]
     GW["AgentCore Gateway (MCP)<br/>Lambda quant tools: metrics · risk · scenarios · optimizer"]
     KB["Bedrock Knowledge Base<br/>news & docs · S3 Vectors"]
@@ -57,67 +57,67 @@ flowchart TB
     DDB[("DynamoDB<br/>profiles · runs · evidence ledger")]
   end
 
-  %% AWS : même service frontend (ECS) ; lit le résultat via API Gateway + Lambda
+  %% AWS: same frontend service (ECS); reads the result via API Gateway + Lambda
   OUT["⑦ Frontend result view<br/>short answer · clickable evidence · checks · trace"]
 
   %% ===== Cross-cutting =====
-  %% AWS : Bedrock Guardrails · AgentCore Observability → CloudWatch (GenAI observability) · IAM
+  %% AWS: Bedrock Guardrails · AgentCore Observability → CloudWatch (GenAI observability) · IAM
   X["Cross-cutting: Bedrock Guardrails (inputs & outputs) · AgentCore Observability → CloudWatch · IAM least privilege"]
 
   %% ===== Flow =====
-  %% L1  UI → API : Cognito émet le JWT ; l'autorisateur JWT d'API Gateway le valide avant la Lambda.
-  %%      Les fichiers vont directement dans S3 par URL présignée (jamais par Lambda, limite 6 Mo).
+  %% L1  UI → API: Cognito issues the JWT; the API Gateway JWT authorizer validates it before the Lambda.
+  %%      Files go straight to S3 via presigned URL (never through Lambda, 6 MB limit).
   UI -->|"JWT"| API
-  %% L2  API → Intake : Lambda appelle Bedrock (Haiku) via Converse avec structured outputs (schéma JSON).
-  %%      Guardrails filtre l'entrée (attaque d'invite, données personnelles).
+  %% L2  API → Intake: Lambda calls Bedrock (Haiku) via Converse with structured outputs (JSON schema).
+  %%      Guardrails filters the input (prompt attack, personal data).
   API --> ING
-  %% L3  Intake → JSON : sortie validée par schéma (Bedrock structured outputs) puis Pydantic ;
-  %%      le profil est enregistré dans DynamoDB (ACTOR#… / PROFILE#…).
+  %% L3  Intake → JSON: output validated by schema (Bedrock structured outputs), then Pydantic;
+  %%      the profile is stored in DynamoDB (ACTOR#… / PROFILE#…).
   ING --> PROF
   ING --> REQ
-  %% L4  JSON → Plan resolver : Lambda, code Python pur ; registre agents/tâches versionné (repo, ou AWS AppConfig en option).
+  %% L4  JSON → Plan resolver: Lambda, plain Python code; versioned agent/task registry (repo, or AWS AppConfig as an option).
   PROF --> PLAN
   REQ --> PLAN
-  %% L5  Profile → Prompt loader : Lambda ; choisit le gabarit de l'Explainer (langue × niveau). Source : Git
-  %%      (agents/prompts/), publié dans S3 en mode aws (AF_PROMPT_SOURCE) ; option : Bedrock Prompt Management.
+  %% L5  Profile → Prompt loader: Lambda; picks the Explainer template (experience level). Source: Git
+  %%      (agents/prompts/), published to S3 in aws mode (AF_PROMPT_SOURCE); option: Bedrock Prompt Management.
   PROF --> LOAD
-  %% L6  Plan → Orchestrator : DynamoDB (run QUEUED) → Lambda « dispatcher » (invocation asynchrone)
-  %%      → AgentCore Runtime (InvokeAgentRuntime). Frontière API / agents ; IAM pour l'appel.
+  %% L6  Plan → Orchestrator: DynamoDB (run QUEUED) → "dispatcher" Lambda (asynchronous invocation)
+  %%      → AgentCore Runtime (InvokeAgentRuntime). API / agents boundary; IAM for the call.
   PLAN -->|"ExecutionPlan"| ORCH
-  %% L7  Prompt loader → Explainer : seules des clés voyagent (langue, niveau, version) dans le payload
-  %%      InvokeAgentRuntime ; le Runtime charge le gabarit depuis S3 / Prompt Management.
+  %% L7  Prompt loader → Explainer: only keys travel (level, version) in the payload
+  %%      InvokeAgentRuntime; the Runtime loads the template from S3 / Prompt Management.
   LOAD -.->|"prompts"| EXP
-  %% L8  Orchestrator → Sub-agents : graphe Strands dans AgentCore Runtime ; modèles Bedrock (Haiku) ;
-  %%      seuls les agents du plan deviennent des nœuds, en parallèle.
+  %% L8  Orchestrator → Sub-agents: Strands graph in AgentCore Runtime; Bedrock models (Haiku);
+  %%      only the agents in the plan become nodes, running in parallel.
   ORCH -->|"dispatch"| SUB
-  %% L9  Sub-agents → Governance : en mémoire dans le Runtime ; règles Python (YAML) ; aucun service externe.
+  %% L9  Sub-agents → Governance: in memory inside the Runtime; Python rules (YAML); no external service.
   SUB -->|"findings"| GOV
-  %% L10 Governance → Orchestrator : arête conditionnelle du graphe Strands (max 2 boucles), dans le Runtime.
+  %% L10 Governance → Orchestrator: conditional edge of the Strands graph (max 2 loops), inside the Runtime.
   GOV -->|"BLOCK → fix (max 2 loops)"| ORCH
-  %% L11 Governance → Explainer : dans le Runtime ; constats codés + contrôles + agents désactivés.
+  %% L11 Governance → Explainer: inside the Runtime; coded findings + checks + disabled agents.
   GOV -->|"PASS / WARN"| EXP
-  %% L12 Sub-agents → Gateway : AgentCore Gateway (MCP, auth SigV4/OAuth, option Policy Cedar)
-  %%      → Lambda d'outils quant.
+  %% L12 Sub-agents → Gateway: AgentCore Gateway (MCP, SigV4/OAuth auth, optional Cedar Policy)
+  %%      → quant tool Lambdas.
   SUB -->|"tool calls"| GW
-  %% L13 News → KB : Bedrock Knowledge Bases (API Retrieve + filtre de métadonnées published ≤ as_of),
-  %%      index S3 Vectors, embeddings Titan Text Embeddings v2.
+  %% L13 News → KB: Bedrock Knowledge Bases (Retrieve API + metadata filter published ≤ as_of),
+  %%      S3 Vectors index, Titan Text Embeddings v2 embeddings.
   NEWS -->|"RAG · published ≤ as_of"| KB
-  %% L14 Gateway → S3 : les Lambdas d'outils lisent le Parquet (pandas/DuckDB, filtre point-in-time).
-  %%      Glue + Athena servent à l'exploration, pas à cette boucle.
+  %% L14 Gateway → S3: the tool Lambdas read the Parquet files (pandas/DuckDB, point-in-time filter).
+  %%      Glue + Athena are for exploration, not for this loop.
   GW --> S3
-  %% L15 Gateway → DynamoDB : en pratique, un hook Strands (AfterToolCallEvent) dans le Runtime écrit
-  %%      chaque résultat d'outil comme preuve (RUN#id / EVID#E-001).
+  %% L15 Gateway → DynamoDB: in practice, a Strands hook (AfterToolCallEvent) in the Runtime writes
+  %%      each tool result as evidence (RUN#id / EVID#E-001).
   GW -->|"each call = 1 evidence"| DDB
-  %% L16 DynamoDB → Explainer : lecture (Query) du registre de preuves via l'outil get_evidence.
+  %% L16 DynamoDB → Explainer: reads (Query) the evidence ledger via the get_evidence tool.
   DDB -.->|"evidence ledger"| EXP
-  %% L17 Orchestrator ↔ Memory : AgentCore Memory (court terme : session ; long terme : préférences
-  %%      par actorId) via le session manager Strands.
+  %% L17 Orchestrator ↔ Memory: AgentCore Memory (short term: session; long term: preferences
+  %%      per actorId) via the Strands session manager.
   ORCH <-.-> MEM
-  %% L18 Explainer → DynamoDB : RunResult écrit (S3 si > 400 Ko) ; vérification d'ancrage Guardrails
-  %%      sur la réponse courte.
+  %% L18 Explainer → DynamoDB: RunResult written (S3 if > 400 KB); Guardrails grounding check
+  %%      on the short answer.
   EXP -->|"RunResult"| DDB
-  %% L19 Explainer → Result view : en réalité le frontend interroge GET /v1/runs/{id} (API Gateway + Lambda
-  %%      qui lit DynamoDB). Option : API Gateway REST avec streaming de réponse (SSE) pour la progression.
+  %% L19 Explainer → Result view: in practice the frontend polls GET /v1/runs/{id} (API Gateway + Lambda
+  %%      that reads DynamoDB). Option: API Gateway REST with response streaming (SSE) for progress.
   EXP -->|"GET /v1/runs/id (poll)"| OUT
 
   classDef aws fill:#fff4e5,stroke:#e88a1a,color:#1f1f1f;
@@ -132,32 +132,32 @@ flowchart TB
   class UI,OUT ui;
 
 %% =====================================================================================
-%% GLOSSAIRE DES OUTILS AWS (synthèse ; détails, régions et alternatives : docs/AWS.md)
+%% GLOSSARY OF AWS TOOLS (summary; details, regions and alternatives: docs/AWS.md)
 %% -------------------------------------------------------------------------------------
-%% Amazon ECS sur Fargate : exécute des conteneurs sans gérer de serveurs. Héberge Streamlit.
-%%   ECS Express Mode crée en un appel le service Fargate, l'ALB, l'URL HTTPS et l'autoscaling.
-%% Application Load Balancer (ALB) : répartit le trafic HTTPS vers le conteneur Streamlit.
-%% Amazon Cognito : annuaire d'utilisateurs ; émet les jetons JWT (identité pseudonyme = actor_id).
-%% Amazon S3 : stockage d'objets. Fichiers importés (URL présignées), Parquet curé, gabarits de prompts.
-%% Amazon API Gateway (HTTP API) : porte d'entrée HTTPS gérée ; valide le JWT ; coupe à 30 s
-%%   (d'où les runs asynchrones). Les REST API offrent du streaming de réponse jusqu'à 15 min.
-%% AWS Lambda : code exécuté à la demande (15 min max). API FastAPI, dispatcher, validation d'import, outils.
-%% Amazon Bedrock : accès par API aux modèles (Claude Sonnet / Haiku, Titan Embeddings).
-%%   Structured outputs : réponse conforme à un schéma JSON (remplace le toolChoice forcé).
-%% Bedrock Prompt Management (option) : prompts versionnés avec variables, déployés par version.
-%% Bedrock AgentCore Runtime : héberge les agents (conteneur géré, une session isolée par analyse).
-%% Strands Agents (bibliothèque open source d'AWS, pas un service) : agents, outils, graphe, hooks.
-%% AgentCore Memory : mémoire court terme (session) et long terme (préférences) par utilisateur.
-%% AgentCore Gateway : expose des Lambdas / API comme outils MCP partagés, avec authentification.
-%% AgentCore Policy (option) : règles Cedar évaluées à la Gateway pour autoriser / refuser un outil.
-%% Bedrock Knowledge Bases : RAG géré (ingestion, découpage, embeddings, recherche avec filtres).
-%% Amazon S3 Vectors : stockage et recherche de vecteurs dans S3, peu coûteux ; index de la KB.
-%% Amazon DynamoDB : base NoSQL clé-valeur sans serveur. Profils, runs, événements, preuves.
-%% Bedrock Guardrails : filtres configurables (sujets refusés, attaque d'invite, données personnelles,
-%%   ancrage contextuel) sur les entrées et sorties des modèles.
-%% AgentCore Observability : traces OpenTelemetry des agents vers CloudWatch (vue GenAI observability).
-%% Amazon CloudWatch : journaux, métriques, tableaux de bord, alarmes.
-%% AWS IAM : rôles et permissions ; un rôle à droits minimaux par composant.
-%% Hors schéma : AWS CDK (infra en code) · Secrets Manager (clés d'API) ·
-%%   Step Functions + EventBridge Scheduler (pipeline de données) · Glue + Athena (SQL sur S3).
+%% Amazon ECS on Fargate: runs containers without managing servers. Hosts Streamlit.
+%%   ECS Express Mode creates the Fargate service, the ALB, the HTTPS URL and autoscaling in one call.
+%% Application Load Balancer (ALB): spreads HTTPS traffic to the Streamlit container.
+%% Amazon Cognito: user directory; issues the JWT tokens (pseudonymous identity = actor_id).
+%% Amazon S3: object storage. Uploaded files (presigned URLs), curated Parquet, prompt templates.
+%% Amazon API Gateway (HTTP API): managed HTTPS entry point; validates the JWT; times out at 30 s
+%%   (hence the asynchronous runs). REST APIs offer response streaming up to 15 min.
+%% AWS Lambda: on-demand code (15 min max). FastAPI API, dispatcher, upload validation, tools.
+%% Amazon Bedrock: API access to models (Claude Sonnet / Haiku, Titan Embeddings).
+%%   Structured outputs: response that conforms to a JSON schema (replaces forced toolChoice).
+%% Bedrock Prompt Management (option): versioned prompts with variables, deployed by version.
+%% Bedrock AgentCore Runtime: hosts the agents (managed container, one isolated session per analysis).
+%% Strands Agents (AWS open-source library, not a service): agents, tools, graph, hooks.
+%% AgentCore Memory: short-term (session) and long-term (preferences) memory per user.
+%% AgentCore Gateway: exposes Lambdas / APIs as shared MCP tools, with authentication.
+%% AgentCore Policy (option): Cedar rules evaluated at the Gateway to allow / deny a tool.
+%% Bedrock Knowledge Bases: managed RAG (ingestion, chunking, embeddings, search with filters).
+%% Amazon S3 Vectors: low-cost vector storage and search in S3; KB index.
+%% Amazon DynamoDB: serverless key-value NoSQL database. Profiles, runs, events, evidence.
+%% Bedrock Guardrails: configurable filters (denied topics, prompt attack, personal data,
+%%   contextual grounding) on model inputs and outputs.
+%% AgentCore Observability: OpenTelemetry traces from the agents to CloudWatch (GenAI observability view).
+%% Amazon CloudWatch: logs, metrics, dashboards, alarms.
+%% AWS IAM: roles and permissions; one least-privilege role per component.
+%% Not in the diagram: AWS CDK (infrastructure as code) · Secrets Manager (API keys) ·
+%%   Step Functions + EventBridge Scheduler (data pipeline) · Glue + Athena (SQL on S3).
 %% =====================================================================================

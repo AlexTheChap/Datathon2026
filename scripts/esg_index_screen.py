@@ -1,23 +1,23 @@
 """
-Quelles sociétés les indices ESG laissent-ils de côté ? → data/curated/esg_index_screen.csv
+Which companies do ESG indices leave out? → data/curated/esg_index_screen.csv
 
-    python scripts/esg_index_screen.py            (après scripts/etf_holdings.py)
+    python scripts/esg_index_screen.py            (after scripts/etf_holdings.py)
 
-Comparaisons (fonds « parent » large vs fonds ESG du même marché) :
-  US      SPY (S&P 500)  vs  ESGV  (FTSE US All Cap Choice : exclusions par activité, controverses, diversité)
-  Canada  XIU (S&P/TSX 60) vs XCSR (MSCI Canada IMI Extended ESG Leaders : exclusions + meilleures notes ESG)
-          XESG (MSCI Canada IMI Extended ESG Focus) en information : indice OPTIMISÉ, il garde presque tout et
-          ne fait que sur/sous-pondérer ; une absence de XESG est rare et plus parlante.
+Comparisons (broad "parent" fund vs ESG fund of the same market):
+  US      SPY (S&P 500)  vs  ESGV  (FTSE US All Cap Choice: activity exclusions, controversies, diversity)
+  Canada  XIU (S&P/TSX 60) vs XCSR (MSCI Canada IMI Extended ESG Leaders: exclusions + best ESG ratings)
+          XESG (MSCI Canada IMI Extended ESG Focus) for information: an OPTIMIZED index, it keeps almost
+          everything and only over/underweights; an absence from XESG is rare and more telling.
 
-CE QUE CE FICHIER DIT, ET NE DIT PAS
-  - « absent_indice_esg » = la société est dans le fonds parent mais PAS dans le fonds ESG. La composition
-    ne dit PAS POURQUOI (activité, controverse, note ESG, critère de diversité, univers ou liquidité).
-    Formulation à utiliser : « exclue de l'indice FTSE US All Cap Choice (ESGV) », JAMAIS « ne respecte pas l'ESG ».
-  - Comparaison par TICKER, pas par CUSIP : SPY détient Alphabet en classe A (GOOGL) et ESGV en classe C (GOOG),
-    deux CUSIP différents ; les tickers sont normalisés (GOOG→GOOGL). En repli, les 6 premiers caractères du
-    CUSIP (code de l'émetteur, commun à toutes les catégories d'actions) évitent d'autres faux positifs (FOX/FOXA…).
-  - Dates : SPY/XIU/XCSR/XESG au jour du téléchargement, ESGV au dernier N-PORT (≈ 2-3 mois avant). Une société
-    ajoutée au S&P 500 après la date d'ESGV est marquée « indetermine_ajout_recent ».
+WHAT THIS FILE SAYS, AND DOES NOT SAY
+  - "absent_from_esg_index" = the company is in the parent fund but NOT in the ESG fund. The holdings
+    do NOT say WHY (activity, controversy, ESG rating, diversity criterion, universe or liquidity).
+    Wording to use: "excluded from the FTSE US All Cap Choice index (ESGV)", NEVER "fails ESG".
+  - Comparison by TICKER, not CUSIP: SPY holds Alphabet as class A (GOOGL) and ESGV as class C (GOOG),
+    two different CUSIPs; tickers are normalized (GOOG→GOOGL). As a fallback, the first 6 characters of the
+    CUSIP (issuer code, shared by all share classes) avoid other false positives (FOX/FOXA…).
+  - Dates: SPY/XIU/XCSR/XESG as of download day, ESGV as of the latest N-PORT (≈ 2-3 months earlier). A company
+    added to the S&P 500 after the ESGV date is marked "undetermined_recent_addition".
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from etf_holdings import fetch_ishares_ca, sp500_table  # noqa: E402
 
 CLASS_ALIASES = {"GOOG": "GOOGL", "FOX": "FOXA", "NWS": "NWSA", "BRK-A": "BRK-B"}
-REASON = "Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers."
+REASON = "Not determined by holdings alone: activity, controversy, ESG rating, diversity or universe rule."
 INDEX_LABEL = {
     "ESGV": "FTSE US All Cap Choice (Vanguard ESGV)",
     "XCSR.TO": "MSCI Canada IMI Extended ESG Leaders (iShares XCSR)",
@@ -54,20 +54,20 @@ def compare(parent: pd.DataFrame, esg: pd.DataFrame, parent_name: str, esg_name:
     for r in p.itertuples():
         in_esg = r.tk in e_w.index or (len(r.issuer) == 6 and r.issuer in e_issuers)
         if in_esg:
-            statut, raison = "present", ""
+            status, reason = "present", ""
         elif added and str(added.get(r.tk, "")) > esg_date:
-            statut = "indetermine_ajout_recent"
-            raison = f"Ajoutée au fonds parent le {added[r.tk]}, après la composition ESG du {esg_date}."
+            status = "undetermined_recent_addition"
+            reason = f"Added to the parent fund on {added[r.tk]}, after the ESG holdings of {esg_date}."
         else:
-            statut, raison = "absent_indice_esg", REASON
+            status, reason = "absent_from_esg_index", REASON
         rows.append({
             "ticker": r.tk, "name": r.name, "parent_fund": parent_name, "esg_fund": esg_name,
-            "esg_index": INDEX_LABEL[esg_name], "in_esg_fund": in_esg, "statut": statut,
+            "esg_index": INDEX_LABEL[esg_name], "in_esg_fund": in_esg, "status": status,
             "weight_parent": round(float(r.weight), 6),
             "weight_esg": round(float(e_w.get(r.tk, 0.0)), 6) if in_esg else 0.0,
-            "parent_date": r.date, "esg_date": esg_date, "raison": raison,
-            "formulation": (f"Exclue de l'indice {INDEX_LABEL[esg_name]} (raison non publiée dans la composition)"
-                            if statut == "absent_indice_esg" else ""),
+            "parent_date": r.date, "esg_date": esg_date, "reason": reason,
+            "wording": (f"Excluded from the {INDEX_LABEL[esg_name]} index (reason not published in the holdings)"
+                            if status == "absent_from_esg_index" else ""),
         })
     return pd.DataFrame(rows)
 
@@ -83,22 +83,22 @@ def main():
     uni = pd.read_csv(a.universe)
     parts = []
 
-    # US : SPY vs ESGV
+    # US: SPY vs ESGV
     try:
         sp = sp500_table()
         added = dict(zip(sp["Symbol"].replace(CLASS_ALIASES), sp["Date added"].astype(str)))
     except Exception as ex:
-        print(f"(dates d'ajout au S&P 500 indisponibles : {ex})")
+        print(f"(S&P 500 addition dates unavailable: {ex})")
         added = None
     parts.append(compare(h[h.fund == "SPY"], h[h.fund == "ESGV"], "SPY", "ESGV", added))
 
-    # Canada : XIU vs XCSR (et XESG)
+    # Canada: XIU vs XCSR (and XESG)
     xiu = h[h.fund == "XIU.TO"]
     for esg_fund in ["XCSR.TO", "XESG.TO"]:
         try:
             parts.append(compare(xiu, fetch_ishares_ca(esg_fund), "XIU.TO", esg_fund))
         except Exception as ex:
-            print(f"[{esg_fund}] ÉCHEC : {ex}")
+            print(f"[{esg_fund}] FAILED: {ex}")
 
     df = pd.concat(parts, ignore_index=True)
     df["in_universe"] = df["ticker"].isin(uni["ticker"])
@@ -107,12 +107,12 @@ def main():
     df.to_csv(out, index=False, encoding="utf-8")
 
     for (pf, ef), g in df.groupby(["parent_fund", "esg_fund"]):
-        ab = g[g.statut == "absent_indice_esg"]
-        print(f"{pf} vs {ef} : {len(ab)}/{len(g)} absents ({ab.weight_parent.sum():.1%} du poids de {pf}), "
-              f"{(g.statut == 'indetermine_ajout_recent').sum()} ajouts récents indéterminés")
+        ab = g[g.status == "absent_from_esg_index"]
+        print(f"{pf} vs {ef}: {len(ab)}/{len(g)} absent ({ab.weight_parent.sum():.1%} of {pf} weight), "
+              f"{(g.status == 'undetermined_recent_addition').sum()} undetermined recent additions")
         mine = g[g.in_universe]
         if len(mine):
-            print("   univers AlphaForge : " + ", ".join(
+            print("   AlphaForge universe: " + ", ".join(
                 f"{r.ticker} {'✓' if r.in_esg_fund else '✗'}" for r in mine.itertuples()))
     print(f"→ {out}")
 

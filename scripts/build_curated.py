@@ -1,26 +1,26 @@
 """
-Construit le jeu de données préparé (« curated ») à partir du jeu de départ AlphaForge.
+Builds the curated dataset from the AlphaForge starter dataset.
 
-Usage :
+Usage:
     python scripts/build_curated.py --starter data/raw --out data/curated
 
-Sorties (CSV, dans --out) :
-    calendar.csv              calendrier commun + indicateurs de jours fériés par marché
-    fx_usdcad_filled.csv      USD/CAD reporté les jours sans taux (fériés canadiens)
-    prices_cad.csv            adj_close converti en CAD, format large (une colonne par ticker)
-    prices_local.csv          adj_close en devise de cotation, format large
-    filled_flags.csv          True quand le prix a été reporté (pas de cotation ce jour-là)
-    returns_daily_cad.csv     rendements simples quotidiens en CAD (rendement total)
-    returns_daily_local.csv   rendements simples quotidiens en devise de cotation
-    macro_pit.csv             macro au format long + colonne available_from (point-in-time)
-    macro_daily_asof.csv      macro large, chaque valeur placée à sa date de disponibilité
-    asset_risk_metrics.csv    indicateurs de risque par actif (période complète et 2022)
-    correlation_full.csv      corrélations des rendements quotidiens CAD, période complète
-    correlation_2022.csv      corrélations 2022 seulement
-    rate_sensitivity.csv      sensibilité empirique aux taux vs duration officielle
-    quality_report.json       contrôles de qualité + décisions de traitement
+Outputs (CSV, in --out):
+    calendar.csv              common calendar + per-market holiday flags
+    fx_usdcad_filled.csv      USD/CAD carried forward on days without a rate (Canadian holidays)
+    prices_cad.csv            adj_close converted to CAD, wide format (one column per ticker)
+    prices_local.csv          adj_close in listing currency, wide format
+    filled_flags.csv          True when the price was carried forward (no quote that day)
+    returns_daily_cad.csv     daily simple returns in CAD (total return)
+    returns_daily_local.csv   daily simple returns in listing currency
+    macro_pit.csv             macro in long format + available_from column (point-in-time)
+    macro_daily_asof.csv      macro in wide format, each value placed at its availability date
+    asset_risk_metrics.csv    per-asset risk metrics (full period and 2022)
+    correlation_full.csv      correlations of daily CAD returns, full period
+    correlation_2022.csv      2022-only correlations
+    rate_sensitivity.csv      empirical rate sensitivity vs official duration
+    quality_report.json       quality checks + processing decisions
 
-Toutes les décisions de traitement sont décrites dans docs/README_extended.md.
+All processing decisions are described in docs/README_extended.md.
 """
 from __future__ import annotations
 
@@ -33,14 +33,14 @@ import pandas as pd
 
 TRADING_DAYS = 252
 
-# Délais de publication HYPOTHÉTIQUES (à remplacer par les vraies dates : ALFRED / StatCan).
-# Utilisés pour éviter le biais d'anticipation dans les simulations.
+# HYPOTHETICAL release lags (to be replaced by the real dates: ALFRED / StatCan).
+# Used to avoid look-ahead bias in simulations.
 RELEASE_LAG_DAYS = {
-    "CPIAUCSL": 15,                 # IPC américain : publié vers la mi-mois suivant
-    "UNRATE": 7,                    # chômage américain : 1er vendredi du mois suivant
-    "STATIC_TOTALCPICHANGE": 21,    # IPC canadien : ~3e semaine du mois suivant
+    "CPIAUCSL": 15,                 # US CPI: published around mid-next-month
+    "UNRATE": 7,                    # US unemployment: first Friday of next month
+    "STATIC_TOTALCPICHANGE": 21,    # Canadian CPI: ~3rd week of next month
 }
-DAILY_SERIES_LAG_BDAYS = 1          # séries quotidiennes : utilisables le jour ouvrable suivant
+DAILY_SERIES_LAG_BDAYS = 1          # daily series: usable the next business day
 
 
 def load_starter(starter: Path):
@@ -53,9 +53,9 @@ def load_starter(starter: Path):
 
 
 def build_calendar(px: pd.DataFrame, uni: pd.DataFrame) -> pd.DataFrame:
-    """Calendrier = jours où au moins une bourse (TSX ou US) a coté au moins un titre.
-    Les cryptos (7 j/7) sont échantillonnées sur ce calendrier : le rendement de fin de
-    semaine est inclus dans celui du lundi."""
+    """Calendar = days when at least one exchange (TSX or US) quoted at least one security.
+    Cryptos (7 days/week) are sampled on this calendar: the weekend return is
+    included in Monday's."""
     market = uni.set_index("ticker")["market"]
     px = px.assign(market=px["ticker"].map(market))
     eq = px[~px["market"].str.contains("Crypto", na=False)]
@@ -73,8 +73,8 @@ def build_prices(px, fx, uni, cal):
     local = px.pivot(index="date", columns="ticker", values="adj_close")
     raw_on_cal = local.reindex(dates)
     filled_flags = raw_on_cal.isna()
-    # Report du dernier prix connu (jour férié propre à un marché). Pas de remplissage
-    # avant la première cotation.
+    # Carry forward the last known price (market-specific holiday). No filling
+    # before the first quote.
     local_f = raw_on_cal.ffill()
     filled_flags = filled_flags & local_f.notna()
 
@@ -97,22 +97,22 @@ def build_macro_pit(macro: pd.DataFrame) -> pd.DataFrame:
     for _, r in m.iterrows():
         sid = r["series_id"]
         if sid in RELEASE_LAG_DAYS:
-            # date de référence = 1er du mois -> fin du mois + délai
+            # reference date = 1st of the month -> month end + lag
             month_end = r["date"] + pd.offsets.MonthEnd(0)
             avail.append(month_end + pd.Timedelta(days=RELEASE_LAG_DAYS[sid]))
-            method.append(f"hypothese_delai_{RELEASE_LAG_DAYS[sid]}j_apres_fin_de_mois")
+            method.append(f"assumed_lag_{RELEASE_LAG_DAYS[sid]}d_after_month_end")
         else:
             avail.append(r["date"] + pd.offsets.BDay(DAILY_SERIES_LAG_BDAYS))
-            method.append(f"jour_ouvrable_suivant_(+{DAILY_SERIES_LAG_BDAYS})")
+            method.append(f"next_business_day_(+{DAILY_SERIES_LAG_BDAYS})")
     m["available_from"] = avail
     m["available_from_method"] = method
     m["note"] = np.where(m["source"].str.contains("FRED"),
-                         "Valeur FRED révisée (pas la première publication)", "")
+                         "Revised FRED value (not the first release)", "")
     return m
 
 
 def macro_daily_asof(m: pd.DataFrame, cal: pd.DataFrame) -> pd.DataFrame:
-    """Pour chaque date du calendrier : dernière valeur DISPONIBLE à cette date."""
+    """For each calendar date: the latest value AVAILABLE on that date."""
     dates = pd.DatetimeIndex(cal["date"])
     out = pd.DataFrame(index=dates)
     for sid, g in m.groupby("series_id"):
@@ -123,7 +123,7 @@ def macro_daily_asof(m: pd.DataFrame, cal: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-# ---------- indicateurs de risque ----------
+# ---------- risk metrics ----------
 
 def _drawdown(r: pd.Series):
     w = (1 + r.fillna(0)).cumprod()
@@ -173,15 +173,15 @@ def asset_metrics(rets: pd.DataFrame, bench: dict[str, str], label: str) -> pd.D
 
 def rate_sensitivity(rets_local: pd.DataFrame, macro_wide: pd.DataFrame,
                      durations: pd.DataFrame | None) -> pd.DataFrame:
-    """Régression des rendements (devise locale) sur la variation du taux 10 ans du
-    même pays. -beta*100 ≈ duration empirique (rendement pour +1 point de taux)."""
+    """Regression of returns (local currency) on the change in the same country's
+    10-year yield. -beta*100 ≈ empirical duration (return for +1 point of yield)."""
     pairs = {"XBB.TO": "BD.CDN.10YR.DQ.YLD", "ZST.TO": "BD.CDN.2YR.DQ.YLD",
              "AGG": "DGS10", "TLT": "DGS10"}
     rows = []
     for t, sid in pairs.items():
         if t not in rets_local or sid not in macro_wide:
             continue
-        dy = macro_wide[sid].diff() / 100.0          # points de % -> fraction
+        dy = macro_wide[sid].diff() / 100.0          # percentage points -> fraction
         j = pd.concat([rets_local[t], dy], axis=1).dropna()
         j = j[j.iloc[:, 1] != 0]
         x, y = j.iloc[:, 1], j.iloc[:, 0]
@@ -193,8 +193,8 @@ def rate_sensitivity(rets_local: pd.DataFrame, macro_wide: pd.DataFrame,
         rows.append({"ticker": t, "yield_series": sid, "n_obs": len(j),
                      "empirical_duration": -beta, "r2": r2,
                      "official_duration": off,
-                     "note": "Duration officielle actuelle (2026-11) vs sensibilité moyenne 2021-2026 : "
-                             "écart attendu (duration variable dans le temps, courbe non parallèle)."})
+                     "note": "Current official duration (2026-11) vs average 2021-2026 sensitivity: "
+                             "gap expected (duration varies over time, non-parallel curve shifts)."})
     return pd.DataFrame(rows)
 
 
@@ -210,17 +210,17 @@ def quality_report(px, cal, filled, fx_out, macro_pit, cnq_check) -> dict:
         "fx_filled_days": int(fx_out["filled"].sum()),
         "macro_series": sorted(macro_pit["series_id"].unique().tolist()),
         "decisions": {
-            "calendar": "Union des jours de cotation TSX et US (jours de semaine). Crypto échantillonnée "
-                        "sur ce calendrier : le rendement de fin de semaine est inclus le lundi.",
-            "price_fill": "Dernier prix connu reporté quand un marché est fermé (férié propre à un pays). "
-                          "Rendement = 0 ce jour-là. Indicateur dans filled_flags.csv.",
-            "fx": "USD/CAD Banque du Canada, reporté les jours fériés canadiens.",
-            "returns": "Rendements simples sur adj_close (rendement total, dividendes réinvestis), en CAD.",
+            "calendar": "Union of TSX and US trading days (weekdays). Crypto sampled "
+                        "on this calendar: the weekend return is included on Monday.",
+            "price_fill": "Last known price carried forward when a market is closed (country-specific holiday). "
+                          "Return = 0 that day. Flag in filled_flags.csv.",
+            "fx": "USD/CAD from the Bank of Canada, carried forward on Canadian holidays.",
+            "returns": "Simple returns on adj_close (total return, dividends reinvested), in CAD.",
             "cnq_2022_08_22": cnq_check,
-            "macro_pit": "available_from = date de disponibilité estimée. Mensuel : délai hypothétique "
-                         f"{RELEASE_LAG_DAYS}. Quotidien : jour ouvrable suivant. À remplacer par les "
-                         "vraies dates de publication (ALFRED, calendrier StatCan).",
-            "survivorship": "Univers choisi en 2026 : les rendements historiques sont biaisés à la hausse.",
+            "macro_pit": "available_from = estimated availability date. Monthly: hypothetical lag "
+                         f"{RELEASE_LAG_DAYS}. Daily: next business day. To be replaced by the "
+                         "real release dates (ALFRED, StatCan calendar).",
+            "survivorship": "Universe chosen in 2026: historical returns are biased upward.",
         },
     }
 
@@ -235,7 +235,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
 
     px, fx, macro, uni, actions = load_starter(starter)
-    assert not px.duplicated(["date", "ticker"]).any(), "doublons date/ticker"
+    assert not px.duplicated(["date", "ticker"]).any(), "duplicate date/ticker rows"
 
     cal = build_calendar(px, uni)
     local, cad, filled, fx_out = build_prices(px, fx, uni, cal)
@@ -246,16 +246,16 @@ def main():
     m_wide_obs = macro.pivot_table(index="date", columns="series_id", values="value")
     m_asof = macro_daily_asof(m_pit, cal)
 
-    # CNQ : rendement adj_close vs close le 2022-08-22
+    # CNQ: adj_close vs close return on 2022-08-22
     c = px[px.ticker == "CNQ.TO"].set_index("date")
     d0, d1 = pd.Timestamp("2022-08-19"), pd.Timestamp("2022-08-22")
     cnq = {
         "close_return": float(c.loc[d1, "close"] / c.loc[d0, "close"] - 1),
         "adj_close_return": float(c.loc[d1, "adj_close"] / c.loc[d0, "adj_close"] - 1),
-        "decision": "adj_close conservé : l'écart (~2 %) est cohérent avec une distribution "
-                    "spéciale traitée comme un dividende réinvesti (rendement total). Le facteur "
-                    "1,021 de corporate_actions.csv n'est PAS réappliqué. À confirmer auprès des "
-                    "relations investisseurs de CNQ.",
+        "decision": "adj_close kept: the gap (~2%) is consistent with a special "
+                    "distribution treated as a reinvested dividend (total return). The "
+                    "1.021 factor in corporate_actions.csv is NOT reapplied. To be confirmed with "
+                    "CNQ investor relations.",
     }
 
     bench = {"spy": "SPY", "xiu": "XIU.TO"}
@@ -274,7 +274,7 @@ def main():
     rs = rate_sensitivity(r_loc, m_wide_obs.reindex(r_loc.index.union(m_wide_obs.index)).ffill()
                           .reindex(r_loc.index), durations)
 
-    # ----- écriture -----
+    # ----- writing -----
     uni.to_csv(out / "assets_universe.csv", index=False)
     cal.to_csv(out / "calendar.csv", index=False)
     fx_out.to_csv(out / "fx_usdcad_filled.csv", index=False)
@@ -292,7 +292,7 @@ def main():
     with open(out / "quality_report.json", "w", encoding="utf-8") as f:
         json.dump(quality_report(px, cal, filled, fx_out, m_pit, cnq), f,
                   ensure_ascii=False, indent=2, default=str)
-    print(f"OK : {len(list(out.iterdir()))} fichiers écrits dans {out}")
+    print(f"OK: {len(list(out.iterdir()))} files written to {out}")
 
 
 if __name__ == "__main__":

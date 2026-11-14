@@ -1,6 +1,5 @@
 # AlphaForge AI starter dataset
 
-*Version française plus bas.*
 
 Optional starting data for the PolyFinances AlphaForge AI datathon. You can use it as is, add to it, or ignore it. Everything here is simulation material. Nothing in it is investment advice.
 
@@ -74,46 +73,3 @@ Edit `UNIVERSE`, `START` and `END` at the top of the script to change the asset 
 - **Bank of Canada** Valet API (FX, rates, Canadian CPI). Terms: https://www.bankofcanada.ca/terms/
 - **FRED**, Federal Reserve Bank of St. Louis (U.S. rates, CPI, unemployment). The underlying series come from U.S. government agencies. Terms: https://fred.stlouisfed.org/legal/
 
----
-
-# Jeu de données de départ AlphaForge AI
-
-Données facultatives pour le datathon PolyFinances AlphaForge AI. Vous pouvez les utiliser telles quelles, les compléter ou les ignorer. Tout ici sert à la simulation. Rien ne constitue un conseil en placement.
-
-Période : **12 novembre 2021 au 12 novembre 2026** (5 ans, extraction le 13 novembre 2026). Cinq ans plutôt que trois pour inclure 2022, quand actions et obligations ont reculé en même temps.
-
-## Un point de départ, pas la réponse
-
-Ce jeu de données existe pour vous éviter de perdre vos premières heures à chercher des prix. Ce n'est pas le jeu de données que le jury s'attend à vous voir utiliser, et il ne couvre pas tout ce dont un bon projet a besoin. Changez d'actifs, choisissez une autre période, ou ajoutez des nouvelles, des documents réglementaires, de l'information ESG, la composition de FNB ou toute autre donnée publique utile au problème que vous choisissez. Les personas et les exemples de titres de l'énoncé sont des repères, pas une liste à cocher.
-
-Les meilleurs projets partent souvent d'une question, déterminent les données dont elle a besoin, puis vont chercher ces données. Peu importe ce que vous ajoutez, documentez la source, la date et le traitement, comme le demande l'énoncé.
-
-## Fichiers
-
-| Fichier | Lignes | Contenu |
-| --- | --- | --- |
-| `assets_universe.csv` | 31 | `asset_id, ticker, name, asset_class, market, currency, sector` |
-| `prices_daily.csv` | ~40 000 | `date, ticker, open, high, low, close, adj_close, volume, currency` |
-| `corporate_actions.csv` | ~660 | Dividendes et fractionnements par date ex |
-| `fx_usdcad_daily.csv` | ~1 250 | `date, usdcad, cadusd`, Banque du Canada |
-| `macro_rates.csv` | ~8 300 | Format long `date, series_id, value, unit, frequency, label, source` |
-| `sources_metadata.csv` | 6 | Source, date, traitement, limites et conditions pour chaque fichier |
-| `build_dataset.py` | | Script qui régénère les cinq fichiers CSV de données |
-
-L'univers compte 10 actions canadiennes, 10 actions américaines, 9 FNB (actions, obligations, or, et ESGV, un FNB américain filtré ESG) ainsi que Bitcoin et Ether. Les séries macro couvrent le taux directeur de la Banque du Canada, les rendements obligataires 2 et 10 ans du Canada et des États-Unis, l'IPC des deux pays, le taux des fonds fédéraux et le chômage américain.
-
-## À savoir avant d'utiliser les données
-
-- **Les prix sont dans la devise de cotation.** Les titres `.TO` sont en CAD, le reste en USD. Utilisez `fx_usdcad_daily.csv` pour convertir. Ce fichier n'a pas de ligne les jours fériés canadiens.
-- **Aucun remplissage ni alignement de calendrier.** Une ligne existe seulement les jours où Yahoo fournit un prix pour l'actif (ZST.TO compte une ligne à volume nul, le 2022-07-06). Les jours fériés diffèrent entre la TSX et les marchés américains, et les cryptos se négocient 7 jours sur 7.
-- **`adj_close` est ajusté pour les fractionnements et les dividendes** (méthode Yahoo). Utilisez-le pour les rendements. `close` n'est ajusté que pour les fractionnements. Les valeurs passées de `adj_close` changent si vous retéléchargez les données.
-- **Tous les prix sont déjà ajustés pour les fractionnements.** Les lignes `split` de `corporate_actions.csv` sont fournies à titre de référence. Ne les appliquez pas de nouveau.
-- **Les lignes crypto correspondent à des jours civils UTC** (00 h à 24 h UTC). Il n'y a pas de clôture de marché.
-- **CNQ.TO affiche un « fractionnement » de 1,021 le 2022-08-22**, le même jour qu'un dividende de 0,75 $. CNQ n'a pas fractionné ses actions à ce ratio. Il s'agit probablement d'une distribution spéciale. Vérifiez auprès des relations investisseurs de CNQ.
-- **Les données macro mensuelles sont datées au mois de référence, pas à la date de publication.** Ne les utilisez pas dans une simulation avant leur publication réelle. Les valeurs FRED sont révisées.
-- **Biais du survivant.** L'univers a été choisi en 2026 parmi des titres aujourd'hui importants.
-- **Aucune cote ESG, nouvelle ou donnée fondamentale n'est incluse.** Les équipes qui en ont besoin peuvent utiliser les rapports de durabilité des sociétés, les pages méthodologiques ESG des émetteurs de FNB, SEDAR+ et EDGAR, en documentant leurs sources.
-
-## Sources et conditions
-
-Yahoo Finance (via la bibliothèque `yfinance`) pour les prix. Banque du Canada (API Valet) pour le change, les taux et l'IPC canadien. FRED pour les données américaines. Voir `sources_metadata.csv` pour le détail.

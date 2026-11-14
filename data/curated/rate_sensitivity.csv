@@ -1,5 +1,5 @@
 ticker,yield_series,n_obs,empirical_duration,r2,official_duration,note
-XBB.TO,BD.CDN.10YR.DQ.YLD,1157,6.5965,0.9325,6.74,"Duration officielle actuelle (2026-11) vs sensibilité moyenne 2021-2026 : écart attendu (duration variable dans le temps, courbe non parallèle)."
-ZST.TO,BD.CDN.2YR.DQ.YLD,1121,0.226,0.1674,0.38,"Duration officielle actuelle (2026-11) vs sensibilité moyenne 2021-2026 : écart attendu (duration variable dans le temps, courbe non parallèle)."
-AGG,DGS10,1179,5.9004,0.9125,5.7,"Duration officielle actuelle (2026-11) vs sensibilité moyenne 2021-2026 : écart attendu (duration variable dans le temps, courbe non parallèle)."
-TLT,DGS10,1179,14.2492,0.8303,14.75,"Duration officielle actuelle (2026-11) vs sensibilité moyenne 2021-2026 : écart attendu (duration variable dans le temps, courbe non parallèle)."
+XBB.TO,BD.CDN.10YR.DQ.YLD,1157,6.5965,0.9325,6.74,"Current official duration (2026-11) vs average 2021-2026 sensitivity: gap expected (duration varies over time, non-parallel curve shifts)."
+ZST.TO,BD.CDN.2YR.DQ.YLD,1121,0.226,0.1674,0.38,"Current official duration (2026-11) vs average 2021-2026 sensitivity: gap expected (duration varies over time, non-parallel curve shifts)."
+AGG,DGS10,1179,5.9004,0.9125,5.7,"Current official duration (2026-11) vs average 2021-2026 sensitivity: gap expected (duration varies over time, non-parallel curve shifts)."
+TLT,DGS10,1179,14.2492,0.8303,14.75,"Current official duration (2026-11) vs average 2021-2026 sensitivity: gap expected (duration varies over time, non-parallel curve shifts)."

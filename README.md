@@ -46,7 +46,7 @@ backend/app/
   intake/                 # ③ intake agent: free text → Profile + Request JSON
   context/                # ④ deterministic: plan resolver + prompt loader
   agents/                 # ⑤ orchestrator, sub-agents, governance, explainer
-  prompts/{en,fr}/        # versioned prompt templates (language × experience)
+  prompts/                # versioned prompt templates (by experience level)
   tools/                  # ⑥ quant tools: metrics, risk, scenarios, optimizer, evidence
   store/                  # ⑥ runs + evidence ledger (DynamoDB analogue)
   core/, schemas/         # config/logging · Pydantic models (Profile, Request, Evidence…)

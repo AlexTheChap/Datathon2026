@@ -1,7 +1,6 @@
-"""Request JSON : sortie de l'Intake agent vers le Plan resolver (liens L3 et L4 de architecture.mmd).
-
-Validé par les structured outputs de Bedrock puis par Pydantic. Les valeurs permises de `task`,
-`scenarios` et `benchmark` sont dans `enums.py`.
+"""Request JSON: output of the Intake agent to the Plan resolver (links L3 and L4 of architecture.mmd).
+Validated by Bedrock structured outputs, then by Pydantic. The allowed values of `task`,
+`scenarios` and `benchmark` are in `enums.py`.
 """
 from __future__ import annotations
 
@@ -14,7 +13,7 @@ from .enums import Benchmark, Scenario, Task
 
 
 class PortfolioRef(BaseModel):
-    """Référence au portefeuille. Le fichier lui-même reste dans S3 (jamais lu par l'Intake)."""
+    """Reference to the portfolio. The file itself stays in S3 (never read by the Intake)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -47,5 +46,5 @@ class Request(BaseModel):
     user_message: str
     parameters: Parameters = Field(default_factory=Parameters)
     toggles: Toggles = Field(default_factory=Toggles)
-    as_of: Optional[date] = Field(default=None, description="Date d'analyse ; aucune donnée postérieure n'est lue.")
+    as_of: Optional[date] = Field(default=None, description="Analysis date; no data published after it is read.")
     intake_confidence: float = Field(ge=0.0, le=1.0)
