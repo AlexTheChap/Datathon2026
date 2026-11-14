@@ -1,8 +1,8 @@
 """
 Extrait la composition de FNB américains (SPY, QQQ, ESGV…) depuis les jeux de données
 N-PORT de la SEC (domaine public), et produit :
-    etf_holdings.csv          fund, cusip, issuer_name, weight, report_date, accession
-    esg_index_screen.csv      titres de SPY absents d'ESGV (signal « a_verifier »)
+    nport_holdings.csv        fund, cusip, issuer_name, weight, report_date, accession
+    nport_esg_screen.csv      titres de SPY absents d'ESGV (signal « a_verifier »)
 
 1. Téléchargez manuellement un zip trimestriel sur la page SEC « Form N-PORT Data Sets »
    (https://www.sec.gov/data-research/sec-markets-data/form-n-port-data-sets).
@@ -68,7 +68,7 @@ def main():
         print(f"[{fund}] {len(h)} positions, somme des poids = {rows[-1]['weight'].sum():.3f}")
 
     hol = pd.concat(rows, ignore_index=True)
-    hol.to_csv(out / "etf_holdings.csv", index=False)
+    hol.to_csv(out / "nport_holdings.csv", index=False)
 
     if {"SPY", "ESGV"} <= set(hol["fund"]):
         spy, esg = hol[hol.fund == "SPY"], hol[hol.fund == "ESGV"]
@@ -78,7 +78,7 @@ def main():
         m["note"] = ("Absent d'ESGV : retiré par le filtre FTSE Choice (activité, controverse ou critère "
                      "de diversité) OU écart d'univers/rapprochement CUSIP. Raison non déterminée ici.")
         m[["cusip", "issuer_name", "weight", "in_esgv", "status", "report_date", "accession", "note"]] \
-            .to_csv(out / "esg_index_screen.csv", index=False)
+            .to_csv(out / "nport_esg_screen.csv", index=False)
         ex = m[~m.in_esgv]
         print(f"SPY vs ESGV : {len(ex)} titres absents d'ESGV ({ex.weight.sum():.1%} du poids de SPY)")
 

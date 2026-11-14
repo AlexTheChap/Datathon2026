@@ -34,7 +34,7 @@ alphaforge_extended/
 │   ├── etf_holdings.py       ← composition SPY / XIU / QQQ / ESGV → curated/etf_holdings.csv
 │   ├── esg_index_screen.py   ← SPY vs ESGV, XIU vs XCSR/XESG → curated/esg_index_screen.csv
 │   ├── nbim_exclusions.py    ← liste d'exclusion du fonds norvégien → controversies.csv
-│   └── nport_holdings.py     ← zip N-PORT trimestriel → filtre SPY vs ESGV (optionnel)
+│   └── nport_holdings.py     ← zip N-PORT trimestriel → external/nport_holdings.csv + nport_esg_screen.csv (optionnel)
 └── tests/test_risk_tools.py
 ```
 
