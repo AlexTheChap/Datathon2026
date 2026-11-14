@@ -10,7 +10,7 @@
   "user_message": "Est-ce que mon portefeuille est trop risqué ? Montre-moi aussi ce qui arriverait en cas de krach.",
   "parameters": {
     "scenarios": [
-      "crash_2008"
+      "2022"
     ],
     "benchmark": "SPY"
   },

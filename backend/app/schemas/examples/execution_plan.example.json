@@ -14,7 +14,7 @@
     {
       "agent": "macro_scenarios",
       "reason": "toggles.stress_tests = true",
-      "parameters": { "scenarios": ["crash_2008"] }
+      "parameters": { "scenarios": ["2022"] }
     }
   ],
   "disabled_agents": [
