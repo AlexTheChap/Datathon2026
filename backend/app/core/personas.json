@@ -1,0 +1,59 @@
+{
+  "_source": "Énoncé officiel Datathon PolyFinances 2026, section Personas (p. 4-7). Les champs marqués hypothese=true ou null ne sont PAS dans l'énoncé.",
+  "personas": [
+    {
+      "id": "amira",
+      "profil_type": "Audacieux",
+      "age": 26,
+      "occupation": "Ingénieure logicielle",
+      "risk_band": "eleve",
+      "horizon_years": [15, null],
+      "experience": "intermediaire",
+      "objectif": "Faire croître son capital à long terme",
+      "preferences": ["intelligence artificielle", "technologies émergentes", "entreprises en forte croissance", "cryptoactifs"],
+      "contraintes": ["maintenir une certaine diversification", "éviter de miser exclusivement sur les technologies"],
+      "exclusions": [],
+      "capacite_perte": null,
+      "capital_fictif": {"valeur": 50000, "hypothese": true},
+      "language": "en",
+      "test": "« Risque élevé » ne signifie pas « tout est acceptable »."
+    },
+    {
+      "id": "mateo",
+      "profil_type": "Équilibré",
+      "age": 41,
+      "occupation": "Gestionnaire des opérations",
+      "risk_band": "modere",
+      "horizon_years": [8, 12],
+      "experience": "intermediaire",
+      "objectif": "Faire croître son capital de façon équilibrée à moyen et long terme",
+      "preferences": ["facteurs ESG importants", "équilibre croissance / stabilité", "ouvert aux technologies émergentes si compatibles"],
+      "contraintes": ["éviter les entreprises liées à des controverses environnementales ou sociales importantes", "peu intéressé par les placements hautement spéculatifs"],
+      "exclusions": [{"type": "controversy", "min_severity": "majeure"}],
+      "capacite_perte": null,
+      "capital_fictif": {"valeur": 150000, "hypothese": true},
+      "language": "fr",
+      "test": "Intégrer autre chose que le rendement et le risque."
+    },
+    {
+      "id": "robert",
+      "profil_type": "Prudent",
+      "age": 59,
+      "occupation": "Professionnel de la santé",
+      "risk_band": "faible_a_modere",
+      "horizon_years": [3, 5],
+      "experience": "avancee",
+      "objectif": "Préserver son capital tout en maintenant un potentiel de croissance",
+      "preferences": ["entreprises établies", "modèles d'affaires compréhensibles", "stabilité et qualité", "suit activement les marchés"],
+      "contraintes": ["peu intéressé par les cryptoactifs"],
+      "exclusions": [{"type": "asset_class", "value": "crypto"}],
+      "capacite_perte": null,
+      "capital_fictif": {"valeur": 400000, "hypothese": true},
+      "language": "fr",
+      "test": "Remettre en question une demande incohérente avec le profil.",
+      "demande_demo": {"texte": "Je pense mettre 20 % dans Nvidia, tout le monde en parle.",
+                       "portefeuille_actuel_fictif": {"XIU.TO": 0.30, "XBB.TO": 0.30, "ZST.TO": 0.10, "RY.TO": 0.10, "FTS.TO": 0.10, "JNJ": 0.10},
+                       "hypothese": true}
+    }
+  ]
+}

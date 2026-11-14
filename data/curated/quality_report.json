@@ -1,0 +1,69 @@
+{
+  "generated_from": "alphaforge_starter (2021-11-12 → 2026-11-12)",
+  "calendar_days": 1282,
+  "duplicates_date_ticker": 0,
+  "zero_volume_rows_non_crypto": [
+    {
+      "date": "2022-07-06",
+      "ticker": "ZST.TO"
+    }
+  ],
+  "filled_price_days_by_ticker": {
+    "AAPL": 27,
+    "AGG": 27,
+    "AMZN": 27,
+    "ATD.TO": 27,
+    "BTC-USD": 0,
+    "CNQ.TO": 27,
+    "CNR.TO": 27,
+    "CSU.TO": 27,
+    "ENB.TO": 27,
+    "ESGV": 27,
+    "ETH-USD": 0,
+    "FTS.TO": 27,
+    "GLD": 27,
+    "GOOGL": 27,
+    "JNJ": 27,
+    "JPM": 27,
+    "MFC.TO": 27,
+    "MSFT": 27,
+    "NVDA": 27,
+    "PG": 27,
+    "QQQ": 27,
+    "RY.TO": 27,
+    "SHOP.TO": 27,
+    "SPY": 27,
+    "TD.TO": 27,
+    "TLT": 27,
+    "TSLA": 27,
+    "XBB.TO": 27,
+    "XIU.TO": 27,
+    "XOM": 27,
+    "ZST.TO": 27
+  },
+  "fx_filled_days": 37,
+  "macro_series": [
+    "BD.CDN.10YR.DQ.YLD",
+    "BD.CDN.2YR.DQ.YLD",
+    "CPIAUCSL",
+    "DFF",
+    "DGS10",
+    "DGS2",
+    "STATIC_TOTALCPICHANGE",
+    "UNRATE",
+    "V39079"
+  ],
+  "decisions": {
+    "calendar": "Union des jours de cotation TSX et US (jours de semaine). Crypto échantillonnée sur ce calendrier : le rendement de fin de semaine est inclus le lundi.",
+    "price_fill": "Dernier prix connu reporté quand un marché est fermé (férié propre à un pays). Rendement = 0 ce jour-là. Indicateur dans filled_flags.csv.",
+    "fx": "USD/CAD Banque du Canada, reporté les jours fériés canadiens.",
+    "returns": "Rendements simples sur adj_close (rendement total, dividendes réinvestis), en CAD.",
+    "cnq_2022_08_22": {
+      "close_return": 0.006049611826776324,
+      "adj_close_return": 0.027793915590933027,
+      "decision": "adj_close conservé : l'écart (~2 %) est cohérent avec une distribution spéciale traitée comme un dividende réinvesti (rendement total). Le facteur 1,021 de corporate_actions.csv n'est PAS réappliqué. À confirmer auprès des relations investisseurs de CNQ."
+    },
+    "macro_pit": "available_from = date de disponibilité estimée. Mensuel : délai hypothétique {'CPIAUCSL': 15, 'UNRATE': 7, 'STATIC_TOTALCPICHANGE': 21}. Quotidien : jour ouvrable suivant. À remplacer par les vraies dates de publication (ALFRED, calendrier StatCan).",
+    "survivorship": "Univers choisi en 2026 : les rendements historiques sont biaisés à la hausse."
+  }
+}

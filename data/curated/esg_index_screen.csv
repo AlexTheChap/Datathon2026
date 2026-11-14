@@ -1,0 +1,624 @@
+ticker,name,parent_fund,esg_fund,esg_index,in_esg_fund,statut,weight_parent,weight_esg,parent_date,esg_date,raison,formulation,in_universe
+2602335D,CONTRA HOLOGIC INCORPO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.0,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+A,AGILENT TECHNOLOGIES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000744,0.000725,2026-11-12,2026-08-31,,,False
+AAPL,APPLE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.079044,0.076566,2026-11-12,2026-08-31,,,True
+ABBV,ABBVIE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.007944,0.007588,2026-11-12,2026-08-31,,,False
+ABNB,AIRBNB INC CLASS A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001159,0.001266,2026-11-12,2026-08-31,,,False
+ABT,ABBOTT LABORATORIES,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002834,0.003196,2026-11-12,2026-08-31,,,False
+ACGL,ARCH CAPITAL GROUP LTD,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000565,0.00057,2026-11-12,2026-08-31,,,False
+ACN,ACCENTURE PLC CL A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002334,0.001947,2026-11-12,2026-08-31,,,False
+ADBE,ADOBE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001446,0.001977,2026-11-12,2026-08-31,,,False
+ADI,ANALOG DEVICES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.003041,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+ADM,ARCHER DANIELS MIDLAND CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000524,0.000652,2026-11-12,2026-08-31,,,False
+ADP,AUTOMATIC DATA PROCESSING,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001868,0.001917,2026-11-12,2026-08-31,,,False
+ADSK,AUTODESK INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000834,0.000912,2026-11-12,2026-08-31,,,False
+AEE,AMEREN CORPORATION,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000481,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+AEP,AMERICAN ELECTRIC POWER,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001074,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+AES,AES CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000163,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+AFL,AFLAC INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000862,0.000881,2026-11-12,2026-08-31,,,False
+AIG,AMERICAN INTERNATIONAL GROUP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000659,0.000674,2026-11-12,2026-08-31,,,False
+AIZ,ASSURANT INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000244,0.000233,2026-11-12,2026-08-31,,,False
+AJG,ARTHUR J GALLAGHER + CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001085,0.001117,2026-11-12,2026-08-31,,,False
+AKAM,AKAMAI TECHNOLOGIES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000193,0.000262,2026-11-12,2026-08-31,,,False
+ALB,ALBEMARLE CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000171,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+ALGN,ALIGN TECHNOLOGY INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000168,0.000179,2026-11-12,2026-08-31,,,False
+ALL,ALLSTATE CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001028,0.001105,2026-11-12,2026-08-31,,,False
+ALLE,ALLEGION PLC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000247,0.000221,2026-11-12,2026-08-31,,,False
+AMAT,APPLIED MATERIALS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.004615,0.006074,2026-11-12,2026-08-31,,,False
+AMCR,AMCOR PLC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000308,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+AMD,ADVANCED MICRO DEVICES,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.014582,0.012797,2026-11-12,2026-08-31,,,False
+AME,AMETEK INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000846,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+AMGN,AMGEN INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.003856,0.003878,2026-11-12,2026-08-31,,,False
+AMP,AMERIPRISE FINANCIAL INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000691,0.000839,2026-11-12,2026-08-31,,,False
+AMT,AMERICAN TOWER CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001348,0.001368,2026-11-12,2026-08-31,,,False
+AMZN,AMAZON.COM INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.040062,0.042121,2026-11-12,2026-08-31,,,True
+ANET,ARISTA NETWORKS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.003303,0.003416,2026-11-12,2026-08-31,,,False
+AON,AON PLC CLASS A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001078,0.001118,2026-11-12,2026-08-31,,,False
+AOS,SMITH (A.O.) CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00011,0.00011,2026-11-12,2026-08-31,,,False
+APA,APA CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000253,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+APD,AIR PRODUCTS + CHEMICALS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001073,0.001132,2026-11-12,2026-08-31,,,False
+APH,AMPHENOL CORP CL A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.002995,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+APO,APOLLO GLOBAL MANAGEMENT INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000875,0.000958,2026-11-12,2026-08-31,,,False
+APP,APPLOVIN CORP CLASS A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001629,0.001251,2026-11-12,2026-08-31,,,False
+APTV,APTIV PLC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000121,0.000158,2026-11-12,2026-08-31,,,False
+ARE,ALEXANDRIA REAL ESTATE EQUIT,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000106,0.000147,2026-11-12,2026-08-31,,,False
+ARES,ARES MANAGEMENT CORP   A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000456,0.000471,2026-11-12,2026-08-31,,,False
+ATO,ATMOS ENERGY CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000454,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+AVGO,BROADCOM INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.026458,0.028796,2026-11-12,2026-08-31,,,False
+AVY,AVERY DENNISON CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000219,0.000223,2026-11-12,2026-08-31,,,False
+AWK,AMERICAN WATER WORKS CO INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000448,0.00045,2026-11-12,2026-08-31,,,False
+AXON,AXON ENTERPRISE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000381,0.000732,2026-11-12,2026-08-31,,,False
+AXP,AMERICAN EXPRESS CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002558,0.002929,2026-11-12,2026-08-31,,,False
+AZO,AUTOZONE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00081,0.000823,2026-11-12,2026-08-31,,,False
+BA,BOEING CO/THE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.00207,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+BAC,BANK OF AMERICA CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.005014,0.006847,2026-11-12,2026-08-31,,,False
+BALL,BALL CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000265,0.00028,2026-11-12,2026-08-31,,,False
+BAX,BAXTER INTERNATIONAL INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000204,0.000223,2026-11-12,2026-08-31,,,False
+BBY,BEST BUY CO INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000311,0.000264,2026-11-12,2026-08-31,,,False
+BDX,BECTON DICKINSON AND CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000895,0.000894,2026-11-12,2026-08-31,,,False
+BE,BLOOM ENERGY CORP  A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000908,0.000927,2026-11-12,2026-08-31,,,False
+BEN,FRANKLIN TEMPLETON INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000159,0.000153,2026-11-12,2026-08-31,,,False
+BF-B,BROWN FORMAN CORP CLASS B,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,8.1e-05,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+BG,BUNGE GLOBAL SA,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.00024,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+BIIB,BIOGEN INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000567,0.000534,2026-11-12,2026-08-31,,,False
+BKNG,BOOKING HOLDINGS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001847,0.002575,2026-11-12,2026-08-31,,,False
+BKR,BAKER HUGHES CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000742,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+BLK,BLACKROCK INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.002675,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+BMY,BRISTOL MYERS SQUIBB CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001945,0.00228,2026-11-12,2026-08-31,,,False
+BNY,BANK OF NEW YORK MELLON CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001581,0.001849,2026-11-12,2026-08-31,,,False
+BR,BROADRIDGE FINANCIAL SOLUTIO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000333,0.000352,2026-11-12,2026-08-31,,,False
+BRK-B,BERKSHIRE HATHAWAY INC CL B,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.016766,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+BRO,BROWN + BROWN INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00031,0.000356,2026-11-12,2026-08-31,,,False
+BSX,BOSTON SCIENTIFIC CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000976,0.001197,2026-11-12,2026-08-31,,,False
+BX,BLACKSTONE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001359,0.001783,2026-11-12,2026-08-31,,,False
+BXP,BXP INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000153,0.00018,2026-11-12,2026-08-31,,,False
+C,CITIGROUP INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.003175,0.003747,2026-11-12,2026-08-31,,,False
+CAH,CARDINAL HEALTH INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000985,0.000918,2026-11-12,2026-08-31,,,False
+CARR,CARRIER GLOBAL CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000684,0.00076,2026-11-12,2026-08-31,,,False
+CASY,CASEY S GENERAL STORES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.0004,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+CAT,CATERPILLAR INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.004245,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+CB,CHUBB LTD,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00199,0.001991,2026-11-12,2026-08-31,,,False
+CBOE,CBOE GLOBAL MARKETS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000586,0.000525,2026-11-12,2026-08-31,,,False
+CBRE,CBRE GROUP INC   A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000575,0.000711,2026-11-12,2026-08-31,,,False
+CCI,CROWN CASTLE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000583,0.000555,2026-11-12,2026-08-31,,,False
+CCL,CARNIVAL CORP LTD,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000571,0.000509,2026-11-12,2026-08-31,,,False
+CDNS,CADENCE DESIGN SYS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001401,0.001561,2026-11-12,2026-08-31,,,False
+CDW,CDW CORP/DE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000328,0.000324,2026-11-12,2026-08-31,,,False
+CEG,CONSTELLATION ENERGY,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001421,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+CF,CF INDUSTRIES HOLDINGS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000289,0.000333,2026-11-12,2026-08-31,,,False
+CFG,CITIZENS FINANCIAL GROUP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000415,0.000486,2026-11-12,2026-08-31,,,False
+CHD,CHURCH + DWIGHT CO INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000403,0.000395,2026-11-12,2026-08-31,,,False
+CHRW,C.H. ROBINSON WORLDWIDE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000243,0.000295,2026-11-12,2026-08-31,,,False
+CHTR,CHARTER COMMUNICATIONS INC A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000226,0.000279,2026-11-12,2026-08-31,,,False
+CI,THE CIGNA GROUP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001195,0.001205,2026-11-12,2026-08-31,,,False
+CIEN,CIENA CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000635,0.0009,2026-11-12,2026-08-31,,,False
+CINF,CINCINNATI FINANCIAL CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000446,0.000432,2026-11-12,2026-08-31,,,False
+CL,COLGATE PALMOLIVE CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001192,0.001194,2026-11-12,2026-08-31,,,False
+CLX,CLOROX COMPANY,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000201,0.000197,2026-11-12,2026-08-31,,,False
+CMCSA,COMCAST CORP CLASS A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001338,0.001577,2026-11-12,2026-08-31,,,False
+CME,CME GROUP INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00173,0.001724,2026-11-12,2026-08-31,,,False
+CMG,CHIPOTLE MEXICAN GRILL INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000677,0.000811,2026-11-12,2026-08-31,,,False
+CMI,CUMMINS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000956,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+CMS,CMS ENERGY CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000331,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+CNC,CENTENE CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00053,0.00053,2026-11-12,2026-08-31,,,False
+CNP,CENTERPOINT ENERGY INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.00041,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+COF,CAPITAL ONE FINANCIAL CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001811,0.002235,2026-11-12,2026-08-31,,,False
+COHR,COHERENT CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000695,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+COIN,COINBASE GLOBAL INC  CLASS A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000445,0.00069,2026-11-12,2026-08-31,,,False
+COO,COOPER COS INC/THE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000186,0.000228,2026-11-12,2026-08-31,,,False
+COP,CONOCOPHILLIPS,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.002569,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+COR,CENCORA INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001016,0.00101,2026-11-12,2026-08-31,,,False
+COST,COSTCO WHOLESALE CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.007395,0.007001,2026-11-12,2026-08-31,,,False
+CPAY,CORPAY INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000456,0.000431,2026-11-12,2026-08-31,,,False
+CPRT,COPART INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000409,0.000486,2026-11-12,2026-08-31,,,False
+CPT,CAMDEN PROPERTY TRUST,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000151,0.000174,2026-11-12,2026-08-31,,,False
+CRH,CRH PLC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000948,0.001053,2026-11-12,2026-08-31,,,False
+CRL,CHARLES RIVER LABORATORIES,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000246,0.000237,2026-11-12,2026-08-31,,,False
+CRM,SALESFORCE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002721,0.003417,2026-11-12,2026-08-31,,,False
+CRWD,CROWDSTRIKE HOLDINGS INC   A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.003571,0.003876,2026-11-12,2026-08-31,,,False
+CSCO,CISCO SYSTEMS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.006138,0.007296,2026-11-12,2026-08-31,,,False
+CSGP,COSTAR GROUP INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000188,0.000216,2026-11-12,2026-08-31,,,False
+CSX,CSX CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.00148,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+CTAS,CINTAS CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001193,0.00115,2026-11-12,2026-08-31,,,False
+CTSH,COGNIZANT TECH SOLUTIONS A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000436,0.000512,2026-11-12,2026-08-31,,,False
+CVNA,CARVANA CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000777,0.000851,2026-11-12,2026-08-31,,,False
+CVS,CVS HEALTH CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001753,0.002015,2026-11-12,2026-08-31,,,False
+CVX,CHEVRON CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.006526,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+D,DOMINION ENERGY INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000904,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+DAL,DELTA AIR LINES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000784,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+DASH,DOORDASH INC   A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000991,0.001452,2026-11-12,2026-08-31,,,False
+DD,DUPONT DE NEMOURS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000321,0.000307,2026-11-12,2026-08-31,,,False
+DDOG,DATADOG INC   CLASS A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000943,0.001302,2026-11-12,2026-08-31,,,False
+DE,DEERE + CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002599,0.002702,2026-11-12,2026-08-31,,,False
+DECK,DECKERS OUTDOOR CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000174,0.000205,2026-11-12,2026-08-31,,,False
+DELL,DELL TECHNOLOGIES  C,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001713,0.002293,2026-11-12,2026-08-31,,,False
+DG,DOLLAR GENERAL CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000454,0.000466,2026-11-12,2026-08-31,,,False
+DGX,QUEST DIAGNOSTICS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00044,0.000444,2026-11-12,2026-08-31,,,False
+DHI,DR HORTON INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000559,0.000607,2026-11-12,2026-08-31,,,False
+DHR,DANAHER CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002218,0.002255,2026-11-12,2026-08-31,,,False
+DIS,WALT DISNEY CO/THE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.003114,0.003189,2026-11-12,2026-08-31,,,False
+DLR,DIGITAL REALTY TRUST INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000985,0.001123,2026-11-12,2026-08-31,,,False
+DLTR,DOLLAR TREE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000414,0.000392,2026-11-12,2026-08-31,,,False
+DOC,HEALTHPEAK PROPERTIES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000212,0.000241,2026-11-12,2026-08-31,,,False
+DOV,DOVER CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000432,0.000433,2026-11-12,2026-08-31,,,False
+DOW,DOW INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000365,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+DPZ,DOMINO S PIZZA INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000168,0.00017,2026-11-12,2026-08-31,,,False
+DRI,DARDEN RESTAURANTS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000395,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+DTE,DTE ENERGY COMPANY,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000443,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+DUK,DUKE ENERGY CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001518,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+DVA,DAVITA INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,9e-05,9.5e-05,2026-11-12,2026-08-31,,,False
+DVN,DEVON ENERGY CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000775,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+DXCM,DEXCOM INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000467,0.000584,2026-11-12,2026-08-31,,,False
+EBAY,EBAY INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000735,0.000769,2026-11-12,2026-08-31,,,False
+ECHO,ECHOSTAR CORP A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000207,0.000198,2026-11-12,2026-08-31,,,False
+ECL,ECOLAB INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.00117,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+ED,CONSOLIDATED EDISON INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000674,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+EFX,EQUIFAX INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000335,0.000375,2026-11-12,2026-08-31,,,False
+EG,EVEREST GROUP LTD,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00023,0.000248,2026-11-12,2026-08-31,,,False
+EIX,EDISON INTERNATIONAL,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000353,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+EL,ESTEE LAUDER COMPANIES CL A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000417,0.000422,2026-11-12,2026-08-31,,,False
+ELV,ELEVANCE HEALTH INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001421,0.001382,2026-11-12,2026-08-31,,,False
+EME,EMCOR GROUP INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000446,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+EMR,EMERSON ELECTRIC CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001414,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+EOG,EOG RESOURCES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001246,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+EQIX,EQUINIX INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001618,0.001723,2026-11-12,2026-08-31,,,False
+EQT,EQT CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000501,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+ERIE,ERIE INDEMNITY COMPANY CL A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000105,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+ES,EVERSOURCE ENERGY,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000409,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+ESS,ESSEX PROPERTY TRUST INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000267,0.000303,2026-11-12,2026-08-31,,,False
+ETN,EATON CORP PLC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.002127,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+ETR,ENTERGY CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000793,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+EVRG,EVERGY INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000312,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+EW,EDWARDS LIFESCIENCES CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000933,0.000864,2026-11-12,2026-08-31,,,False
+EXC,EXELON CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000719,0.000749,2026-11-12,2026-08-31,,,False
+EXE,EXPAND ENERGY CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000308,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+EXPD,EXPEDITORS INTL WASH INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000386,0.00042,2026-11-12,2026-08-31,,,False
+EXPE,EXPEDIA GROUP INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000458,0.000604,2026-11-12,2026-08-31,,,False
+EXR,EXTRA SPACE STORAGE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000512,0.000494,2026-11-12,2026-08-31,,,False
+F,FORD MOTOR CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000713,0.000911,2026-11-12,2026-08-31,,,False
+FANG,DIAMONDBACK ENERGY INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000569,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+FAST,FASTENAL CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000971,0.000947,2026-11-12,2026-08-31,,,False
+FCX,FREEPORT MCMORAN INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001324,0.001811,2026-11-12,2026-08-31,,,False
+FDS,FACTSET RESEARCH SYSTEMS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00018,0.00019,2026-11-12,2026-08-31,,,False
+FDX,FEDEX CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001073,0.001198,2026-11-12,2026-08-31,,,False
+FDXF,FEDEX FREIGHT HOLDING CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000239,0.000245,2026-11-12,2026-08-31,,,False
+FE,FIRSTENERGY CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000371,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+FERG,FERGUSON ENTERPRISES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000753,0.000718,2026-11-12,2026-08-31,,,False
+FFIV,F5 INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000274,0.000385,2026-11-12,2026-08-31,,,False
+FICO,FAIR ISAAC CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000236,0.000433,2026-11-12,2026-08-31,,,False
+FIS,FIDELITY NATIONAL INFO SERV,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000224,0.000352,2026-11-12,2026-08-31,,,False
+FISV,FISERV INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000497,0.000472,2026-11-12,2026-08-31,,,False
+FITB,FIFTH THIRD BANCORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000746,0.000813,2026-11-12,2026-08-31,,,False
+FIX,COMFORT SYSTEMS USA INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000607,0.0009,2026-11-12,2026-08-31,,,False
+FLEX,FLEX LTD,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00044,0.000669,2026-11-12,2026-08-31,,,False
+FOXA,FOX CORP   CLASS A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00045,0.000362,2026-11-12,2026-08-31,,,False
+FRT,FEDERAL REALTY INVS TRUST,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000136,0.000166,2026-11-12,2026-08-31,,,False
+FSLR,FIRST SOLAR INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000283,0.000343,2026-11-12,2026-08-31,,,False
+FTNT,FORTINET INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001219,0.001731,2026-11-12,2026-08-31,,,False
+FTV,FORTIVE CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000311,0.000299,2026-11-12,2026-08-31,,,False
+GD,GENERAL DYNAMICS CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001405,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+GDDY,GODADDY INC   CLASS A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000217,0.000215,2026-11-12,2026-08-31,,,False
+GE,GENERAL ELECTRIC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.00524,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+GEHC,GE HEALTHCARE TECHNOLOGY,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000564,0.000541,2026-11-12,2026-08-31,,,False
+GEN,GEN DIGITAL INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000244,0.000279,2026-11-12,2026-08-31,,,False
+GEV,GE VERNOVA INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.003326,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+GILD,GILEAD SCIENCES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.003178,0.003038,2026-11-12,2026-08-31,,,False
+GIS,GENERAL MILLS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000274,0.000367,2026-11-12,2026-08-31,,,False
+GL,GLOBE LIFE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00019,0.000225,2026-11-12,2026-08-31,,,False
+GLW,CORNING INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001443,0.001966,2026-11-12,2026-08-31,,,False
+GM,GENERAL MOTORS CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001154,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+GNRC,GENERAC HOLDINGS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000172,0.000179,2026-11-12,2026-08-31,,,False
+GOOGL,ALPHABET INC CL A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.048179,0.059702,2026-11-12,2026-08-31,,,True
+GPC,GENUINE PARTS CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000259,0.000311,2026-11-12,2026-08-31,,,False
+GPN,GLOBAL PAYMENTS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000299,0.00035,2026-11-12,2026-08-31,,,False
+GRMN,GARMIN LTD,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000725,0.00078,2026-11-12,2026-08-31,,,False
+GS,GOLDMAN SACHS GROUP INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.004061,0.00463,2026-11-12,2026-08-31,,,False
+GWW,WW GRAINGER INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000994,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+HAL,HALLIBURTON CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000419,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+HAS,HASBRO INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000262,0.000221,2026-11-12,2026-08-31,,,False
+HBAN,HUNTINGTON BANCSHARES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000483,0.000562,2026-11-12,2026-08-31,,,False
+HCA,HCA HEALTHCARE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001125,0.001034,2026-11-12,2026-08-31,,,False
+HD,HOME DEPOT INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.005298,0.005466,2026-11-12,2026-08-31,,,False
+HIG,HARTFORD INSURANCE GROUP INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000564,0.000628,2026-11-12,2026-08-31,,,False
+HII,HUNTINGTON INGALLS INDUSTRIE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000185,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+HLT,HILTON WORLDWIDE HOLDINGS IN,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001278,0.00118,2026-11-12,2026-08-31,,,False
+HON,HONEYWELL INTERNATIONAL INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001076,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+HONA,HONEYWELL AEROSPACE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000804,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+HOOD,ROBINHOOD MARKETS INC   A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000983,0.001346,2026-11-12,2026-08-31,,,False
+HPE,HEWLETT PACKARD ENTERPRISE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001016,0.001156,2026-11-12,2026-08-31,,,False
+HPQ,HP INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000405,0.000458,2026-11-12,2026-08-31,,,False
+HRL,HORMEL FOODS CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,9.7e-05,0.000106,2026-11-12,2026-08-31,,,False
+HSIC,HENRY SCHEIN INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000128,0.000148,2026-11-12,2026-08-31,,,False
+HST,HOST HOTELS + RESORTS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000267,0.000249,2026-11-12,2026-08-31,,,False
+HSY,HERSHEY CO/THE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000385,0.000431,2026-11-12,2026-08-31,,,False
+HUBB,HUBBELL INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000355,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+HUM,HUMANA INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000816,0.000769,2026-11-12,2026-08-31,,,False
+HWM,HOWMET AEROSPACE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001357,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+IBKR,INTERACTIVE BROKERS GRO CL A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000563,0.000706,2026-11-12,2026-08-31,,,False
+IBM,INTL BUSINESS MACHINES CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.00352,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+ICE,INTERCONTINENTAL EXCHANGE IN,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001524,0.001509,2026-11-12,2026-08-31,,,False
+IDXX,IDEXX LABORATORIES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000838,0.000735,2026-11-12,2026-08-31,,,False
+IEX,IDEX CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.00027,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+IFF,INTL FLAVORS + FRAGRANCES,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000315,0.000369,2026-11-12,2026-08-31,,,False
+ILMN,ILLUMINA INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000483,0.000542,2026-11-12,2026-08-31,,,False
+INCY,INCYTE CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000316,0.000341,2026-11-12,2026-08-31,,,False
+INTC,INTEL CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00464,0.006835,2026-11-12,2026-08-31,,,False
+INTU,INTUIT INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001419,0.001624,2026-11-12,2026-08-31,,,False
+INVH,INVITATION HOMES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000219,0.000288,2026-11-12,2026-08-31,,,False
+IP,INTERNATIONAL PAPER CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000275,0.000333,2026-11-12,2026-08-31,,,False
+IQV,IQVIA HOLDINGS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000679,0.000726,2026-11-12,2026-08-31,,,False
+IR,INGERSOLL RAND INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000448,0.000504,2026-11-12,2026-08-31,,,False
+IRM,IRON MOUNTAIN INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000522,0.00057,2026-11-12,2026-08-31,,,False
+ISRG,INTUITIVE SURGICAL INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002373,0.00222,2026-11-12,2026-08-31,,,False
+IT,GARTNER INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000182,0.000216,2026-11-12,2026-08-31,,,False
+ITW,ILLINOIS TOOL WORKS,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001135,0.001324,2026-11-12,2026-08-31,,,False
+IVZ,INVESCO LTD,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000192,0.000197,2026-11-12,2026-08-31,,,False
+J,JACOBS SOLUTIONS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000282,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+JBHT,HUNT (JB) TRANSPRT SVCS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00026,0.000334,2026-11-12,2026-08-31,,,False
+JBL,JABIL INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000416,0.000532,2026-11-12,2026-08-31,,,False
+JCI,JOHNSON CONTROLS INTERNATION,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001316,0.001414,2026-11-12,2026-08-31,,,False
+JKHY,JACK HENRY + ASSOCIATES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000191,0.000202,2026-11-12,2026-08-31,,,False
+JNJ,JOHNSON + JOHNSON,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.010426,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),True
+JPM,JPMORGAN CHASE + CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.013908,0.015908,2026-11-12,2026-08-31,,,True
+KDP,KEURIG DR PEPPER INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000738,0.00069,2026-11-12,2026-08-31,,,False
+KEY,KEYCORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000295,0.000335,2026-11-12,2026-08-31,,,False
+KEYS,KEYSIGHT TECHNOLOGIES IN,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000792,0.000921,2026-11-12,2026-08-31,,,False
+KHC,KRAFT HEINZ CO/THE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000324,0.000367,2026-11-12,2026-08-31,,,False
+KIM,KIMCO REALTY CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000263,0.000262,2026-11-12,2026-08-31,,,False
+KKR,KKR + CO INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001023,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+KLAC,KLA CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.003138,0.003835,2026-11-12,2026-08-31,,,False
+KMB,KIMBERLY CLARK CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001003,0.000596,2026-11-12,2026-08-31,,,False
+KMI,KINDER MORGAN INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.00096,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+KO,COCA COLA CO/THE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00576,0.00576,2026-11-12,2026-08-31,,,False
+KR,KROGER CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000606,0.000536,2026-11-12,2026-08-31,,,False
+L,LOEWS CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000281,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+LDOS,LEIDOS HOLDINGS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000253,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+LEN,LENNAR CORP A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000245,0.000287,2026-11-12,2026-08-31,,,False
+LH,LABCORP HOLDINGS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000459,0.000456,2026-11-12,2026-08-31,,,False
+LHX,L3HARRIS TECHNOLOGIES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000771,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+LII,LENNOX INTERNATIONAL INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000169,0.000201,2026-11-12,2026-08-31,,,False
+LIN,LINDE PLC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.003676,0.003773,2026-11-12,2026-08-31,,,False
+LITE,LUMENTUM HOLDINGS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000845,0.001086,2026-11-12,2026-08-31,,,False
+LLY,ELI LILLY + CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.017409,0.015432,2026-11-12,2026-08-31,,,False
+LMT,LOCKHEED MARTIN CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001874,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+LNT,ALLIANT ENERGY CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000287,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+LOW,LOWE S COS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001947,0.001918,2026-11-12,2026-08-31,,,False
+LRCX,LAM RESEARCH CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.004463,0.006298,2026-11-12,2026-08-31,,,False
+LULU,LULULEMON ATHLETICA INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000167,0.0002,2026-11-12,2026-08-31,,,False
+LUV,SOUTHWEST AIRLINES CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000338,7.9e-05,2026-11-12,2026-08-31,,,False
+LVS,LAS VEGAS SANDS CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000154,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+LYB,LYONDELLBASELL INDU CL A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000253,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+LYV,LIVE NATION ENTERTAINMENT IN,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000437,0.000481,2026-11-12,2026-08-31,,,False
+MA,MASTERCARD INC   A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.008052,0.007956,2026-11-12,2026-08-31,,,False
+MAA,MID AMERICA APARTMENT COMM,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000208,0.000249,2026-11-12,2026-08-31,,,False
+MAR,MARRIOTT INTERNATIONAL  CL A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001384,0.001245,2026-11-12,2026-08-31,,,False
+MAS,MASCO CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000252,0.000243,2026-11-12,2026-08-31,,,False
+MCD,MCDONALD S CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002954,0.003128,2026-11-12,2026-08-31,,,False
+MCHP,MICROCHIP TECHNOLOGY INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000514,0.000652,2026-11-12,2026-08-31,,,False
+MCK,MCKESSON CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001915,0.001815,2026-11-12,2026-08-31,,,False
+MCO,MOODY S CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001152,0.001266,2026-11-12,2026-08-31,,,False
+MDLZ,MONDELEZ INTERNATIONAL INC A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001295,0.001332,2026-11-12,2026-08-31,,,False
+MDT,MEDTRONIC PLC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001886,0.001943,2026-11-12,2026-08-31,,,False
+MET,METLIFE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000828,0.000859,2026-11-12,2026-08-31,,,False
+META,META PLATFORMS INC CLASS A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.020988,0.021028,2026-11-12,2026-08-31,,,False
+MGM,MGM RESORTS INTERNATIONAL,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,8.9e-05,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+MKC,MCCORMICK + CO NON VTG SHRS,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000181,0.000231,2026-11-12,2026-08-31,,,False
+MLM,MARTIN MARIETTA MATERIALS,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000476,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+MMM,3M CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001458,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+MNST,MONSTER BEVERAGE CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000996,0.001076,2026-11-12,2026-08-31,,,False
+MO,ALTRIA GROUP INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001988,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+MOS,MOSAIC CO/THE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000107,0.000128,2026-11-12,2026-08-31,,,False
+MPC,MARATHON PETROLEUM CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001768,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+MPWR,MONOLITHIC POWER SYSTEMS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001088,0.001001,2026-11-12,2026-08-31,,,False
+MRK,MERCK + CO. INC.,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.005535,0.00611,2026-11-12,2026-08-31,,,False
+MRNA,MODERNA INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001312,0.000853,2026-11-12,2026-08-31,,,False
+MRSH,MARSH + MCLENNAN COS,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001499,0.00153,2026-11-12,2026-08-31,,,False
+MRVL,MARVELL TECHNOLOGY INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002201,0.003086,2026-11-12,2026-08-31,,,False
+MS,MORGAN STANLEY,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.003445,0.003995,2026-11-12,2026-08-31,,,False
+MSCI,MSCI INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000719,0.000671,2026-11-12,2026-08-31,,,False
+MSFT,MICROSOFT CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.05927,0.06299,2026-11-12,2026-08-31,,,True
+MSI,MOTOROLA SOLUTIONS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001338,0.001345,2026-11-12,2026-08-31,,,False
+MTB,M + T BANK CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000483,0.000573,2026-11-12,2026-08-31,,,False
+MTD,METTLER TOLEDO INTERNATIONAL,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000527,0.000475,2026-11-12,2026-08-31,,,False
+MU,MICRON TECHNOLOGY INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.013763,0.018063,2026-11-12,2026-08-31,,,False
+NCLH,NORWEGIAN CRUISE LINE HOLDIN,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000128,0.000123,2026-11-12,2026-08-31,,,False
+NDAQ,NASDAQ INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000733,0.000737,2026-11-12,2026-08-31,,,False
+NDSN,NORDSON CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000265,0.000284,2026-11-12,2026-08-31,,,False
+NEE,NEXTERA ENERGY INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.002714,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+NEM,NEWMONT CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00181,0.002248,2026-11-12,2026-08-31,,,False
+NFLX,NETFLIX INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.003983,0.005683,2026-11-12,2026-08-31,,,False
+NI,NISOURCE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000335,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+NKE,NIKE INC  CL B,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000694,0.00077,2026-11-12,2026-08-31,,,False
+NOC,NORTHROP GRUMMAN CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001117,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+NOW,SERVICENOW INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001589,0.002538,2026-11-12,2026-08-31,,,False
+NRG,NRG ENERGY INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000317,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+NSC,NORFOLK SOUTHERN CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001143,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+NTAP,NETAPP INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000557,0.000609,2026-11-12,2026-08-31,,,False
+NTRS,NORTHERN TRUST CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000496,0.000569,2026-11-12,2026-08-31,,,False
+NUE,NUCOR CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000901,0.000919,2026-11-12,2026-08-31,,,False
+NVDA,NVIDIA CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.06138,0.086075,2026-11-12,2026-08-31,,,True
+NVR,NVR INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000227,0.000279,2026-11-12,2026-08-31,,,False
+NWSA,NEWS CORP   CLASS A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000201,0.00026,2026-11-12,2026-08-31,,,False
+NXPI,NXP SEMICONDUCTORS NV,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001029,0.000949,2026-11-12,2026-08-31,,,False
+O,REALTY INCOME CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000856,0.000956,2026-11-12,2026-08-31,,,False
+ODFL,OLD DOMINION FREIGHT LINE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000489,0.000624,2026-11-12,2026-08-31,,,False
+OKE,ONEOK INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000857,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+OKTA,OKTA INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000462,0.000487,2026-11-12,2026-08-31,,,False
+OMC,OMNICOM GROUP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000364,0.000414,2026-11-12,2026-08-31,,,False
+ON,ON SEMICONDUCTOR,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000438,0.000486,2026-11-12,2026-08-31,,,False
+ORCL,ORACLE CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.003808,0.004272,2026-11-12,2026-08-31,,,False
+ORLY,O REILLY AUTOMOTIVE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001131,0.001231,2026-11-12,2026-08-31,,,False
+OTIS,OTIS WORLDWIDE CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000446,0.000457,2026-11-12,2026-08-31,,,False
+OXY,OCCIDENTAL PETROLEUM CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000649,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+P,EVERPURE INC A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000559,0.000484,2026-11-12,2026-08-31,,,False
+PANW,PALO ALTO NETWORKS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.004014,0.005151,2026-11-12,2026-08-31,,,False
+PAYX,PAYCHEX INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000561,0.000685,2026-11-12,2026-08-31,,,False
+PCAR,PACCAR INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000857,0.001072,2026-11-12,2026-08-31,,,False
+PCG,P G + E CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000437,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+PEG,PUBLIC SERVICE ENTERPRISE GP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000571,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+PEP,PEPSICO INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002962,0.003201,2026-11-12,2026-08-31,,,False
+PFE,PFIZER INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002506,0.002708,2026-11-12,2026-08-31,,,False
+PFG,PRINCIPAL FINANCIAL GROUP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000336,0.000394,2026-11-12,2026-08-31,,,False
+PG,PROCTER + GAMBLE CO/THE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.005962,0.005656,2026-11-12,2026-08-31,,,True
+PGR,PROGRESSIVE CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00209,0.002129,2026-11-12,2026-08-31,,,False
+PH,PARKER HANNIFIN CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001842,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+PHM,PULTEGROUP INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000363,0.000399,2026-11-12,2026-08-31,,,False
+PKG,PACKAGING CORP OF AMERICA,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00034,0.000339,2026-11-12,2026-08-31,,,False
+PLD,PROLOGIS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001865,0.002215,2026-11-12,2026-08-31,,,False
+PLTR,PALANTIR TECHNOLOGIES INC A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.006027,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+PM,PHILIP MORRIS INTERNATIONAL,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.004679,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+PNC,PNC FINANCIAL SERVICES GROUP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001407,0.001609,2026-11-12,2026-08-31,,,False
+PNR,PENTAIR PLC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000169,0.000162,2026-11-12,2026-08-31,,,False
+PNW,PINNACLE WEST CAPITAL,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000199,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+PODD,INSULET CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000158,0.000172,2026-11-12,2026-08-31,,,False
+PPG,PPG INDUSTRIES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000417,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+PPL,PPL CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000406,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+PRU,PRUDENTIAL FINANCIAL INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000643,0.000684,2026-11-12,2026-08-31,,,False
+PSA,PUBLIC STORAGE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000856,0.000862,2026-11-12,2026-08-31,,,False
+PSX,PHILLIPS 66,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.0016,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+PTC,PTC INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000322,0.000309,2026-11-12,2026-08-31,,,False
+PWR,QUANTA SERVICES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001389,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+PYPL,PAYPAL HOLDINGS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000759,0.000482,2026-11-12,2026-08-31,,,False
+Q,QNITY ELECTRONICS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000393,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+QCOM,QUALCOMM INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002889,0.003006,2026-11-12,2026-08-31,,,False
+RCL,ROYAL CARIBBEAN CRUISES LTD,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00122,0.001129,2026-11-12,2026-08-31,,,False
+RDDT,REDDIT INC CL A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000222,0.00033,2026-11-12,2026-08-31,,,False
+REG,REGENCY CENTERS CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000191,0.000228,2026-11-12,2026-08-31,,,False
+REGN,REGENERON PHARMACEUTICALS,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001422,0.00135,2026-11-12,2026-08-31,,,False
+RF,REGIONS FINANCIAL CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000372,0.000426,2026-11-12,2026-08-31,,,False
+RJF,RAYMOND JAMES FINANCIAL INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000444,0.0005,2026-11-12,2026-08-31,,,False
+RL,RALPH LAUREN CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000225,0.000216,2026-11-12,2026-08-31,,,False
+RMD,RESMED INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000526,0.000583,2026-11-12,2026-08-31,,,False
+ROK,ROCKWELL AUTOMATION INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000683,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+ROL,ROLLINS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000171,0.000179,2026-11-12,2026-08-31,,,False
+ROP,ROPER TECHNOLOGIES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000722,0.000726,2026-11-12,2026-08-31,,,False
+ROST,ROSS STORES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00116,0.001207,2026-11-12,2026-08-31,,,False
+RSG,REPUBLIC SERVICES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000755,0.000735,2026-11-12,2026-08-31,,,False
+RTX,RTX CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.004082,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+RVTY,REVVITY INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000268,0.00024,2026-11-12,2026-08-31,,,False
+SBAC,SBA COMMUNICATIONS CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000303,0.000334,2026-11-12,2026-08-31,,,False
+SBUX,STARBUCKS CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001857,0.002026,2026-11-12,2026-08-31,,,False
+SCHW,SCHWAB (CHARLES) CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002266,0.002999,2026-11-12,2026-08-31,,,False
+SHW,SHERWIN WILLIAMS CO/THE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001219,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+SJM,JM SMUCKER CO/THE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000213,0.000229,2026-11-12,2026-08-31,,,False
+SKYD,SKYDANCE CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,6.3e-05,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+SLB,SLB LTD,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001152,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+SMCI,SUPER MICRO COMPUTER INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000233,0.000347,2026-11-12,2026-08-31,,,False
+SNA,SNAP ON INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000292,0.000327,2026-11-12,2026-08-31,,,False
+SNDK,SANDISK CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002089,0.00381,2026-11-12,2026-08-31,,,False
+SNPS,SYNOPSYS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001353,0.001368,2026-11-12,2026-08-31,,,False
+SO,SOUTHERN CO/THE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001624,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+SOLV,SOLVENTUM CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000196,0.000225,2026-11-12,2026-08-31,,,False
+SPG,SIMON PROPERTY GROUP INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001154,0.001134,2026-11-12,2026-08-31,,,False
+SPGI,S+P GLOBAL INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00216,0.002153,2026-11-12,2026-08-31,,,False
+SRE,SEMPRA,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.00079,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+STE,STERIS PLC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000375,0.00038,2026-11-12,2026-08-31,,,False
+STLD,STEEL DYNAMICS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000488,0.000524,2026-11-12,2026-08-31,,,False
+STT,STATE STREET CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000727,0.000855,2026-11-12,2026-08-31,,,False
+STX,SEAGATE TECHNOLOGY HOLDINGS,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001886,0.003104,2026-11-12,2026-08-31,,,False
+STZ,CONSTELLATION BRANDS INC A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000332,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+SW,SMURFIT WESTROCK PLC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000343,0.00041,2026-11-12,2026-08-31,,,False
+SWK,STANLEY BLACK + DECKER INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000258,0.00025,2026-11-12,2026-08-31,,,False
+SWKS,SKYWORKS SOLUTIONS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000314,0.000168,2026-11-12,2026-08-31,,,False
+SYF,SYNCHRONY FINANCIAL,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000354,0.000432,2026-11-12,2026-08-31,,,False
+SYK,STRYKER CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001665,0.001872,2026-11-12,2026-08-31,,,False
+SYY,SYSCO CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000558,0.000648,2026-11-12,2026-08-31,,,False
+T,AT+T INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002318,0.002931,2026-11-12,2026-08-31,,,False
+TDG,TRANSDIGM GROUP INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001013,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+TDY,TELEDYNE TECHNOLOGIES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000459,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+TECH,BIO TECHNE CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000175,0.000189,2026-11-12,2026-08-31,,,False
+TEL,TE CONNECTIVITY PLC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000963,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+TER,TERADYNE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000632,0.000916,2026-11-12,2026-08-31,,,False
+TFC,TRUIST FINANCIAL CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000919,0.001033,2026-11-12,2026-08-31,,,False
+TGT,TARGET CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001117,0.00122,2026-11-12,2026-08-31,,,False
+TJX,TJX COMPANIES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002294,0.002476,2026-11-12,2026-08-31,,,False
+TKO,TKO GROUP HOLDINGS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000176,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+TMO,THERMO FISHER SCIENTIFIC INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.003946,0.003835,2026-11-12,2026-08-31,,,False
+TMUS,T MOBILE US INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00126,0.00147,2026-11-12,2026-08-31,,,False
+TPL,TEXAS PACIFIC LAND CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000252,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+TPR,TAPESTRY INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000402,0.000417,2026-11-12,2026-08-31,,,False
+TRGP,TARGA RESOURCES CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.00097,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+TRMB,TRIMBLE INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000199,0.000232,2026-11-12,2026-08-31,,,False
+TROW,T ROWE PRICE GROUP INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000355,0.000392,2026-11-12,2026-08-31,,,False
+TRV,TRAVELERS COS INC/THE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001282,0.001297,2026-11-12,2026-08-31,,,False
+TSCO,TRACTOR SUPPLY COMPANY,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000289,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+TSLA,TESLA INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.017096,0.01797,2026-11-12,2026-08-31,,,True
+TSN,TYSON FOODS INC CL A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000256,0.000254,2026-11-12,2026-08-31,,,False
+TT,TRANE TECHNOLOGIES PLC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001422,0.001641,2026-11-12,2026-08-31,,,False
+TTWO,TAKE TWO INTERACTIVE SOFTWRE,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000609,0.000673,2026-11-12,2026-08-31,,,False
+TWLO,TWILIO INC   A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000495,0.000582,2026-11-12,2026-08-31,,,False
+TXN,TEXAS INSTRUMENTS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.004357,0.003965,2026-11-12,2026-08-31,,,False
+TXT,TEXTRON INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000224,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+TYL,TYLER TECHNOLOGIES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000246,0.000261,2026-11-12,2026-08-31,,,False
+UAL,UNITED AIRLINES HOLDINGS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000553,0.000147,2026-11-12,2026-08-31,,,False
+UBER,UBER TECHNOLOGIES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002156,0.002476,2026-11-12,2026-08-31,,,False
+UDR,UDR INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000163,0.0002,2026-11-12,2026-08-31,,,False
+UHS,UNIVERSAL HEALTH SERVICES B,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000153,0.000145,2026-11-12,2026-08-31,,,False
+ULTA,ULTA BEAUTY INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000425,0.000389,2026-11-12,2026-08-31,,,False
+UNH,UNITEDHEALTH GROUP INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.005551,0.005876,2026-11-12,2026-08-31,,,False
+UNP,UNION PACIFIC CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.002756,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+UPS,UNITED PARCEL SERVICE CL B,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001262,0.001301,2026-11-12,2026-08-31,,,False
+URI,UNITED RENTALS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001083,0.001082,2026-11-12,2026-08-31,,,False
+USB,US BANCORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001438,0.001602,2026-11-12,2026-08-31,,,False
+V,VISA INC CLASS A SHARES,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.010931,0.010468,2026-11-12,2026-08-31,,,False
+VEEV,VEEVA SYSTEMS INC CLASS A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00069,0.000713,2026-11-12,2026-08-31,,,False
+VICI,VICI PROPERTIES INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000417,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+VLO,VALERO ENERGY CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001648,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+VLTO,VERALTO CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000437,0.000404,2026-11-12,2026-08-31,,,False
+VMC,VULCAN MATERIALS CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000557,0.000583,2026-11-12,2026-08-31,,,False
+VMRK,VIVMARK RESIDENTIAL,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.0007,0.000828,2026-11-12,2026-08-31,,,False
+VRSK,VERISK ANALYTICS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000408,0.000424,2026-11-12,2026-08-31,,,False
+VRSN,VERISIGN INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000388,0.000393,2026-11-12,2026-08-31,,,False
+VRT,VERTIV HOLDINGS CO A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001232,0.001659,2026-11-12,2026-08-31,,,False
+VRTX,VERTEX PHARMACEUTICALS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.0021,0.002313,2026-11-12,2026-08-31,,,False
+VST,VISTRA CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000648,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+VTR,VENTAS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000702,0.000738,2026-11-12,2026-08-31,,,False
+VTRS,VIATRIS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000362,0.000321,2026-11-12,2026-08-31,,,False
+VYLR,VYLOR INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,indetermine_ajout_recent,0.000732,0.0,2026-11-12,2026-08-31,"Ajoutée au fonds parent le 2026-10-01, après la composition ESG du 2026-08-31.",,False
+VZ,VERIZON COMMUNICATIONS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00295,0.0035,2026-11-12,2026-08-31,,,False
+WAB,WABTEC CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000773,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+WAT,WATERS CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000694,0.000681,2026-11-12,2026-08-31,,,False
+WDAY,WORKDAY INC CLASS A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000583,0.000678,2026-11-12,2026-08-31,,,False
+WDC,WESTERN DIGITAL CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001713,0.002545,2026-11-12,2026-08-31,,,False
+WEC,WEC ENERGY GROUP INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000581,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+WELL,WELLTOWER INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.002695,0.002792,2026-11-12,2026-08-31,,,False
+WFC,WELLS FARGO + CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.003958,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+WM,WASTE MANAGEMENT INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.001386,0.001362,2026-11-12,2026-08-31,,,False
+WMB,WILLIAMS COS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.001298,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+WMT,WALMART INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.008581,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+WRB,WR BERKLEY CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000267,0.000256,2026-11-12,2026-08-31,,,False
+WSM,WILLIAMS SONOMA INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000451,0.000446,2026-11-12,2026-08-31,,,False
+WST,WEST PHARMACEUTICAL SERVICES,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.00044,0.000399,2026-11-12,2026-08-31,,,False
+WTW,WILLIS TOWERS WATSON PLC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000466,0.000534,2026-11-12,2026-08-31,,,False
+WY,WEYERHAEUSER CO,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000224,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+WYNN,WYNN RESORTS LTD,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,9.1e-05,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+XEL,XCEL ENERGY INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000779,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+XOM,EXXONMOBIL HOLDINGS CORP,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.010654,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),True
+XYL,XYLEM INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),False,absent_indice_esg,0.000335,0.0,2026-11-12,2026-08-31,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice FTSE US All Cap Choice (Vanguard ESGV) (raison non publiée dans la composition),False
+XYZ,BLOCK INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000679,0.000714,2026-11-12,2026-08-31,,,False
+YUM,YUM  BRANDS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000664,0.000708,2026-11-12,2026-08-31,,,False
+ZBH,ZIMMER BIOMET HOLDINGS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000304,0.000324,2026-11-12,2026-08-31,,,False
+ZBRA,ZEBRA TECHNOLOGIES CORP CL A,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000232,0.000283,2026-11-12,2026-08-31,,,False
+ZTS,ZOETIS INC,SPY,ESGV,FTSE US All Cap Choice (Vanguard ESGV),True,present,0.000523,0.000542,2026-11-12,2026-08-31,,,False
+2299955D.TO,CONSTELLATION SOFTWARE INC,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0,0.0,2026-11-12,2026-11-12,,,False
+ABX.TO,BARRICK MINING,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0212,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+AEM.TO,AGNICO EAGLE MINES,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0308,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+ATD.TO,ALIMENTATION COUCHE TARD INC,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0146,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),True
+BAM.TO,BROOKFIELD ASSET MANAGEMENT VOTING,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0066,0.0089,2026-11-12,2026-11-12,,,False
+BCE.TO,BCE INC,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0068,0.0035,2026-11-12,2026-11-12,,,False
+BIP-UN.TO,BROOKFIELD INFRASTRUCTURE PARTNERS,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0061,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+BMO.TO,BANK OF MONTREAL,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0413,0.0626,2026-11-12,2026-11-12,,,False
+BN.TO,BROOKFIELD CLASS A,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0303,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+BNS.TO,BANK OF NOVA SCOTIA,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0385,0.0602,2026-11-12,2026-11-12,,,False
+CAE.TO,CAE,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0031,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+CCL-B.TO,CCL INDUSTRIES CLASS B,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0034,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+CCO.TO,CAMECO,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0106,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+CLS.TO,CELESTICA,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0109,0.0164,2026-11-12,2026-11-12,,,False
+CM.TO,CANADIAN IMPERIAL BANK OF COMMERCE,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0361,0.0562,2026-11-12,2026-11-12,,,False
+CNQ.TO,CANADIAN NATURAL RESOURCES LTD,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0345,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),True
+CNR.TO,CANADIAN NATIONAL RAILWAY,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0239,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),True
+CP.TO,CANADIAN PACIFIC KANSAS CITY,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0283,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+CSU.TO,CONSTELLATION SOFTWARE,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0177,0.0262,2026-11-12,2026-11-12,,,True
+CTC-A.TO,CANADIAN TIRE LTD CLASS A,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0026,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+CVE.TO,CENOVUS ENERGY,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0129,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+DOL.TO,DOLLARAMA,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0142,0.0222,2026-11-12,2026-11-12,,,False
+EMA.TO,EMERA INC,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0053,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+ENB.TO,ENBRIDGE,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0359,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),True
+FFH.TO,FAIRFAX FINANCIAL HOLDINGS SUB VOT,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0126,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+FM.TO,FIRST QUANTUM MINERALS,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0053,0.0084,2026-11-12,2026-11-12,,,False
+FNV.TO,FRANCO NEVADA,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0163,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+FSV.TO,FIRSTSERVICE SUBORDINATE VOTING,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0022,0.0034,2026-11-12,2026-11-12,,,False
+FTS.TO,FORTIS,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0103,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),True
+GIB-A.TO,CGI INC CLASS A,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0051,0.008,2026-11-12,2026-11-12,,,False
+GIL.TO,GILDAN ACTIVEWEAR,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0022,0.0032,2026-11-12,2026-11-12,,,False
+H.TO,HYDRO ONE,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0043,0.007,2026-11-12,2026-11-12,,,False
+IFC.TO,INTACT FINANCIAL CORP,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0118,0.0184,2026-11-12,2026-11-12,,,False
+IMO.TO,IMPERIAL OIL LTD,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0065,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+K.TO,KINROSS GOLD,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0084,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+L.TO,LOBLAW COMPANIES LTD,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.009,0.0142,2026-11-12,2026-11-12,,,False
+MFC.TO,MANULIFE FINANCIAL,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0249,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),True
+MG.TO,MAGNA INTERNATIONAL,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0053,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+MRU.TO,METRO,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0049,0.0069,2026-11-12,2026-11-12,,,False
+NTR.TO,NUTRIEN LTD,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0116,0.0181,2026-11-12,2026-11-12,,,False
+OTEX.TO,OPEN TEXT,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.002,0.0031,2026-11-12,2026-11-12,,,False
+POW.TO,POWER CORPORATION OF CANADA,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0116,0.0184,2026-11-12,2026-11-12,,,False
+PPL.TO,PEMBINA PIPELINE,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0099,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+QSR.TO,RESTAURANTS BRANDS INTERNATIONAL,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.009,0.0129,2026-11-12,2026-11-12,,,False
+RCI-B.TO,ROGERS COMMUNICATIONS NON-VOTING I,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0043,0.0064,2026-11-12,2026-11-12,,,False
+RY.TO,ROYAL BANK OF CANADA,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0958,0.1001,2026-11-12,2026-11-12,,,True
+SAP.TO,SAPUTO,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0025,0.004,2026-11-12,2026-11-12,,,False
+SHOP.TO,SHOPIFY SUBORDINATE VOTING CLASS A,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0605,0.0943,2026-11-12,2026-11-12,,,True
+SLF.TO,SUN LIFE FINANCIAL INC,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0138,0.0216,2026-11-12,2026-11-12,,,False
+SU.TO,SUNCOR ENERGY INC,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0276,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+T.TO,TELUS,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0046,0.0023,2026-11-12,2026-11-12,,,False
+TD.TO,TORONTO DOMINION,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0694,0.1071,2026-11-12,2026-11-12,,,True
+TECK-B.TO,TECK RESOURCES SUBORDINATE VOTING,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0101,0.0149,2026-11-12,2026-11-12,,,False
+TOU.TO,TOURMALINE OIL CORP,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0058,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+TRI.TO,THOMSON REUTERS CORP,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0047,0.0076,2026-11-12,2026-11-12,,,False
+TRP.TO,TC ENERGY,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0229,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+WCN.TO,WASTE CONNECTIONS,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),False,absent_indice_esg,0.0166,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Leaders (iShares XCSR) (raison non publiée dans la composition),False
+WN.TO,GEORGE WESTON,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0041,0.0062,2026-11-12,2026-11-12,,,False
+WPM.TO,WHEATON PRECIOUS METALS,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0204,0.0317,2026-11-12,2026-11-12,,,False
+WSP.TO,WSP GLOBAL INC,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0059,0.0092,2026-11-12,2026-11-12,,,False
+nan.TO,NATIONAL BANK OF CANADA,XIU.TO,XCSR.TO,MSCI Canada IMI Extended ESG Leaders (iShares XCSR),True,present,0.0199,0.031,2026-11-12,2026-11-12,,,False
+2299955D.TO,CONSTELLATION SOFTWARE INC,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0,0.0,2026-11-12,2026-11-12,,,False
+ABX.TO,BARRICK MINING,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),False,absent_indice_esg,0.0212,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Focus (iShares XESG) (raison non publiée dans la composition),False
+AEM.TO,AGNICO EAGLE MINES,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0308,0.0264,2026-11-12,2026-11-12,,,False
+ATD.TO,ALIMENTATION COUCHE TARD INC,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0146,0.0127,2026-11-12,2026-11-12,,,True
+BAM.TO,BROOKFIELD ASSET MANAGEMENT VOTING,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),False,absent_indice_esg,0.0066,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Focus (iShares XESG) (raison non publiée dans la composition),False
+BCE.TO,BCE INC,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),False,absent_indice_esg,0.0068,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Focus (iShares XESG) (raison non publiée dans la composition),False
+BIP-UN.TO,BROOKFIELD INFRASTRUCTURE PARTNERS,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),False,absent_indice_esg,0.0061,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Focus (iShares XESG) (raison non publiée dans la composition),False
+BMO.TO,BANK OF MONTREAL,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0413,0.0313,2026-11-12,2026-11-12,,,False
+BN.TO,BROOKFIELD CLASS A,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0303,0.0203,2026-11-12,2026-11-12,,,False
+BNS.TO,BANK OF NOVA SCOTIA,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0385,0.0412,2026-11-12,2026-11-12,,,False
+CAE.TO,CAE,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0031,0.0065,2026-11-12,2026-11-12,,,False
+CCL-B.TO,CCL INDUSTRIES CLASS B,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),False,absent_indice_esg,0.0034,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Focus (iShares XESG) (raison non publiée dans la composition),False
+CCO.TO,CAMECO,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0106,0.0101,2026-11-12,2026-11-12,,,False
+CLS.TO,CELESTICA,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0109,0.0097,2026-11-12,2026-11-12,,,False
+CM.TO,CANADIAN IMPERIAL BANK OF COMMERCE,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0361,0.0358,2026-11-12,2026-11-12,,,False
+CNQ.TO,CANADIAN NATURAL RESOURCES LTD,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0345,0.0297,2026-11-12,2026-11-12,,,True
+CNR.TO,CANADIAN NATIONAL RAILWAY,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0239,0.0199,2026-11-12,2026-11-12,,,True
+CP.TO,CANADIAN PACIFIC KANSAS CITY,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0283,0.0172,2026-11-12,2026-11-12,,,False
+CSU.TO,CONSTELLATION SOFTWARE,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0177,0.0129,2026-11-12,2026-11-12,,,True
+CTC-A.TO,CANADIAN TIRE LTD CLASS A,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),False,absent_indice_esg,0.0026,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Focus (iShares XESG) (raison non publiée dans la composition),False
+CVE.TO,CENOVUS ENERGY,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0129,0.0096,2026-11-12,2026-11-12,,,False
+DOL.TO,DOLLARAMA,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0142,0.0074,2026-11-12,2026-11-12,,,False
+EMA.TO,EMERA INC,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0053,0.0076,2026-11-12,2026-11-12,,,False
+ENB.TO,ENBRIDGE,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0359,0.0374,2026-11-12,2026-11-12,,,True
+FFH.TO,FAIRFAX FINANCIAL HOLDINGS SUB VOT,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0126,0.0022,2026-11-12,2026-11-12,,,False
+FM.TO,FIRST QUANTUM MINERALS,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0053,0.0039,2026-11-12,2026-11-12,,,False
+FNV.TO,FRANCO NEVADA,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0163,0.0214,2026-11-12,2026-11-12,,,False
+FSV.TO,FIRSTSERVICE SUBORDINATE VOTING,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0022,0.0016,2026-11-12,2026-11-12,,,False
+FTS.TO,FORTIS,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0103,0.0088,2026-11-12,2026-11-12,,,True
+GIB-A.TO,CGI INC CLASS A,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0051,0.0049,2026-11-12,2026-11-12,,,False
+GIL.TO,GILDAN ACTIVEWEAR,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0022,0.0038,2026-11-12,2026-11-12,,,False
+H.TO,HYDRO ONE,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),False,absent_indice_esg,0.0043,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Focus (iShares XESG) (raison non publiée dans la composition),False
+IFC.TO,INTACT FINANCIAL CORP,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0118,0.0131,2026-11-12,2026-11-12,,,False
+IMO.TO,IMPERIAL OIL LTD,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0065,0.0013,2026-11-12,2026-11-12,,,False
+K.TO,KINROSS GOLD,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0084,0.0084,2026-11-12,2026-11-12,,,False
+L.TO,LOBLAW COMPANIES LTD,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.009,0.0007,2026-11-12,2026-11-12,,,False
+MFC.TO,MANULIFE FINANCIAL,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0249,0.0308,2026-11-12,2026-11-12,,,True
+MG.TO,MAGNA INTERNATIONAL,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),False,absent_indice_esg,0.0053,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Focus (iShares XESG) (raison non publiée dans la composition),False
+MRU.TO,METRO,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),False,absent_indice_esg,0.0049,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Focus (iShares XESG) (raison non publiée dans la composition),False
+NTR.TO,NUTRIEN LTD,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0116,0.0117,2026-11-12,2026-11-12,,,False
+OTEX.TO,OPEN TEXT,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.002,0.0039,2026-11-12,2026-11-12,,,False
+POW.TO,POWER CORPORATION OF CANADA,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0116,0.0029,2026-11-12,2026-11-12,,,False
+PPL.TO,PEMBINA PIPELINE,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0099,0.0078,2026-11-12,2026-11-12,,,False
+QSR.TO,RESTAURANTS BRANDS INTERNATIONAL,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.009,0.0027,2026-11-12,2026-11-12,,,False
+RCI-B.TO,ROGERS COMMUNICATIONS NON-VOTING I,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0043,0.0006,2026-11-12,2026-11-12,,,False
+RY.TO,ROYAL BANK OF CANADA,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0958,0.0845,2026-11-12,2026-11-12,,,True
+SAP.TO,SAPUTO,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),False,absent_indice_esg,0.0025,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Focus (iShares XESG) (raison non publiée dans la composition),False
+SHOP.TO,SHOPIFY SUBORDINATE VOTING CLASS A,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0605,0.0507,2026-11-12,2026-11-12,,,True
+SLF.TO,SUN LIFE FINANCIAL INC,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0138,0.0199,2026-11-12,2026-11-12,,,False
+SU.TO,SUNCOR ENERGY INC,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0276,0.0216,2026-11-12,2026-11-12,,,False
+T.TO,TELUS,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),False,absent_indice_esg,0.0046,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Focus (iShares XESG) (raison non publiée dans la composition),False
+TD.TO,TORONTO DOMINION,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0694,0.0637,2026-11-12,2026-11-12,,,True
+TECK-B.TO,TECK RESOURCES SUBORDINATE VOTING,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0101,0.0096,2026-11-12,2026-11-12,,,False
+TOU.TO,TOURMALINE OIL CORP,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),False,absent_indice_esg,0.0058,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Focus (iShares XESG) (raison non publiée dans la composition),False
+TRI.TO,THOMSON REUTERS CORP,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0047,0.0035,2026-11-12,2026-11-12,,,False
+TRP.TO,TC ENERGY,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0229,0.0154,2026-11-12,2026-11-12,,,False
+WCN.TO,WASTE CONNECTIONS,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),False,absent_indice_esg,0.0166,0.0,2026-11-12,2026-11-12,"Non déterminée par la composition seule : activité, controverse, note ESG, diversité ou règle d'univers.",Exclue de l'indice MSCI Canada IMI Extended ESG Focus (iShares XESG) (raison non publiée dans la composition),False
+WN.TO,GEORGE WESTON,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0041,0.007,2026-11-12,2026-11-12,,,False
+WPM.TO,WHEATON PRECIOUS METALS,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0204,0.0275,2026-11-12,2026-11-12,,,False
+WSP.TO,WSP GLOBAL INC,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0059,0.0057,2026-11-12,2026-11-12,,,False
+nan.TO,NATIONAL BANK OF CANADA,XIU.TO,XESG.TO,MSCI Canada IMI Extended ESG Focus (iShares XESG),True,present,0.0199,0.0251,2026-11-12,2026-11-12,,,False
