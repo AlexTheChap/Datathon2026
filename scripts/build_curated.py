@@ -2,7 +2,7 @@
 Construit le jeu de données préparé (« curated ») à partir du jeu de départ AlphaForge.
 
 Usage :
-    python src/build_curated.py --starter ../alphaforge_starter --out data/curated
+    python scripts/build_curated.py --starter data/raw --out data/curated
 
 Sorties (CSV, dans --out) :
     calendar.csv              calendrier commun + indicateurs de jours fériés par marché
@@ -20,7 +20,7 @@ Sorties (CSV, dans --out) :
     rate_sensitivity.csv      sensibilité empirique aux taux vs duration officielle
     quality_report.json       contrôles de qualité + décisions de traitement
 
-Toutes les décisions de traitement sont décrites dans README_extended.md.
+Toutes les décisions de traitement sont décrites dans docs/README_extended.md.
 """
 from __future__ import annotations
 
@@ -202,7 +202,7 @@ def quality_report(px, cal, filled, fx_out, macro_pit, cnq_check) -> dict:
     dup = int(px.duplicated(["date", "ticker"]).sum())
     zero_vol = px[(px["volume"] == 0) & (~px["ticker"].str.contains("-USD"))][["date", "ticker"]]
     return {
-        "generated_from": "alphaforge_starter (2021-11-12 → 2026-11-12)",
+        "generated_from": "data/raw (2021-11-12 → 2026-11-12)",
         "calendar_days": int(len(cal)),
         "duplicates_date_ticker": dup,
         "zero_volume_rows_non_crypto": zero_vol.astype(str).to_dict("records"),
@@ -227,7 +227,7 @@ def quality_report(px, cal, filled, fx_out, macro_pit, cnq_check) -> dict:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--starter", default="../alphaforge_starter")
+    ap.add_argument("--starter", default="data/raw")
     ap.add_argument("--external", default="data/external")
     ap.add_argument("--out", default="data/curated")
     a = ap.parse_args()

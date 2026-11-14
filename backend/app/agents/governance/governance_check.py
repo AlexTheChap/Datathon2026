@@ -1,11 +1,11 @@
 """
-Vérification de référence d'une allocation contre un profil et config/rules.yaml.
+Vérification de référence d'une allocation contre un profil et backend/app/core/rules.yaml.
 Code déterministe, sans LLM. Renvoie un verdict PASS / WARN / BLOCK avec chaque contrôle.
 
-    from risk_tools import RiskTools
+    from risk_tools import RiskTools  # ajouter backend/app/tools au sys.path
     from governance_check import check
     rt = RiskTools("data/curated")
-    check({"XIU.TO": .3, "NVDA": .2, ...}, persona_dict, "config/rules.yaml", rt)
+    check({"XIU.TO": .3, "NVDA": .2, ...}, persona_dict, "backend/app/core/rules.yaml", rt)
 
 Les exclusions ESG/controverses utilisent data/curated/esg_screen.csv et
 controversies.csv s'ils existent ; sinon le contrôle renvoie NON_VERIFIE (jamais PASS).
