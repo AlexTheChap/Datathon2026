@@ -591,10 +591,10 @@ function renderAsk(main) {
   }
 
   main.append(
-    h("div", { class: "page-head" },
+    band("head", h("div", { class: "page-head" },
       h("h1", null, "Ask about your portfolio"),
-      h("p", null, "Write your question the way you would say it. AlphaForge works out what to analyse and shows you why.")),
-    h("div", { class: "columns" }, h("section", { "aria-label": "Ask a question" }, form, thread), side));
+      h("p", null, "Write your question the way you would say it. AlphaForge works out what to analyse and shows you why."))),
+    band("body", h("div", { class: "columns" }, h("section", { "aria-label": "Ask a question" }, form, thread), side)));
   drawThread();
   drawSide();
 }
@@ -631,6 +631,11 @@ function drawRecent() {
       : h("p", { class: "muted" }, "Your analyses will appear here once you ask a question."));
 }
 
+// A full-width row: "head" (white, page title) or "body" (warm grey, the content), like a bank site's sections.
+function band(kind, ...children) {
+  return h("div", { class: `band band--${kind}` }, h("div", { class: "container" }, children));
+}
+
 function skeleton(lines = 3) {
   return h("div", { class: "skeleton", "aria-hidden": "true" },
     h("div", { class: "skeleton__bar skeleton__bar--title" }),
@@ -640,11 +645,12 @@ function skeleton(lines = 3) {
 /* ---------------- Profile ---------------- */
 
 function renderProfile(main) {
-  main.append(h("div", { class: "page-head" },
-    h("h1", null, "Your investor profile"),
-    h("p", null, "AlphaForge uses it to decide what to analyse and how to explain the results. Only your risk level and experience are required.")));
   const body = h("div", null, h("div", { class: "panel" }, skeleton(6)));
-  main.append(body);
+  main.append(
+    band("head", h("div", { class: "page-head" },
+      h("h1", null, "Your investor profile"),
+      h("p", null, "AlphaForge uses it to decide what to analyse and how to explain the results. Only your risk level and experience are required."))),
+    band("body", body));
 
   Promise.all([loadProfile(true), loadPersonas()]).then(([profile]) => {
     body.replaceChildren(profileForm(profile));
@@ -660,7 +666,7 @@ async function loadPersonas() {
 }
 
 function profileForm(saved, initialStatus = null) {
-  const form = h("form", { class: "stack", novalidate: true });
+  const form = h("form", { class: "stack profile-form", novalidate: true });
   const status = h("p", { class: "small muted", role: "status" }, initialStatus || (saved ? "" : "Not saved yet."));
   const errors = {};
 
@@ -741,7 +747,7 @@ function profileForm(saved, initialStatus = null) {
   form.append(topError, h("div", { class: "form-actions" }, saveBtn, resetBtn, status));
 
   const session = COGNITO ? readSession() : null;
-  const account = COGNITO ? h("section", { class: "stack-sm", "aria-labelledby": "account-title" },
+  const account = COGNITO ? h("section", { class: "panel stack-sm", "aria-labelledby": "account-title" },
     h("h2", { id: "account-title", class: "section-title" }, "Account"),
     h("p", { class: "small" }, "Signed in as ", h("strong", null, session ? session.email : "")),
     session && DEMO_EMAIL.test(session.email)
@@ -750,7 +756,7 @@ function profileForm(saved, initialStatus = null) {
     h("div", null, h("button", { class: "btn btn--secondary", type: "button", onclick: () => {
       if (state.dirty && !window.confirm("Your profile has unsaved changes. Sign out without saving?")) return;
       signOut("You're signed out.");
-    } }, "Sign out"))) : h("section", { class: "stack-sm", "aria-labelledby": "account-title" },
+    } }, "Sign out"))) : h("section", { class: "panel stack-sm", "aria-labelledby": "account-title" },
     h("h2", { id: "account-title", class: "section-title" }, "Demo user"),
     h("p", { class: "small muted" }, `You are ${actorId()}. Until sign-in is added, this name is kept in this browser only.`),
     h("div", null, h("button", { class: "btn btn--secondary", type: "button", onclick: () => {
@@ -893,8 +899,9 @@ function profileForm(saved, initialStatus = null) {
 
 function renderRun(main, runId) {
   const back = h("p", null, h("a", { class: "link-btn", href: "#/ask" }, "All questions"));
+  const headSlot = h("div", { class: "stack-sm" }, h("div", { class: "skeleton" }, h("div", { class: "skeleton__bar skeleton__bar--title" })));
   const body = h("div", { class: "stack" }, h("div", { class: "panel" }, skeleton(5)));
-  main.append(back, body);
+  main.append(band("head", back, headSlot), band("body", body));
   let polls = 0;
   let shown = null; // what is on screen: re-render only when it changes (keeps "Details" open, keeps focus)
 
@@ -905,12 +912,12 @@ function renderRun(main, runId) {
     } catch (err) {
       if (shown) return; // a failed poll keeps the last good view
       if (err.status === 404) {
-        body.replaceChildren(h("div", { class: "empty" },
-          h("h1", null, "We can't find this analysis"),
-          h("p", { class: "lede" }, "The link may be wrong, or the analysis belongs to another user."),
-          h("a", { class: "btn btn--secondary", href: "#/ask" }, "Ask a new question")));
+        headSlot.replaceChildren(h("div", { class: "page-head" }, h("h1", null, "We can't find this analysis"),
+          h("p", null, "The link may be wrong, or the analysis belongs to another user.")));
+        body.replaceChildren(h("div", { class: "panel empty" }, h("a", { class: "btn btn--secondary", href: "#/ask" }, "Ask a new question")));
       } else {
-        body.replaceChildren(h("h1", { class: "visually-hidden" }, "Analysis plan"), alertBox(err, "this analysis", load));
+        headSlot.replaceChildren(h("div", { class: "page-head" }, h("h1", null, "Analysis plan")));
+        body.replaceChildren(alertBox(err, "this analysis", load));
       }
       return;
     }
@@ -919,7 +926,9 @@ function renderRun(main, runId) {
     const key = JSON.stringify([run.status, run.result, run.updated_at, stopped]);
     if (key !== shown) {
       if (shown) announce(`Status: ${statusWord(run.status)}.`);
-      body.replaceChildren(drawRun(run, stopped));
+      const view = drawRun(run, stopped);
+      headSlot.replaceChildren(view.head);
+      body.replaceChildren(view.content);
       shown = key;
     }
     if (waiting && !stopped && window.location.hash === `#/runs/${runId}`) {
@@ -942,31 +951,39 @@ function renderRun(main, runId) {
       FAILED: run.error || "The analysis stopped with an error.",
     }[run.status];
 
+    const jump = (id) => () => { const el = document.getElementById(id); if (el) { el.scrollIntoView({ block: "start" }); el.setAttribute("tabindex", "-1"); el.focus({ preventScroll: true }); } };
     const head = h("div", { class: "page-head" },
-      h("p", { class: "small muted" }, "Your question"),
+      h("p", { class: "run-label" }, "Your question"),
       h("h1", { class: "run-question" }, run.request.user_message),
       h("p", { class: "status" }, h("span", { class: "status__word" }, statusWord(run.status)), h("span", null, statusLine),
-        stoppedPolling ? h("button", { class: "link-btn", type: "button", onclick: () => { polls = 0; shown = null; load(); } }, "Check again") : null));
+        stoppedPolling ? h("button", { class: "link-btn", type: "button", onclick: () => { polls = 0; shown = null; load(); } }, "Check again") : null),
+      h("nav", { class: "on-page", "aria-label": "On this page" },
+        h("span", { class: "on-page__label" }, "On this page"),
+        h("button", { type: "button", onclick: jump("plan-title") }, "What AlphaForge will look at"),
+        h("button", { type: "button", onclick: jump("left-title") }, "Left out"),
+        h("button", { type: "button", onclick: jump("answer-title") }, "Answer"),
+        h("button", { type: "button", onclick: jump("details-title") }, "Details")));
 
-    const lookedAt = h("section", { class: "stack-sm", "aria-labelledby": "plan-title" },
+    const lookedAt = h("section", { class: "plan-panel", "aria-labelledby": "plan-title" },
       h("h2", { id: "plan-title" }, "What AlphaForge will look at"),
       enabled.length
         ? h("ul", { class: "plan" }, enabled.map((a) => h("li", { class: "plan__item" },
-          h("span", { class: "plan__mark" }, icon("check", 16)),
+          h("span", { class: "plan__mark" }, icon("check", 28)),
           h("span", { class: "plan__name" }, (AGENTS[a.agent] || { name: a.agent }).name),
           h("p", { class: "plan__why" }, whyEnabled(a, plan.task)),
           settingsOf(a) ? h("p", { class: "plan__setting" }, settingsOf(a)) : null)))
-        : h("div", { class: "empty" }, h("p", null, "Nothing to analyse. This request asks for something a simulation can't do, such as placing a real trade. The answer explains why.")));
+        : h("div", { class: "panel empty" }, h("p", null, "Nothing to analyse. This request asks for something a simulation can't do, such as placing a real trade. The answer explains why.")));
 
-    const leftOut = (userOff.length || notNeeded.length) ? h("section", { class: "stack-sm", "aria-labelledby": "left-title" },
+    const leftOut = h("section", { class: "stack-sm", "aria-labelledby": "left-title" },
       h("h2", { id: "left-title" }, "Left out"),
       userOff.length ? h("ul", { class: "plan" }, userOff.map((d) => h("li", { class: "plan__item" },
-        h("span", { class: "plan__mark plan__mark--off" }, icon("minus", 16)),
+        h("span", { class: "plan__mark plan__mark--off" }, icon("minus", 28)),
         h("span", { class: "plan__name" }, (AGENTS[d.agent] || { name: d.agent }).name),
         h("p", { class: "plan__why" }, whyDisabled(d))))) : null,
-      notNeeded.length ? h("p", { class: "muted" }, `Not needed for this question: ${notNeeded.map((d) => (AGENTS[d.agent] || { name: d.agent }).name).join(", ")}.`) : null) : null;
+      notNeeded.length ? h("p", { class: "muted" }, `Not needed for this question: ${notNeeded.map((d) => (AGENTS[d.agent] || { name: d.agent }).name).join(", ")}.`) : null,
+      !userOff.length && !notNeeded.length ? h("p", { class: "muted" }, "Nothing was left out.") : null);
 
-    const answer = h("section", { class: "stack-sm", "aria-labelledby": "answer-title" },
+    const answer = h("section", { class: "panel stack-sm", "aria-labelledby": "answer-title" },
       h("h2", { id: "answer-title" }, "Answer"),
       run.result && run.result.summary
         ? h("div", { class: "result-text" }, String(run.result.summary).split(/\n{2,}/).map((para) => h("p", null, para)),
@@ -977,7 +994,7 @@ function renderRun(main, runId) {
 
     const req = run.request;
     const details = h("details", null,
-      h("summary", null, "Details"),
+      h("summary", { id: "details-title" }, "Details"),
       h("dl", { class: "tech" },
         h("dt", null, "Type of question"), h("dd", null, TASKS[plan.task] || plan.task),
         (req.positions || []).length ? [h("dt", null, "Assets mentioned"), h("dd", { class: "num" },
@@ -1001,8 +1018,7 @@ function renderRun(main, runId) {
         h("dt", null, "Experience"), h("dd", null, titleOf(EXPERIENCE, p.experience))),
       h("p", { class: "small muted" }, "As it was when you asked. Later changes to your profile don't rewrite this analysis."));
 
-    return h("div", { class: "stack" }, head,
-      h("div", { class: "columns" }, h("div", { class: "stack" }, lookedAt, leftOut, answer, details), h("aside", null, basedOn)));
+    return { head, content: h("div", { class: "columns" }, h("div", { class: "stack" }, lookedAt, leftOut, answer, details), h("aside", null, basedOn)) };
   }
 
   load();
@@ -1023,7 +1039,11 @@ function renderSignIn(main) {
   let notice = "";
   try { notice = sessionStorage.getItem("af.signin.msg") || ""; sessionStorage.removeItem("af.signin.msg"); } catch { /* ignore */ }
   const box = h("div", { class: "auth" });
-  main.append(box);
+  main.append(
+    h("div", { class: "band band--hero" }, h("div", { class: "container" },
+      h("h1", null, "Investment questions, explained."),
+      h("p", null, "Ask about your portfolio and see exactly what AlphaForge analyses, and why. Simulation only."))),
+    band("body", box));
 
   const fillBox = (...parts) => box.replaceChildren(...parts.filter(Boolean)); // replaceChildren would print "null"
 
@@ -1093,7 +1113,7 @@ function renderSignIn(main) {
         return btn;
       });
       fillBox(
-        h("div", { class: "page-head" }, h("h1", null, "Sign in to AlphaForge"),
+        h("div", { class: "page-head" }, h("h2", null, "Sign in to AlphaForge"),
           h("p", null, "Explore with a demo investor, or use your own account. Simulation only: nothing here is investment advice.")),
         status,
         demos.length ? h("section", { class: "stack-sm", "aria-labelledby": "demo-title" },
@@ -1125,7 +1145,7 @@ function renderSignIn(main) {
       const pw = field("password", "Password", { type: "password", autocomplete: "new-password" }, PASSWORD_RULE);
       const submit = primary("Create account");
       fillBox(
-        h("div", { class: "page-head" }, h("h1", null, "Create your account"),
+        h("div", { class: "page-head" }, h("h2", null, "Create your account"),
           h("p", null, "Your profile and questions are kept under this account.")),
         h("form", { class: "auth-form", novalidate: true, onsubmit: async (e) => {
           e.preventDefault();
@@ -1156,7 +1176,7 @@ function renderSignIn(main) {
         catch (err) { resend.disabled = false; showError(err); }
       });
       fillBox(
-        h("div", { class: "page-head" }, h("h1", null, "Check your email"),
+        h("div", { class: "page-head" }, h("h2", null, "Check your email"),
           h("p", null, `We sent a 6-digit code to ${flow.email}. It can take a minute to arrive.`)),
         status,
         h("form", { class: "auth-form", novalidate: true, onsubmit: async (e) => {
@@ -1178,7 +1198,7 @@ function renderSignIn(main) {
       const email = field("email", "Email", { type: "email", autocomplete: "username", inputmode: "email", value: flow.email });
       const submit = primary("Send a code");
       fillBox(
-        h("div", { class: "page-head" }, h("h1", null, "Reset your password"),
+        h("div", { class: "page-head" }, h("h2", null, "Reset your password"),
           h("p", null, "Enter the email of your account. We send a code to choose a new password.")),
         h("form", { class: "auth-form", novalidate: true, onsubmit: async (e) => {
           e.preventDefault();
@@ -1200,7 +1220,7 @@ function renderSignIn(main) {
       const pw = field("password", "New password", { type: "password", autocomplete: "new-password" }, PASSWORD_RULE);
       const submit = primary("Set new password");
       fillBox(
-        h("div", { class: "page-head" }, h("h1", null, "Choose a new password"), h("p", null, `For ${flow.email}.`)),
+        h("div", { class: "page-head" }, h("h2", null, "Choose a new password"), h("p", null, `For ${flow.email}.`)),
         status,
         h("form", { class: "auth-form", novalidate: true, onsubmit: async (e) => {
           e.preventDefault();
@@ -1219,7 +1239,7 @@ function renderSignIn(main) {
         h("div", { class: "auth-links" }, h("button", { class: "link-btn", type: "button", onclick: () => go("forgot") }, "Send a new code")));
     }
 
-    const first = box.querySelector("h1");
+    const first = box.querySelector("h2");
     if (first) { first.setAttribute("tabindex", "-1"); first.focus({ preventScroll: true }); }
   }
   draw();
@@ -1236,7 +1256,7 @@ function drawModeButton() {
   const btn = document.getElementById("mode-toggle");
   const dark = currentMode() === "dark";
   btn.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
-  btn.replaceChildren(icon(dark ? "sun" : "moon", 20));
+  btn.replaceChildren(icon(dark ? "sun" : "moon", 18), h("span", { id: "mode-label" }, dark ? "Light mode" : "Dark mode"));
 }
 function setWho() {
   const who = document.getElementById("who");

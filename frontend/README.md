@@ -59,12 +59,16 @@ Built under the [Hallmark](https://github.com/Nutlope/hallmark) floor (app-scree
 `sloplint` (0 FAIL, 0 REFLEX, 0 WARN on `index.html` + `app.css`). The stamp at the top of `app.css` records
 the decisions.
 
-- **Palette:** warm off-white paper and near-black ink, one red signal (primary action, current tab, focus,
-  selected choice). Dark mode is a second rendering of the same tokens, not an inversion: near-black paper,
-  a softer red, the button text switching to dark. Every pair meets WCAG AA in both modes (body text 5:1 to
-  17:1, field edges and focus rings 3:1 or more). Inspired by a bank's red-and-white identity and by calm
-  consumer-finance apps; no brand's logo, name or exact colours are used.
-- **Type:** Source Serif 4 for headings, Public Sans for everything else; two weights.
+- **Look:** closely inspired by a Canadian retail bank's public website, measured from the live pages
+  (colours, bars, cards, buttons, type sizes): a dark utility bar above a white main bar, white header bands
+  with the page title in red, content in white 6px cards on a warm grey page (#F5F4F2), the plan's cards in a
+  light blue panel, red (#E41C23) and slate-outline pill buttons, blue links (#1572C5), a grey footer with link
+  columns, and a red band on the sign-in page. Not used on purpose: the bank's logo, name, own typefaces or page
+  content. The footer states that AlphaForge is a student prototype not affiliated with any bank.
+- **Dark mode:** the same structure in near-black and red (the bank's site has none); every pair meets WCAG AA
+  in both modes.
+- **Type:** Outfit (open licence), the closest free match to the bank's licensed typefaces; weights 400, 500
+  and 600.
 - **Signature:** the analysis plan, which says in plain words what is analysed and why, and quotes the user
   when their own choice left something out.
 - **Every data region has its states:** loading (skeleton), empty (what goes here and the one action that
