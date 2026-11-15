@@ -13,6 +13,8 @@ import pytest
 # first, so .env cannot override them and no test can reach AWS by accident.
 os.environ.update({
     "AF_PROMPT_SOURCE": "local", "AF_STORE": "memory", "AF_DISPATCH": "none",
+    # empty = explicitly disabled (market_store.market_uri): tests never sync the market tables from S3
+    "AF_MARKET_S3": "",
     "AWS_ACCESS_KEY_ID": "testing", "AWS_SECRET_ACCESS_KEY": "testing", "AWS_SESSION_TOKEN": "testing",
     "AWS_REGION": "us-east-1", "AWS_DEFAULT_REGION": "us-east-1",
 })
