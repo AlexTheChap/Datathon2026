@@ -97,3 +97,19 @@ test("a warning in the summary names the rule, in the level's words", () => {
   assert.match(d.heroSummary({ ...args, level: "simple" }).text, /one point to keep an eye on: no company with a major controversy/);
   assert.match(d.heroSummary({ ...args, level: "detailed" }).text, /Controversy exclusion: worth a look/);
 });
+
+test("what-if weights always add up to 100%, and the others move in proportion", () => {
+  const w = { SPY: 0.4, "XBB.TO": 0.4, QQQ: 0.2 };
+  const sum = (x) => Object.values(x).reduce((s, v) => s + v, 0);
+  const up = d.rebalance(w, "QQQ", 0.6);
+  assert.ok(Math.abs(sum(up) - 1) < 1e-9);
+  assert.ok(Math.abs(up.SPY - 0.2) < 1e-9 && Math.abs(up["XBB.TO"] - 0.2) < 1e-9);   // 0.4/0.8 of the 40% left each
+  const zeroed = d.rebalance({ SPY: 1, QQQ: 0 }, "SPY", 0.3);
+  assert.ok(Math.abs(zeroed.QQQ - 0.7) < 1e-9);                                      // the rest goes to the others even at 0
+  const added = d.addHolding(w, "NVDA", 0.1);
+  assert.ok(Math.abs(added.NVDA - 0.1) < 1e-9 && Math.abs(sum(added) - 1) < 1e-9 && Math.abs(added.SPY - 0.36) < 1e-9);
+  const removed = d.removeHolding(added, "NVDA");
+  assert.ok(Math.abs(removed.SPY - 0.4) < 1e-9 && !("NVDA" in removed));
+  assert.deepEqual(d.removeHolding({ SPY: 1 }, "SPY"), { SPY: 1 });                  // never empty
+  assert.ok(d.sameWeights(w, { ...w }) && !d.sameWeights(w, up));
+});

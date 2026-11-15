@@ -318,8 +318,8 @@ main { display: block; }
 @media (min-width: 60rem) {
   .columns { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
 }
-.stack { display: grid; gap: var(--space-lg); }
-.stack-sm { display: grid; gap: var(--space-sm); }
+.stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-lg); }  /* one column, never wider than the screen */
+.stack-sm { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); }
 .section-title { font-size: var(--text-xl); margin-block-end: var(--space-xs); }
 .lede { color: var(--color-ink-2); }
 .small { font-size: var(--text-sm); }
@@ -1037,3 +1037,17 @@ summary { cursor: pointer; font-weight: var(--weight-mid); min-height: 44px; dis
 .trend-chip--rising { border-color: var(--color-warn-ink); color: var(--color-warn-ink); background: var(--color-warn-bg); }
 .trend-chip--easing { border-color: var(--color-pass-ink); color: var(--color-pass-ink); background: var(--color-pass-bg); }
 .trend-chip--none { color: var(--color-muted); }
+/* ---------- What if: sliders on the left, the fit of the mix on the right (stacked on a phone) ---------- */
+.whatif { display: grid; gap: var(--space-lg); grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; }
+@media (max-width: 760px) { .whatif { grid-template-columns: minmax(0, 1fr); } }
+.whatif__rows { display: grid; gap: var(--space-sm); }
+.whatif__row { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr) 4.5rem auto; gap: var(--space-xs) var(--space-sm); align-items: center; }
+@media (max-width: 520px) { .whatif__row { grid-template-columns: minmax(0, 1fr) 4.5rem auto; } .whatif__row .scale__input { grid-column: 1 / -1; grid-row: 2; } }
+.whatif__name { font-weight: var(--weight-mid); overflow-wrap: anywhere; }
+.whatif__value { text-align: end; font-variant-numeric: tabular-nums; font-weight: var(--weight-mid); }
+.whatif__add { display: grid; gap: var(--space-2xs); padding-block-start: var(--space-sm); border-top: 1px solid var(--color-rule-soft); }
+.whatif__add-row { display: flex; gap: var(--space-xs); }
+.whatif__pick { flex: 1; min-width: 0; }
+.whatif__result { display: grid; gap: var(--space-xs); padding: var(--space-md); border-radius: var(--radius-card); background: var(--color-surface-2); transition: opacity var(--dur-short) var(--ease); }
+.whatif__result.is-loading { opacity: 0.6; }
+.whatif__result:empty::before { content: "Measuring the fit…"; color: var(--color-muted); font-size: var(--text-sm); }
