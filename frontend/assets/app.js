@@ -5,6 +5,8 @@
 
 import { renderPortfolio, onProfileSaved } from "./portfolio.js";
 import { PORTFOLIO_PROMPT, RISK_PROMPT_PREFIX } from "./portfolio-data.js";
+import { renderOnboarding } from "./onboarding.js";
+import { EXPERIENCE_BANDS, RISK_BANDS, scale } from "./scale.js";
 
 const API_BASE = window.AF_API_BASE || ""; // same origin by default (the API serves this folder locally)
 const POLL_EVERY_MS = 4000;
@@ -92,6 +94,8 @@ const ICONS = {
   sun: "M12 4V2m0 20v-2m8-8h2M2 12h2m13.66-5.66 1.41-1.41M4.93 19.07l1.41-1.41m11.32 0 1.41 1.41M4.93 4.93l1.41 1.41M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10z",
   send: "M12 19V5m0 0-6 6m6-6 6 6",
   plus: "M12 5v14M5 12h14",
+  upload: "M12 16V4m0 0-5 5m5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3",
+  file: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zm0 0v5h5",
 };
 function icon(name, size = 16) {
   const ns = "http://www.w3.org/2000/svg";
@@ -275,10 +279,36 @@ async function api(method, path, body, retried = false) {
   return { status: res.status, data };
 }
 
+/** POST a file (multipart): same sign-in as api(), the browser sets the multipart boundary. */
+async function upload(path, formData) {
+  const headers = {};
+  if (COGNITO) {
+    const token = await idToken();
+    if (!token) { signOut("Your session has expired. Sign in again."); throw new ApiError(401, "Sign in to continue."); }
+    headers.Authorization = `Bearer ${token}`;
+  } else {
+    headers["X-Actor-Id"] = actorId();
+  }
+  let res;
+  try { res = await fetch(API_BASE + path, { method: "POST", headers, body: formData }); } catch { throw new ApiError(0, "network"); }
+  let data = null;
+  try { data = await res.json(); } catch { /* empty body */ }
+  if (!res.ok) throw new ApiError(res.status, data && data.detail);
+  return { status: res.status, data };
+}
+
 function errorText(err, what) {
   if (err.status === 0) return { title: "AlphaForge isn't responding", body: "The app can't reach its server. Check that the API is running, then try again." };
   if (err.status === 401) return { title: "You're not signed in", body: "Sign in again, then try again." };
+  const detail = typeof err.detail === "string" ? err.detail : "";
+  if (err.status === 502 && /expired|security token|credentials|UnrecognizedClient|AccessDenied/i.test(detail)) {
+    return { title: "AlphaForge can't reach its AI model", body: "The server's AWS credentials have expired or were refused. Whoever runs AlphaForge needs to renew them; your text is kept, try again after that." };
+  }
+  if (err.status === 502 && /could not be reached|unreachable|Throttl/i.test(detail)) {
+    return { title: "AlphaForge can't reach its AI model right now", body: "The language model service didn't answer. Your text is kept: try again in a moment." };
+  }
   if (err.status === 502) return { title: `AlphaForge couldn't read ${what}`, body: "The language model didn't give a usable answer this time. Your text is kept: try again." };
+  if (err.status === 422 && detail) return { title: "That didn't work", body: detail };
   if (err.status === 422) return { title: "Some details aren't valid", body: "Check the highlighted fields, then try again." };
   return { title: "Something went wrong", body: `The server answered with an error (${err.status}). Try again in a moment.` };
 }
@@ -376,12 +406,21 @@ const routes = [
   { re: /^#\/signin$/, nav: null, title: "Sign in", view: renderSignIn, public: true },
   { re: /^#\/portfolio$/, nav: "portfolio", title: "Your portfolio", view: (main) => renderPortfolio(main, dashboardContext()) },
   { re: /^#\/ask$/, nav: "ask", title: "Ask", view: renderAsk },
-  { re: /^#\/profile$/, nav: "profile", title: "Your profile", view: renderProfile },
+  { re: /^#\/profile$/, nav: "profile", title: "Your profile", view: (main) => renderProfile(main, "auto") },
+  { re: /^#\/profile\/form$/, nav: "profile", title: "Your profile", view: (main) => renderProfile(main, "form") },
+  { re: /^#\/profile\/assistant$/, nav: "profile", title: "Set up your profile", view: (main) => renderOnboarding(main, onboardingContext()) },
   { re: /^#\/runs\/([\w-]+)$/, nav: "ask", title: "Analysis plan", view: renderRun },
 ];
 
 let currentHash = null;
 const HOME = "#/portfolio";
+
+/** What the profile conversation (onboarding.js) needs from the app. */
+function onboardingContext() {
+  return { h, icon, api, upload, band, alertBox, announce, money, horizonText, RISK, EXPERIENCE, LIMITS, AGENTS, AGENT_ORDER,
+    loadProfile: async (force) => loadProfile(force),
+    onSaved: (before, fresh) => { state.profile = fresh; onProfileSaved(dashboardContext(), before, fresh); } };
+}
 
 /** What the portfolio dashboard (portfolio.js) needs from the app: same API client, components and state. */
 function dashboardContext() {
@@ -410,6 +449,7 @@ function route() {
     match = routes.find((r) => r.nav === "portfolio");
   }
   document.querySelector(".nav").hidden = !signedIn;
+  document.getElementById("ask-fab").hidden = !signedIn || match.nav === "ask" || Boolean(match.public);
   setWho();
   currentHash = window.location.hash || HOME;
   for (const link of document.querySelectorAll(".nav__link")) {
@@ -761,18 +801,20 @@ function skeleton(lines = 3) {
 
 /* ---------------- Profile ---------------- */
 
-function renderProfile(main) {
+function renderProfile(main, mode = "auto") {
   const body = h("div", null, h("div", { class: "panel" }, skeleton(6)));
-  main.append(
-    band("head", h("div", { class: "page-head" },
+  const head = band("head", h("div", { class: "page-head page-head--split" },
+    h("div", { class: "stack-sm" },
       h("h1", null, "Your investor profile"),
-      h("p", null, "AlphaForge uses it to decide what to analyse and how to explain the results. Only your risk level and experience are required."))),
-    band("body", body));
+      h("p", null, "AlphaForge uses it to decide what to analyse and how to explain the results. Only your risk level and experience are required.")),
+    h("a", { class: "btn btn--secondary btn--sm", href: "#/profile/assistant" }, "Set it up as a conversation")));
 
   Promise.all([loadProfile(true), loadPersonas()]).then(([profile]) => {
+    if (!profile && mode === "auto") { renderOnboarding(main, onboardingContext()); return; } // first time: the conversation
+    main.append(head, band("body", body));
     body.replaceChildren(profileForm(profile));
   }).catch((err) => {
-    body.replaceChildren(alertBox(err, "your profile", () => { body.replaceChildren(); renderProfile(main); }));
+    main.replaceChildren(head, band("body", alertBox(err, "your profile", () => { main.replaceChildren(); renderProfile(main, mode); })));
   });
 }
 
@@ -787,16 +829,6 @@ function profileForm(saved, initialStatus = null) {
   const status = h("p", { class: "small muted", role: "status" }, initialStatus || (saved ? "" : "Not saved yet."));
   const errors = {};
 
-  function radioGroup(name, legend, help, options) {
-    return h("fieldset", { "aria-describedby": `${name}-help ${name}-error` },
-      h("legend", null, legend, " ", h("span", { class: "optional" }, "(required)")),
-      h("p", { class: "legend-help", id: `${name}-help` }, help),
-      h("div", { class: "choices choices--grid" }, options.map((o) => h("label", { class: "choice" },
-        h("input", { type: "radio", name, value: o.value, required: true, "aria-required": "true" }),
-        h("span", { class: "choice__title" }, o.title),
-        h("span", { class: "choice__desc" }, o.desc)))),
-      errors[name] = h("p", { class: "field__error", id: `${name}-error` }));
-  }
   function textField(name, label, { help, type = "text", inputmode, suffix, optional = true, attrs = {} } = {}) {
     const input = h("input", { class: "input", id: name, name, type, inputmode, autocomplete: "off",
       "aria-describedby": `${name}-help ${name}-error`, ...attrs });
@@ -806,6 +838,15 @@ function profileForm(saved, initialStatus = null) {
       h("p", { class: "field__help", id: `${name}-help` }, help || ""),
       errors[name] = h("p", { class: "field__error", id: `${name}-error` }));
   }
+
+  const riskScale = scale(h, { id: "risk_band", name: "risk_band", label: "Risk level (required)", bands: RISK_BANDS, options: RISK,
+    help: "How much ups and downs you can live with: 1 = no loss at all, 10 = big swings are fine." });
+  const expScale = scale(h, { id: "experience", name: "experience", label: "Experience (required)", bands: EXPERIENCE_BANDS, options: EXPERIENCE,
+    help: "1 = new to investing, 10 = you follow the markets closely. It changes how answers are explained, not what is analysed." });
+  const scaleField = (sc, name) => {
+    sc.input.setAttribute("aria-describedby", `${sc.input.getAttribute("aria-describedby")} ${name}-error`);
+    return h("div", { class: "field" }, sc, errors[name] = h("p", { class: "field__error", id: `${name}-error` }));
+  };
 
   const personas = state.personas || [];
   const examples = personas.length ? h("section", { class: "panel stack-sm", "aria-labelledby": "examples-title" },
@@ -826,8 +867,8 @@ function profileForm(saved, initialStatus = null) {
   });
 
   form.append(
-    radioGroup("risk_band", "Risk level", "How much ups and downs you can live with.", RISK),
-    radioGroup("experience", "Experience", "This changes how answers are explained, not what is analysed.", EXPERIENCE),
+    scaleField(riskScale, "risk_band"),
+    scaleField(expScale, "experience"),
     h("div", { class: "panel panel--plain" }, h("div", { class: "switch-row" },
       h("div", { class: "switch-row__text" },
         h("label", { for: "wants_to_learn", class: "choice__title" }, "Explain things so I learn"),
@@ -891,7 +932,8 @@ function profileForm(saved, initialStatus = null) {
   /* fill + read */
   function fill(p) {
     const set = (name, v) => { const el = form.elements.namedItem(name); if (el) el.value = v ?? ""; };
-    for (const el of form.querySelectorAll('input[type="radio"]')) el.checked = (p[el.name] === el.value);
+    riskScale.setCategory(p.risk_band || null);
+    expScale.setCategory(p.experience || null);
     set("horizon_min", p.horizon_years ? p.horizon_years.min : "");
     set("horizon_max", p.horizon_years ? p.horizon_years.max : "");
     set("capital", p.capital ?? "");
@@ -906,10 +948,9 @@ function profileForm(saved, initialStatus = null) {
   }
   function num(name) { const v = form.elements.namedItem(name).value.trim(); return v === "" ? null : Number(v); }
   function read() {
-    const v = (name) => { const el = form.querySelector(`input[name="${name}"]:checked`); return el ? el.value : null; };
     const out = {
-      risk_band: v("risk_band"),
-      experience: v("experience"),
+      risk_band: riskScale.value(),
+      experience: expScale.value(),
       language: "en",
       horizon_years: { min: num("horizon_min"), max: num("horizon_max") },
       capital: num("capital"),
@@ -1074,7 +1115,6 @@ function drawAnswer(run, { scope = "page", chat = false, animate = false } = {})
 
   const shortText = h("span", { class: "answer__text" }, a.short_answer);
   section.append(h("p", { class: "answer__short" }, shortText, " ", chips(a.short_answer_evidence)));
-  if (animate) typewrite(shortText, a.short_answer);
   if (a.kind !== "explained" && a.note) section.append(h("p", { class: "notice" }, a.note));
   if (a.clarifying_question) section.append(h("p", { class: "notice" }, h("strong", null, "One question for you: "), a.clarifying_question));
 
@@ -1123,23 +1163,51 @@ function drawAnswer(run, { scope = "page", chat = false, animate = false } = {})
     section.append(evidenceBox);
     ensureEvidence();
   }
+  if (animate) streamIn(section);
   return section;
 }
 
-/** Reveal a text word by word, like a model writing it (instant when the user prefers reduced motion). */
-function typewrite(el, text) {
+/** Write an answer out word by word, in reading order, like a model streaming it: each part appears when the text
+ * reaches it. About 4-5 s whatever the length; instant with reduced motion; aria-busy until done so screen readers
+ * read the finished answer once. Chips, verdict pills and folded parts are shown as they are. */
+function streamIn(root) {
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const words = text.split(/(\s+)/);
-  el.textContent = "";
-  el.classList.add("is-typing");
-  let i = 0;
-  const step = () => {
-    if (!el.isConnected && i > 0) { el.textContent = text; return; }
-    el.textContent += words.slice(i, i + 3).join("");
-    i += 3;
-    if (i < words.length) window.setTimeout(step, 28); else el.classList.remove("is-typing");
+  const blocks = [...root.children].filter((el) => !el.classList.contains("visually-hidden"));
+  const nodes = [];
+  for (const block of blocks) {
+    const walk = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, { acceptNode: (n) =>
+      (!n.textContent.trim() || n.parentElement.closest(".chip, summary, details, .visually-hidden, .verdict"))
+        ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+    while (walk.nextNode()) nodes.push({ node: walk.currentNode, text: walk.currentNode.textContent, block });
+  }
+  if (!nodes.length) return;
+  const words = nodes.map((n) => n.text.split(/(\s+)/));
+  const perTick = Math.max(2, Math.ceil(words.reduce((s, w) => s + w.length, 0) / 160));
+  nodes.forEach((n) => { n.node.textContent = ""; });
+  blocks.forEach((b) => b.classList.add("is-pending"));
+  root.setAttribute("aria-busy", "true");
+  root.classList.add("is-streaming");
+  let i = 0; let j = 0;
+  const finish = () => {
+    nodes.forEach((n) => { n.node.textContent = n.text; });
+    blocks.forEach((b) => b.classList.remove("is-pending"));
+    root.removeAttribute("aria-busy");
+    root.classList.remove("is-streaming");
   };
-  step();
+  const tick = () => {
+    if ((i || j) && !root.isConnected) { finish(); return; }
+    let budget = perTick;
+    while (budget > 0 && i < nodes.length) {
+      const n = nodes[i];
+      n.block.classList.remove("is-pending");
+      const take = words[i].slice(j, j + budget);
+      n.node.textContent += take.join("");
+      budget -= take.length; j += take.length;
+      if (j >= words[i].length) { i += 1; j = 0; }
+    }
+    if (i < nodes.length) window.setTimeout(tick, 28); else finish();
+  };
+  tick();
 }
 
 async function loadEvidence(runId, order, box, scope = "page") {

@@ -56,6 +56,10 @@ def _extract_with_retry(backend: IntakeBackend, text: str, known: dict) -> Intak
                 raise IntakeError(f"Invalid output after 2 attempts: {second_error}") from second_error
     except IntakeUnavailable as e:  # the intake Lambda is down: same visible error for the caller (API 502)
         raise IntakeError(str(e)) from e
+    except (IntakeRefused, IntakeError):
+        raise
+    except Exception as e:  # the model could not be reached (expired AWS credentials, throttling, network...)
+        raise IntakeError(f"The language model could not be reached: {type(e).__name__}: {str(e)[:300]}") from e
 
 
 def _dedupe(items: list) -> list:

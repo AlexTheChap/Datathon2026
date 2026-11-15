@@ -46,7 +46,7 @@ flowchart TB
   %%      On AWS: scripts/deploy_frontend.py → private S3 bucket read by CloudFront only (Origin Access Control),
   %%      managed security headers; with --api-url, CloudFront also routes /v1/* to the API Gateway (same origin:
   %%      no CORS, the Cognito Bearer token is forwarded). config.js = the Cognito settings from setup_cognito.py.
-  UI["① Frontend — web app (HTML/CSS/JS) on S3 + CloudFront · Cognito login<br/>my portfolio (built from the profile) · ask · profile form · analysis plan · file upload (presigned S3 URL, later)"]
+  UI["① Frontend — web app (HTML/CSS/JS) on S3 + CloudFront · Cognito login<br/>my portfolio (built from the profile) · ask (chat) · profile set-up chat (questions or a PDF / Word file) · profile form · analysis plan"]
 
   %% ===== 2. API =====
   %% AWS: API Gateway (HTTP API + Cognito JWT authorizer) · Lambda (FastAPI + Mangum)
@@ -126,6 +126,9 @@ flowchart TB
   %% L3  Intake → JSON: output validated by schema (Bedrock structured outputs), then Pydantic;
   %%      the profile is stored in DynamoDB (ACTOR#… / PROFILE#current), including the sub-agent toggles the user
   %%      switches on/off in chat (with their words: agent_toggle_reasons) and the profile form (PUT /v1/profile).
+  %%      Onboarding: POST /v1/profile/draft[/file] reads the person's answers or a PDF / Word file (text extracted by
+  %%      the API, never stored) with the intake model and returns the fields found, what is missing and what was
+  %%      irrelevant; nothing is saved until the person saves (PUT /v1/profile). Code: app/intake/onboarding.py.
   %%      The profile also keeps the user's current portfolio (portfolio + portfolio_run_id: the mix AlphaForge built
   %%      from it, saved by the web app); a question about "my portfolio" naming no asset gets its positions from it.
   ING --> PROF

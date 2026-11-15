@@ -230,3 +230,15 @@ def test_other_questions_keep_their_own_assets(mock, store_with_portfolio, text)
 def test_a_saved_portfolio_must_have_valid_weights(make_profile):
     with pytest.raises(ValueError):
         make_profile("mateo", portfolio={"SPY": 1.4})
+
+
+def test_an_unreachable_model_is_an_intake_error_not_a_crash():
+    """Expired AWS credentials (403 from Bedrock) must reach the API as IntakeError (502 with the reason), not 500."""
+    class Expired:
+        name = "bedrock"
+
+        def extract(self, text, known, feedback=None):
+            raise PermissionError("The security token included in the request is expired")
+
+    with pytest.raises(IntakeError, match="expired"):
+        run_intake("Is my portfolio too risky?", "a", backend=Expired(), profile_form={"risk_band": "moderate", "experience": "beginner"})
