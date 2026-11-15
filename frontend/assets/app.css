@@ -196,7 +196,8 @@ button, input, select, textarea { font: inherit; color: inherit; letter-spacing:
 .utility { background: var(--color-utility); color: var(--color-utility-ink); }
 .utility :focus-visible { outline-color: var(--color-utility-ink); }
 .utility__inner { display: flex; align-items: center; gap: var(--space-md); min-height: 48px; }
-.utility__label { font-size: var(--text-sm); color: var(--color-utility-ink-2); margin-inline-end: auto; }
+.utility__left { display: flex; align-items: center; gap: var(--space-sm); margin-inline-end: auto; }
+.utility__label { font-size: var(--text-sm); color: var(--color-utility-ink-2); }
 .utility__tools { display: flex; align-items: center; gap: var(--space-sm); }
 .utility__btn {
   display: inline-flex;
