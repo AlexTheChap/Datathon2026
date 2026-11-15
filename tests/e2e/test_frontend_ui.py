@@ -66,7 +66,8 @@ def page(base_url):
 def test_new_user_answers_inline_then_gets_a_plan(page):
     page.wait_for_selector("text=No profile yet")
     page.fill("#question", "Is my portfolio too risky?")
-    page.click("button:has-text('Ask')")
+    page.click("button[aria-label='Ask']")
+    page.wait_for_selector(".msg--user:has-text('Is my portfolio too risky?')")   # the question appears as a message
     page.wait_for_selector("text=AlphaForge needs one detail")
     page.click("label.choice:has-text('Low to moderate')")
     page.click("label.choice:has-text('Advanced')")
@@ -87,11 +88,10 @@ def test_news_switched_off_in_chat_shows_in_plan_profile_and_can_be_undone(page)
     page.fill("#question", "I don't care about the news. I'm thinking of putting 20% in Nvidia, everyone is talking about it.")
     page.keyboard.press("Control+Enter")
     page.wait_for_selector("text=News is now off in your profile")
-    page.locator("a:has-text('See the analysis')").last.click()
-    page.wait_for_selector("text=What AlphaForge will look at")
+    page.locator("summary:has-text('How AlphaForge worked on this')").last.click()   # the plan, inside the answer
+    page.wait_for_selector("text=Off because you said")
     assert page.locator("text=Off because you said").count() == 1  # the plan quotes the user
 
-    page.go_back()
     page.wait_for_selector("text=Analyses off")
     page.click("button:has-text('Undo')")
     page.wait_for_selector("text=News is back on")
@@ -111,10 +111,9 @@ def test_learning_switch_is_saved_and_picks_the_learning_template(page):
     page.click("a.nav__link:has-text('Ask')")
     page.wait_for_selector("text=Explained so you learn")  # the side summary
     page.fill("#question", "Is my portfolio too risky?")
-    page.keyboard.press("Control+Enter")
-    page.locator("a:has-text('See the analysis')").last.click()
-    page.click("summary:has-text('Details')")
-    page.wait_for_selector("text=Beginner investors, explained so you learn")
+    page.keyboard.press("Enter")                                              # Enter sends, like a chat
+    page.locator("summary:has-text('How AlphaForge worked on this')").last.click()
+    page.wait_for_selector("text=Explained for beginner investors, so you learn")
     assert page.errors == []
 
 
@@ -235,9 +234,7 @@ def test_cognito_demo_sign_in_seeds_the_persona_and_signs_out(base_url, monkeypa
         pg.unroute("https://cognito-idp.us-east-1.amazonaws.com/")
         pg.route("https://cognito-idp.us-east-1.amazonaws.com/", lambda r: r.fulfill(
             status=400, content_type="application/x-amz-json-1.1", body=json.dumps({"__type": "NotAuthorizedException"})))
-        pg.click("a.nav__link:has-text('Ask')")
-        pg.fill("#question", "Is my portfolio too risky?")
-        pg.click("form.composer button[type=submit]")  # the API sees the forged token and answers 401
+        pg.click("a.nav__link:has-text('Ask')")  # the chat loads the history: the API sees the forged token, answers 401
         # Refused right after signing in: the app names the real cause instead of "session expired"
         pg.wait_for_selector("text=AlphaForge's server refused your sign-in")
         assert pg.evaluate("localStorage.getItem('af.session')") is None
