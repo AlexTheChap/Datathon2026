@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 from app.agents.orchestrator import run_orchestrator  # noqa: E402
 from app.core.config import get_settings  # noqa: E402
 from app.schemas.models import AnalysisRequest, OrchestratorInput, profile_from_persona  # noqa: E402
-from app.store.ledger import JsonlLedger  # noqa: E402
+from app.store.ledger import make_ledger  # noqa: E402
 
 MESSAGES = {
     "robert": ("I'm thinking of putting 20% in Nvidia, everyone is talking about it.",
@@ -68,7 +68,7 @@ def main() -> int:
     print(f"\nEvidence ({len(out.evidence_ids)}): {', '.join(out.evidence_ids)}")
     if out.error:
         print(f"ERROR: {out.error}")
-    for r in JsonlLedger(s.abs_path(s.runs_dir)).records(out.run_id):
+    for r in make_ledger(s).records(out.run_id):
         print(f"  {r['seq']} {r.get('evidence_id', '-')} {r['tool']}")
     return 0 if out.status == "DONE" else 1
 

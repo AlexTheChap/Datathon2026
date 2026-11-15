@@ -170,17 +170,27 @@ def own_records(ledger: EvidenceLedger, run_id: str, agent: str, before: int) ->
     return [r for r in ledger.records(run_id)[before:] if r.get("agent") == agent]
 
 
-def make_subagent_tool(tool_name: str, system_prompt: str, tools: list,
-                       simulated: bool = False, description: str | None = None,
+def _resolve(value: Any) -> Any:
+    """A setting given as a zero-argument callable is evaluated at call time (see make_subagent_tool)."""
+    return value() if callable(value) and not isinstance(value, (list, tuple)) else value
+
+
+def make_subagent_tool(tool_name: str, system_prompt: Any, tools: Any,
+                       simulated: Any = False, description: str | None = None,
                        extra_validator: Callable[[dict, list[dict]], None] | None = None):
     """Create the Strands @tool that runs one sub-agent.
     Args:
         tool_name: e.g. "esg_subagent" (the tool the orchestrator calls).
         system_prompt: the sub-agent's role prompt (forces the JSON contract).
-        tools: the domain toolset the sub-agent may use (may be empty).
+        tools: the domain toolset the sub-agent may use (may be empty). May also contain a Strands ToolProvider
+            such as an MCPClient (AgentCore Gateway, L12).
         simulated: True when the domain has no real data (content is fictional).
         description: docstring for the orchestrator-facing tool.
         extra_validator: optional domain check `(finding, own ledger records)`; raises FindingError.
+
+    system_prompt / tools / simulated may each be a zero-argument callable, resolved at every call: the choice
+    between AWS (Gateway, Knowledge Base) and the local fallback then follows the current settings, and importing
+    this module never opens a connection.
     """
     def run(subject: str, weights: dict[str, float] | None = None,
             tickers: list[str] | None = None) -> dict:
@@ -190,10 +200,12 @@ def make_subagent_tool(tool_name: str, system_prompt: str, tools: list,
         run_id: str = ctx["run_id"] if ctx else "local"
         try:
             s = get_settings()
+            is_simulated = bool(_resolve(simulated))
+            toolset = _resolve(tools)
             agent = Agent(
                 model=BedrockModel(model_id=s.model_subagent, region_name=s.aws_region),
-                system_prompt=system_prompt,
-                tools=tools,
+                system_prompt=_resolve(system_prompt),
+                tools=toolset,
                 hooks=[EvidenceHook(ledger, run_id, agent=tool_name)],
                 callback_handler=None,     # sub-agents run in parallel: their streams would interleave in the logs
             )
@@ -205,7 +217,7 @@ def make_subagent_tool(tool_name: str, system_prompt: str, tools: list,
                 nested = list(dict.fromkeys(r["evidence_id"] for r in own if r.get("evidence_id")))
                 try:
                     evidence = {ev["evidence_id"]: ev for r in own if (ev := evidence_of(r))}
-                    finding = validate_finding(extract_json(str(result)), nested, requires_evidence=bool(tools),
+                    finding = validate_finding(extract_json(str(result)), nested, requires_evidence=bool(toolset),
                                                evidence=evidence)
                     if extra_validator:
                         extra_validator(finding, own)
@@ -214,7 +226,7 @@ def make_subagent_tool(tool_name: str, system_prompt: str, tools: list,
                     message = (f"Your answer was rejected: {last_error}. Fix it and return ONLY the corrected "
                                "JSON object (call tools again if you need to).")
                     continue
-                return build_envelope(tool_name, inputs, finding, nested, simulated=simulated)
+                return build_envelope(tool_name, inputs, finding, nested, simulated=is_simulated)
             return {"error": f"{tool_name} returned no valid finding: {last_error}",
                     "note": "The finding was rejected by the output contract; do not use it."}
         except Exception as e:  # noqa: BLE001  Bedrock throttling/access errors, tool failures…: visible, never silent

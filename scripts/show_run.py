@@ -16,7 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 from app.core.config import get_settings  # noqa: E402
-from app.store.ledger import JsonlLedger  # noqa: E402
+from app.store.ledger import make_ledger  # noqa: E402
 
 
 def _finding(payload) -> dict | None:
@@ -74,7 +74,7 @@ def main() -> int:
     args = ap.parse_args()
 
     s = get_settings()
-    led = JsonlLedger(s.abs_path(s.runs_dir))
+    led = make_ledger(s)
     run_id = args.run_id
     if run_id is None:
         files = sorted(s.abs_path(s.runs_dir).glob("*.jsonl"), key=lambda p: p.stat().st_mtime)

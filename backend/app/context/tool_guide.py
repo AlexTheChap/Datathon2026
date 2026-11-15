@@ -22,7 +22,9 @@ _DELEGATION_LINES: dict[str, str] = {
     "esg": "- ESG index membership & controversies → **`esg_subagent`**",
     "fundamentals": "- Documented filing facts (SEC 8-K events, 10-K/NBIM extracts) → **`fundamentals_subagent`**",
     "allocation": "- Building a hypothetical allocation → **`allocation_subagent`** (weights come from the optimizer tool, verified)",
-    "news": "- Dated news (SEC 8-K, rate decisions, press headlines; point-in-time) → **`news_subagent`** — the corpus is incomplete: say so when it finds nothing",
+    "news": ("- Dated news (SEC 8-K, rate decisions, press headlines, annual-report risk sections; published ≤ as_of) "
+             "→ **`news_subagent`** — the corpus is incomplete: say so when it finds nothing; "
+             "if its record says SIMULATED, label the content as fictional"),
 }
 _DELEGATION_FOOTER = """Give each sub-agent a precise `subject` (+ `weights` / `tickers` when relevant); calibration
 questions belong in the subject (e.g. "...and the maximum NVDA weight respecting a -15% loss

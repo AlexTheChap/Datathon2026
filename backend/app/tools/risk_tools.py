@@ -62,19 +62,26 @@ def _money(x: float) -> str:
 
 class RiskTools:
     def __init__(self, curated_dir: str | Path, universe_csv: str | Path | None = None):
+        # curated_store: <name>.parquet (S3 curated Parquet, L14) when present, otherwise the repo CSV.
+        from app.tools import curated_store as cs
+
         d = Path(curated_dir)
-        self.rets = pd.read_csv(d / "returns_daily_cad.csv", index_col="date", parse_dates=True)
-        self.prices = pd.read_csv(d / "prices_cad.csv", index_col="date", parse_dates=True)
-        uni = Path(universe_csv) if universe_csv else d / "assets_universe.csv"
-        self.universe = pd.read_csv(uni).set_index("ticker") if uni.exists() else None
-        hp = d / "etf_holdings.csv"
-        self.holdings = self._load_holdings(hp) if hp.exists() else None
+        self.rets = cs.read(d, "returns_daily_cad")
+        self.prices = cs.read(d, "prices_cad")
+        if universe_csv:
+            self.universe = pd.read_csv(universe_csv).set_index("ticker")
+        else:
+            self.universe = cs.read(d, "assets_universe").set_index("ticker") if cs.exists(d, "assets_universe") \
+                else None
+        self.holdings = self._load_holdings(cs.read(d, "etf_holdings")) if cs.exists(d, "etf_holdings") else None
 
     @staticmethod
-    def _load_holdings(path: Path) -> dict[str, pd.DataFrame]:
-        """etf_holdings.csv (scripts/etf_holdings.py) -> {ETF: DataFrame[ticker, name, sector, weight, holdings_date]}.
+    def _load_holdings(h: pd.DataFrame | Path) -> dict[str, pd.DataFrame]:
+        """etf_holdings (scripts/etf_holdings.py) -> {ETF: DataFrame[ticker, name, sector, weight, holdings_date]}.
         Holdings without a ticker are identified by name."""
-        h = pd.read_csv(path, dtype={"ticker": str, "cusip": str}, keep_default_na=False)
+        if not isinstance(h, pd.DataFrame):  # backward compatibility: a CSV path
+            h = pd.read_csv(h, dtype={"ticker": str, "cusip": str}, keep_default_na=False)
+        h = h.copy()
         h["ticker"] = h["ticker"].where(h["ticker"] != "", h["name"])
         return {f: g.reset_index(drop=True) for f, g in h.groupby("fund")}
 

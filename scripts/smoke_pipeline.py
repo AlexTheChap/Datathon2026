@@ -27,7 +27,7 @@ from app.intake.backends import BedrockBackend  # noqa: E402
 from app.schemas.execution_plan import ExecutionPlan  # noqa: E402
 from app.schemas.models import OrchestratorInput  # noqa: E402
 from app.agents.orchestrator import run_orchestrator  # noqa: E402
-from app.store.ledger import JsonlLedger  # noqa: E402
+from app.store.ledger import make_ledger  # noqa: E402
 from app.tools.context import default_as_of  # noqa: E402
 
 MESSAGES = {
@@ -108,7 +108,7 @@ def main() -> int:
         print(f"  unmatched {m['number']} in: {m['sentence'][:120]}")
     print(f"\nEvidence ({len(out.evidence_ids)}): {', '.join(out.evidence_ids)}")
     print(f"\nTrace: .venv/bin/python scripts/show_run.py {out.run_id}")
-    for r in JsonlLedger(s.abs_path(s.runs_dir)).records(out.run_id):
+    for r in make_ledger(s).records(out.run_id):
         caller = r.get("agent") or "orchestrator"
         print(f"  {r['seq']} [{caller}] {r['tool']}")
     return 0 if v.get("ok", True) else 1     # an answer with an unknown citation is a failed smoke test

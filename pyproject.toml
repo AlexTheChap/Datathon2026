@@ -12,6 +12,7 @@ dependencies = [
     "numpy",
     "pyyaml",
     "cvxpy",                                     # constrained optimizer (tools/optimizer.py)
+    "fastparquet",                               # curated Parquet (tools/curated_store.py ENGINE)
 ]
 
 [project.optional-dependencies]

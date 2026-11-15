@@ -47,29 +47,11 @@ def macro_snapshot(as_of: str | None = None) -> dict:
     Args:
         as_of: Optional earlier "YYYY-MM-DD" date (the run's reference date is the upper bound).
     """
-    as_of = effective_as_of(as_of)          # never later than the run's reference date
-    df = pd.read_csv(_curated() / "macro_daily_asof.csv", parse_dates=["date"])
-    df = df[df["date"] <= pd.Timestamp(as_of)]
-    if df.empty:
-        raise ValueError(f"No macro data on or before {as_of}.")
-    row = df.sort_values("date").iloc[-1]
-    out = {"date": str(row["date"].date())}
-    skipped = []
-    for col in df.columns[1:]:
-        v = row[col]
-        if pd.isna(v):
-            skipped.append(col)
-        else:
-            out[_LABELS.get(col, col)] = float(v)
-    say = (f"As of {out['date']}: CA policy rate {out.get('BoC policy rate (%)', 'n/a')}%, "
-           f"CA 10y {out.get('CA 10y yield (%)', 'n/a')}%, US 10y {out.get('US 10y yield (%)', 'n/a')}%, "
-           f"CA CPI {out.get('CA CPI y/y (%)', 'n/a')}%.")
-    return _envelope("macro_snapshot", {"as_of": as_of}, out, say,
-                     ["Monthly series (CPI, unemployment) are dated to the reference "
-                      "month and only appear on/after their release date.",
-                      "No data after the as_of date is used."],
-                     ["macro_rates.csv (Bank of Canada Valet API; FRED) via "
-                      "curated/macro_daily_asof.csv (release-aware alignment)"])
+    # Same logic as the Gateway's macro___macro_snapshot (one implementation: app.tools.macro_tools),
+    # with the date bounded by the run's reference date: never later than as_of.
+    from app.tools import macro_tools
+
+    return macro_tools.macro_snapshot(_curated(), effective_as_of(as_of))
 
 
 @tool

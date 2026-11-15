@@ -1,5 +1,6 @@
 """Dispatchers of box ② (link L6): hand a QUEUED run to box ⑤.
 
+- `InlineDispatcher` (api/dispatch.py): runs the orchestrator synchronously in the request (scripts/smoke_dynamodb.py).
 - `LocalDispatcher` (AF_DISPATCH=local, the default with the in-memory store): runs the orchestrator in a
   background thread of the same process and writes the outcome back to the run store (L18), so that
   `GET /v1/runs/{id}` goes QUEUED -> RUNNING -> DONE / FAILED. For local development and demos.
@@ -15,16 +16,16 @@ from concurrent.futures import ThreadPoolExecutor
 from app.schemas.models import OrchestratorInput, OrchestratorOutput
 from app.store.runs import RunRecord, RunStore, _now
 
+from .dispatch import orchestrator_input
+
 log = logging.getLogger(__name__)
 Runner = Callable[[OrchestratorInput], OrchestratorOutput]
 
 
 def payload_from_run(run: RunRecord) -> OrchestratorInput:
-    """The AgentCore payload (L6) built from the stored run: profile snapshot, request, plan and prompt reference."""
-    return OrchestratorInput(
-        run_id=run.run_id, actor_id=run.actor_id, session_id=run.session_id, language=run.profile.language,
-        as_of=str(run.request.as_of) if run.request.as_of else None,
-        profile=run.profile, request=run.request, execution_plan=run.execution_plan, prompt_ref=run.prompt_ref)
+    """The AgentCore payload (L6) built from the stored run: same function as the inline dispatcher
+    (profile snapshot, request with its named positions as portfolio weights, plan, prompt reference, session)."""
+    return orchestrator_input(run)
 
 
 class LocalDispatcher:

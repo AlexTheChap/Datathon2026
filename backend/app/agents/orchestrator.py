@@ -27,10 +27,11 @@ from app.context.tool_guide import tools_block
 from app.core.config import Settings, get_settings
 from app.schemas.execution_plan import ExecutionPlan
 from app.schemas.models import OrchestratorInput, OrchestratorOutput, Profile
-from app.store.ledger import JsonlLedger
+from app.store.ledger import EvidenceLedger, make_ledger
 from app.tools import agent_tools
 from app.tools.context import current_as_of, current_profile, default_as_of
 from strands import Agent
+from strands.models import BedrockModel
 
 
 log = logging.getLogger(__name__)
@@ -91,7 +92,7 @@ def plan_for(inp: OrchestratorInput) -> ExecutionPlan:
     return plan
 
 
-def build_orchestrator(inp: OrchestratorInput, ledger: JsonlLedger | None = None,
+def build_orchestrator(inp: OrchestratorInput, ledger: EvidenceLedger | None = None,
                        settings: Settings | None = None, plan: ExecutionPlan | None = None,
                        as_of: str | None = None, memory: MemoryBinding | None = None) -> Agent:
     """Strands Agent for one run (never reused across runs)."""
@@ -112,7 +113,7 @@ def build_orchestrator(inp: OrchestratorInput, ledger: JsonlLedger | None = None
         )
 
 
-    led = ledger or JsonlLedger(s.abs_path(s.runs_dir))
+    led = ledger or make_ledger(s)   # JSONL locally, DynamoDB when AF_STORE=dynamodb (L15)
     # Sub-agents enabled by the box 4 ExecutionPlan (task rules + profile toggles, L6).
     # Pure delegation: the orchestrator keeps ONLY the deterministic governance
     # verdict — every number comes from a sub-agent finding (no double compute).
@@ -120,6 +121,7 @@ def build_orchestrator(inp: OrchestratorInput, ledger: JsonlLedger | None = None
 
     def make(session_manager) -> Agent:
         return Agent(
+            model=BedrockModel(model_id=s.model_orchestrator, region_name=s.aws_region),
             system_prompt=system_prompt(),
             tools=[agent_tools.governance_check, *subagents],
             hooks=[EvidenceHook(led, inp.run_id)],
@@ -161,7 +163,7 @@ def run_orchestrator(inp: OrchestratorInput, settings: Settings | None = None,
     """Runs the end-to-end analysis for one validated payload: orchestrator (plan, sub-agents, governance),
     then the Explainer writes the answer from the run's evidence and the claim verifier checks it."""
     s = settings or get_settings()
-    led = JsonlLedger(s.abs_path(s.runs_dir))
+    led = make_ledger(s)   # JSONL locally, DynamoDB when AF_STORE=dynamodb (L15)
     start = time.perf_counter()
     try:
         plan = plan_for(inp)

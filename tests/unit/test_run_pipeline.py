@@ -109,13 +109,13 @@ def test_ledger_is_thread_safe_and_numbers_calls_contiguously(make, tmp_path):
     [t.start() for t in threads]
     [t.join() for t in threads]
     seqs = [r["seq"] for r in led.records("run-t")]
-    assert sorted(seqs) == list(range(1, 201)) and len(led.evidence_ids("run-t")) == 200
+    assert sorted(seqs) == [f"E-{i:03d}" for i in range(1, 201)] and len(led.evidence_ids("run-t")) == 200
 
 
 def test_jsonl_ledger_continues_the_numbering_after_a_restart(tmp_path):
     JsonlLedger(tmp_path).append("run-r", {"tool": "a"})
     again = JsonlLedger(tmp_path)
-    assert again.append("run-r", {"tool": "b"})["seq"] == 2
+    assert again.append("run-r", {"tool": "b"})["seq"] == "E-002"
 
 
 # ---------- local dispatcher ----------

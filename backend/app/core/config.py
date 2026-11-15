@@ -57,6 +57,20 @@ class Settings(BaseSettings):
     memory_prefs_top_k: int = 10
     memory_prefs_relevance: float = 0.0     # minimum score of a record to be used (0 = all of the top_k)
 
+    # Box ⑥ on AWS — empty = local fallbacks (tests, offline development).
+    # AF_GATEWAY_URL: AgentCore Gateway (MCP) serving the quant tools (scripts/deploy_quant_gateway.py, L12);
+    #   unset -> the Risk sub-agent calls the same functions in-process.
+    # AF_KB_ID: Bedrock Knowledge Base "news & docs" on S3 Vectors (scripts/deploy_news_kb.py, L13);
+    #   unset -> the News sub-agent stays in SIMULATED mode (labeled fictional).
+    gateway_url: str | None = None
+    kb_id: str | None = None
+
+    # DynamoDB single table (profiles · runs · evidence ledger; L3, L6, L15, L18). Same variables as the API
+    # (app.api.service.service_from_env): AF_STORE=dynamodb + AF_TABLE. "memory" = local stand-ins
+    # (in-memory profiles/runs, JSONL evidence ledger in data/runs).
+    store: str = "memory"
+    table: str = "alphaforge"
+
     # Data and rules (node ⑥) — repo-root-relative by default.
     curated_dir: Path = REPO_ROOT / "data" / "curated"
     rules_path: Path = REPO_ROOT / "backend" / "app" / "core" / "rules.yaml"
