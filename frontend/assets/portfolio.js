@@ -219,6 +219,7 @@ export async function renderPortfolio(main, ctx) {
       heroCard(view),
       kpis(view),
       allocationSection(view),
+      whatIfSection(view),
       riskSection(view),
       projectionSection(view),
       analysisOn(profile, "macro_scenarios") ? ratesSection(view) : null,
@@ -352,17 +353,25 @@ function heroCard(view) {
 
 const fitCache = new Map(); // weights + profile -> the server's answer (the level only changes how it is shown)
 
+/** The fit of these weights with the profile (POST /v1/fit-score), asked once per weights and profile. */
+function fitFor(ctx, profile, weights) {
+  const key = JSON.stringify([weights, profile.risk_band, profile.horizon_years, profile.loss_capacity, profile.exclusions, profile.preferences]);
+  if (!fitCache.has(key)) {
+    const ask = ctx.api("POST", "/v1/fit-score", { weights }).then((r) => r.data);
+    ask.catch(() => fitCache.delete(key)); // a failure is asked again next time
+    fitCache.set(key, ask);
+  }
+  return fitCache.get(key);
+}
+
 function fitCard(view) {
-  const { ctx, h, p, level, profile } = view;
+  const { ctx, h, p, profile } = view;
   const box = h("div", { class: "hero-card__score", "aria-live": "polite" },
     h("p", { class: "kpi__label" }, "Fit with your profile"), h("p", { class: "small muted" }, "Measuring the fit…"));
-  const key = JSON.stringify([p.weights, profile.risk_band, profile.horizon_years, profile.loss_capacity, profile.exclusions, profile.preferences]);
   // replaceChildren writes a null as the text "null": drop the parts left out at this level.
   const show = (fit) => box.replaceChildren(...fitBody(view, fit).filter(Boolean));
   const load = () => {
-    if (!fitCache.has(key)) fitCache.set(key, ctx.api("POST", "/v1/fit-score", { weights: p.weights }).then((r) => r.data));
-    fitCache.get(key).then(show).catch((err) => {
-      fitCache.delete(key);
+    fitFor(ctx, profile, p.weights).then(show).catch((err) => {
       box.replaceChildren(h("p", { class: "kpi__label" }, "Fit with your profile"), ctx.alertBox(err, "the fit with your profile", load));
     });
   };
@@ -387,6 +396,178 @@ function fitBody(view, fit) {
     level !== "simple" ? h("details", { class: "fold small" }, h("summary", null, "How this score is measured"),
       h("p", null, `${fit.method} Data ${fit.period.replace("/", " to ")}.`),
       h("ul", { class: "plain-list" }, fit.assumptions.map((a) => h("li", null, a)))) : null,
+  ];
+}
+
+/* ---------- What if: move the weights, see the fit with the profile change live (POST /v1/fit-score) ---------- */
+
+const trials = new Map(); // run id -> the weights being tried (kept when the level changes or the page redraws)
+
+function whatIfSection(view) {
+  const { ctx, h, p, level, profile } = view;
+  const uni = view.uni || {};
+  const label = (t) => (level === "simple" ? (uni[t] || {}).plain || t : t);
+  let weights = trials.get(p.runId) || { ...p.weights };
+  let order = D.sortedWeights(weights).map(([t]) => t); // the rows keep their place while sliding
+  let seq = 0; let timer = null;
+
+  const rows = h("div", { class: "whatif__rows" });
+  const result = h("div", { class: "whatif__result", "aria-live": "polite" });
+  const suggestion = h("div", { class: "whatif__suggest", "aria-live": "polite" });
+  const reset = h("button", { class: "btn btn--secondary btn--sm", type: "button", onclick: () => setWeights({ ...p.weights }, true) }, "Back to my portfolio");
+  const pick = h("input", { class: "input whatif__pick", id: "whatif-pick", list: "whatif-assets", placeholder: "Ticker or name, e.g. NVDA",
+    autocomplete: "off", "aria-describedby": "whatif-pick-help" });
+  const pickHelp = h("p", { class: "small muted", id: "whatif-pick-help" }, "Starts at 5%; the others make room.");
+  const options = h("datalist", { id: "whatif-assets" }, Object.entries(uni).map(([t, a]) => h("option", { value: t }, `${a.name || t}${a.plain && a.plain !== a.name ? ` (${a.plain})` : ""}`)));
+  const add = () => {
+    const raw = pick.value.trim();
+    const t = uni[raw] ? raw : uni[raw.toUpperCase()] ? raw.toUpperCase()
+      : Object.keys(uni).find((k) => (uni[k].name || "").toLowerCase() === raw.toLowerCase());
+    if (!t) { pickHelp.textContent = raw ? `“${raw}” isn't in the list of investments AlphaForge has data for.` : "Type a ticker or a name first."; return; }
+    if (!order.includes(t)) order.push(t);
+    pick.value = ""; pickHelp.textContent = "Starts at 5%; the others make room.";
+    setWeights(D.addHolding(weights, t, weights[t] ? weights[t] : 0.05), true);
+  };
+  pick.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); add(); } });
+
+  function drawRows() {
+    rows.replaceChildren(...order.map((t) => {
+      const v = weights[t] || 0;
+      const out = h("output", { class: "whatif__value", for: `whatif-${t}` }, pct1(v));
+      const input = h("input", { type: "range", class: "scale__input", id: `whatif-${t}`, min: "0", max: "100", step: "1",
+        value: String(Math.round(v * 100)), style: `--fill: ${v * 100}%`, "aria-valuetext": `${pct1(v)} of the money` });
+      input.addEventListener("input", () => setWeights(D.rebalance(weights, t, Number(input.value) / 100), false, t));
+      return h("div", { class: "whatif__row", "data-ticker": t },
+        h("label", { class: "whatif__name", for: `whatif-${t}` }, label(t), level !== "simple" ? h("span", { class: "small muted" }, ` ${(uni[t] || {}).plain || ""}`) : null),
+        input, out,
+        order.length > 1 ? h("button", { class: "link-btn whatif__remove", type: "button", "aria-label": `Remove ${label(t)}`,
+          onclick: () => { order = order.filter((x) => x !== t); setWeights(D.removeHolding(weights, t), true); } }, "Remove") : null);
+    }));
+  }
+  /** New weights: update the sliders in place (the one being dragged keeps its focus), then score them. */
+  function setWeights(next, redraw, moving, keepSuggestion = false) {
+    weights = next;
+    if (!keepSuggestion) suggestion.replaceChildren(); // a suggestion is for the mix it was made from
+    trials.set(p.runId, weights);
+    if (redraw) {
+      // One row per holding in the weights, always: rows keep their place, and a holding that comes back (the reset
+      // after a removal) gets its row again, so the rows on screen always add up to 100%.
+      const kept = order.filter((t) => t in weights);
+      order = [...kept, ...D.sortedWeights(weights).map(([t]) => t).filter((t) => !kept.includes(t))];
+      drawRows();
+    }
+    else {
+      for (const row of rows.children) {
+        const t = row.dataset.ticker; const v = weights[t] || 0;
+        const input = row.querySelector("input"); const out = row.querySelector("output");
+        if (t !== moving) input.value = String(Math.round(v * 100));
+        input.style.setProperty("--fill", `${v * 100}%`);
+        input.setAttribute("aria-valuetext", `${pct1(v)} of the money`);
+        out.textContent = pct1(v);
+      }
+    }
+    reset.disabled = D.sameWeights(weights, p.weights);
+    window.clearTimeout(timer);
+    timer = window.setTimeout(score, 200);
+  }
+  async function score() {
+    const mine = ++seq;
+    const clean = Object.fromEntries(Object.entries(weights).filter(([, v]) => v > 0.0005).map(([t, v]) => [t, Math.round(v * 10000) / 10000]));
+    result.classList.add("is-loading");
+    try {
+      const [trial, base] = await Promise.all([fitFor(ctx, profile, clean), fitFor(ctx, profile, p.weights).catch(() => null)]);
+      if (mine !== seq) return; // a newer move is on its way
+      result.classList.remove("is-loading");
+      result.replaceChildren(...whatIfResult(view, trial, base, improve).filter(Boolean));
+    } catch (err) {
+      if (mine !== seq) return;
+      result.classList.remove("is-loading");
+      result.replaceChildren(ctx.alertBox(err, "the fit of this mix", score));
+    }
+  }
+
+  /** "Improve my score": the closest mix that fits the profile better (POST /v1/fit-score/improve), shown with the
+   * before/after and each change; "Try this mix" loads it into the sliders (Back to my portfolio undoes it). */
+  async function improve() {
+    const from = { ...weights };
+    suggestion.replaceChildren(h("p", { class: "small muted" }, "Looking for a closer fit to your profile…"));
+    try {
+      const { data } = await ctx.api("POST", "/v1/fit-score/improve", { weights: from });
+      if (!D.sameWeights(from, weights)) return; // the mix moved meanwhile: this answer is for an older one
+      suggestion.replaceChildren(...suggestionCard(view, data, {
+        apply: () => {
+          order = D.sortedWeights(data.weights).map(([t]) => t);
+          setWeights({ ...data.weights }, true, null, true);
+          suggestion.replaceChildren(h("p", { class: "small" }, h("strong", null, "The suggested mix is in the sliders. "),
+            "Adjust it as you like; “Back to my portfolio” undoes it."));
+        },
+        dismiss: () => suggestion.replaceChildren(),
+      }).filter(Boolean));
+    } catch (err) {
+      suggestion.replaceChildren(ctx.alertBox(err, "a better mix", improve));
+    }
+  }
+
+  drawRows();
+  setWeights(weights, false);
+  return h("section", { class: "panel stack", "aria-labelledby": "whatif-title" },
+    h("div", { class: "stack-sm" },
+      h("h2", { id: "whatif-title", class: "section-title" }, level === "simple" ? "Try a different mix" : "What if you changed the weights?"),
+      h("p", { class: "small muted" }, "Move a slider: the others adjust so the total stays 100%. The fit with your profile is measured again each time. Nothing is saved.")),
+    h("div", { class: "whatif" },
+      h("div", { class: "stack-sm" }, rows,
+        h("div", { class: "whatif__add" }, h("label", { class: "field__label", for: "whatif-pick" }, "Add an investment"),
+          h("div", { class: "whatif__add-row" }, pick, h("button", { class: "btn btn--secondary btn--sm", type: "button", onclick: add }, "Add")), pickHelp, options),
+        reset),
+      result),
+    suggestion);
+}
+
+function suggestionCard(view, data, { apply, dismiss }) {
+  const { h, level } = view;
+  const uni = view.uni || {};
+  if (!data.found) return [h("p", { class: "small" }, h("strong", null, "No better mix found. "), data.message)];
+  const name = (t) => (level === "simple" ? (uni[t] || {}).plain || t : t);
+  return [
+    h("h3", { class: "whatif__suggest-title" }, level === "simple" ? "A mix that suits you better" : "A closer fit to your profile"),
+    h("p", { class: "whatif__jump" }, `${data.base.score}%`, h("span", { "aria-hidden": "true" }, " → "),
+      h("span", { class: "visually-hidden" }, " becomes "), h("strong", null, `${data.best.score}%`),
+      h("span", { class: "small muted" }, ` ${data.best.band}`)),
+    data.steps.length ? h("ul", { class: "small answer-list" }, data.steps.map((s) => h("li", null, s))) : null,
+    h("div", { class: "table-wrap" }, h("table", { class: "data-table" },
+      h("caption", { class: "visually-hidden" }, "What changes, holding by holding"),
+      h("thead", null, h("tr", null, h("th", { scope: "col" }, "Holding"), ["Now", "Suggested"].map((x) => h("th", { scope: "col", class: "num" }, x)))),
+      h("tbody", null, data.changes.map((c) => h("tr", null, h("th", { scope: "row" }, name(c.ticker)),
+        h("td", { class: "num" }, c.from ? pct1(c.from) : "—"), h("td", { class: "num" }, c.to ? pct1(c.to) : "removed")))))),
+    h("div", { class: "whatif__suggest-actions" },
+      h("button", { class: "btn btn--primary btn--sm", type: "button", onclick: apply }, "Try this mix"),
+      h("button", { class: "link-btn", type: "button", onclick: dismiss }, "Dismiss")),
+    level !== "simple" ? h("p", { class: "small muted" }, data.method) : null,
+  ];
+}
+
+function whatIfResult(view, fit, base, onImprove) {
+  const { h, level } = view;
+  const delta = base ? fit.score - base.score : null;
+  const mix = (fit.parts.find((x) => x.key === "asset_mix") || { items: [{}] }).items[0].measured;
+  const lines = D.fitLines(fit, "simple"); // only what loses points, whatever the level
+  return [
+    h("p", { class: "kpi__label" }, "Fit of this mix with your profile"),
+    h("p", { class: "hero-card__figure" }, `${fit.score}`, h("span", { class: "hero-card__of" }, "%")),
+    meter({ value: fit.score, max: 100, label: "Fit of this mix with your profile", display: `${fit.score}%`, tone: D.fitTone(fit.score) }),
+    h("p", { class: "small" }, h("strong", null, fit.band),
+      delta === null ? null : delta === 0 ? " · same as your portfolio"
+        : ` · ${delta > 0 ? "+" : "−"}${Math.abs(delta)} points vs your portfolio (${base.score}%)`),
+    ...(fit.caps || []).map((c) => h("p", { class: "small" }, h("strong", null, `Capped at ${c.at}%: `), `${c.why}.`)),
+    h("dl", { class: "facts" },
+      h("dt", null, level === "simple" ? "Typical yearly swing" : "Volatility (annualised)"), h("dd", null, pct1(fit.measured.ann_vol)),
+      h("dt", null, "Worst drop"), h("dd", null, pct1(Math.abs(fit.measured.max_drawdown))),
+      typeof mix === "number" ? [h("dt", null, "In stocks"), h("dd", null, pct(mix))] : null),
+    lines.length ? h("ul", { class: "small plain-list fit-lines" }, lines.map((l) => h("li", null,
+      h("strong", null, level === "simple" ? l.title : `${l.title}: −${l.lost}`), h("span", { class: "fit-lines__why" }, ` ${l.reasons.join("; ")}.`))))
+      : h("p", { class: "small muted" }, "This mix meets every part of your profile."),
+    fit.score < 100 && onImprove ? h("button", { class: "btn btn--secondary btn--sm whatif__improve", type: "button", onclick: onImprove },
+      level === "simple" ? "Find a mix that suits me better" : "Improve my score") : null,
   ];
 }
 
@@ -552,14 +733,15 @@ function projectionSection(view) {
     const geo = PD.fanGeometry(series);
     const rows = series.years.map((y, i) => [y === 0 ? "Now" : String(y), ...["p10", "p25", "p50", "p75", "p90"].map((k) => ctx.money(series[k][i]))]);
     const short = (v) => (Math.abs(v) >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : `$${Math.round(v / 1e3)}k`);
-    out.replaceChildren(
+    out.replaceChildren(...[ // parts that don't apply are null: dropped (native replaceChildren prints "null")
       h("p", { class: "proj-summary" }, PD.summarySentence(d, state.mode, ctx.money)),
       fanChart({ id: "projection", title: state.mode === "real" ? "Simulated value, in today's dollars" : "Simulated value, in future dollars",
         note: `${d.assumptions.n_paths.toLocaleString("en-CA")} simulated scenarios, monthly steps, rebalanced monthly`,
         geo, format: short, rows, startLabel: `Today's value (${ctx.money(d.start_value)})` }),
       d.warnings.length ? h("ul", { class: "warning-list" }, d.warnings.map((w) => h("li", null, w))) : null,
       assumptionsBlock(view, d),
-      learnNote(view, "each scenario is one possible path for markets. The band shows where 8 in 10 of them ended, so your result could be anywhere in it, or outside it."));
+      learnNote(view, "each scenario is one possible path for markets. The band shows where 8 in 10 of them ended, so your result could be anywhere in it, or outside it."),
+    ].filter(Boolean));
   }
 
   load();
@@ -576,7 +758,7 @@ function ratesSection(view) {
     try {
       const { data } = await ctx.api("POST", "/v1/rate-exposure", { weights: p.weights });
       const facts = D.rateFacts(data);
-      out.replaceChildren(
+      out.replaceChildren(...[ // parts that don't apply are null: dropped (native replaceChildren prints "null")
         h("p", null, D.rateSentence(data)),
         facts.length ? h("dl", { class: "facts" }, facts.map(([k, v]) => [h("dt", null, k), h("dd", null, v)])) : null,
         level === "simple" ? null : h("div", { class: "table-wrap" }, h("table", { class: "data-table" },
@@ -585,7 +767,8 @@ function ratesSection(view) {
           h("tbody", null, D.rateRows(data).map((r) => h("tr", null, h("th", { scope: "row" }, r.ticker),
             h("td", { class: "num" }, r.weight), h("td", { class: "num" }, r.duration), h("td", { class: "num" }, r.impact)))))),
         h("p", { class: "small muted" }, `Rates as of ${data.rates_date || data.as_of}. Only bond funds have a measured sensitivity; stocks and equity funds are not measured. `
-          + "It uses the average of 2021–2026 and changes over time."));
+          + "It uses the average of 2021–2026 and changes over time."),
+      ].filter(Boolean));
     } catch (err) {
       out.replaceChildren(h("p", { class: "muted" }, "The rate sensitivity isn't available right now."));
     }

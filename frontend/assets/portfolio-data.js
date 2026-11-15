@@ -283,18 +283,21 @@ export function heroSummary({ level, learn = false, weights, universe = {}, gove
       + `${risk ? `, for a ${risk} risk level` : ""}${years ? ` over ${years} year${years === 1 ? "" : "s"}` : ""}.`);
     if (t0) out.push(`The largest is ${t0} (${plain(t0)}), at ${pctText(w0, 1)}.`);
     if (vol) out.push(`Volatility: about ${pctText(vol, 1)} a year, measured on the last 5 years.`);
-    out.push({ PASS: "It passes every check of your profile.",
-      WARN: `It passes, with a warning on: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
-      BLOCK: `It is blocked by: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
-    }[verdict] || `Not every check could be run: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`);
+    out.push({ PASS: "It fits every limit of your profile.",
+      WARN: `It fits your profile, with a point worth a look: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
+      BLOCK: `It goes against your profile on: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
+    }[verdict] || `Some limits could not be checked, so it is not confirmed: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`);
   } else {
     out.push(`Weights: ${holdings.map(([t, w]) => `${t} ${pctText(w, 1)}`).join(", ")}.`);
     out.push(`Asset classes: ${pctText(stocks, 1)} equity, ${pctText(bonds, 1)} fixed income`
       + `${risk ? `; risk band ${risk}` : ""}${years ? `, horizon ${years} y` : ""}.`);
     if (vol) out.push(`Annualised volatility ${pctText(vol, 1)} (5 years of daily returns, CAD).`);
     const n = ((governance && governance.checks) || []).length;
-    out.push(`Governance verdict: ${verdict}${n ? ` on ${n} check${n === 1 ? "" : "s"}` : ""}`
-      + `${flagged.length ? ` (${flagged.map((c) => `${checkName(c.id, true)}: ${c.status}`).join("; ")})` : ""}.`);
+    const overall = { PASS: "fits every limit", WARN: "fits, with points worth a look", BLOCK: "goes against the profile" }[verdict]
+      || "not confirmed (some limits could not be checked)";
+    const status = { WARN: "worth a look", BLOCK: "not met", UNVERIFIED: "not confirmed" };
+    out.push(`Profile check: ${overall}${n ? `, ${n} limit${n === 1 ? "" : "s"} checked` : ""}`
+      + `${flagged.length ? ` (${flagged.map((c) => `${checkName(c.id, true)}: ${status[c.status] || "not confirmed"}`).join("; ")})` : ""}.`);
   }
   out.push("This is a simulation, not advice.");
 
@@ -344,3 +347,28 @@ export function rateFacts(d) {
     "US fed funds (%)": "US Fed funds rate", "US 10y yield (%)": "US 10-year yield", "CA CPI y/y (%)": "Canadian inflation (year over year)" };
   return Object.entries(names).filter(([k]) => (d.rates || {})[k] != null).map(([k, label]) => [label, `${Number(d.rates[k]).toFixed(2).replace(/\.?0+$/, "")}%`]);
 }
+
+/* ---------- "What if" weights: the total always stays 100% ---------- */
+
+/** Set one holding's share; the others make room (or take the rest) in proportion to their current shares. */
+export function rebalance(weights, ticker, share) {
+  const x = Math.max(0, Math.min(1, share));
+  const others = Object.keys(weights).filter((t) => t !== ticker);
+  if (!others.length) return { [ticker]: 1 };
+  const rest = others.reduce((s, t) => s + weights[t], 0);
+  const out = {};
+  for (const t of Object.keys(weights)) {
+    out[t] = t === ticker ? x : rest > 1e-12 ? (weights[t] / rest) * (1 - x) : (1 - x) / others.length;
+  }
+  return out;
+}
+/** Add a holding at `share` (5% by default), the others scaled down; an existing one is just set to `share`. */
+export const addHolding = (weights, ticker, share = 0.05) => rebalance({ ...weights, [ticker]: weights[ticker] || 0 }, ticker, share);
+/** Remove a holding: its share goes to the others, in proportion. The last one can't be removed. */
+export function removeHolding(weights, ticker) {
+  const rest = Object.fromEntries(Object.entries(weights).filter(([t]) => t !== ticker));
+  const total = Object.values(rest).reduce((s, v) => s + v, 0);
+  if (!Object.keys(rest).length) return weights;
+  return Object.fromEntries(Object.entries(rest).map(([t, v]) => [t, total > 1e-12 ? v / total : 1 / Object.keys(rest).length]));
+}
+export const sameWeights = (a, b) => weightsMatch(a || {}, b || {}, 0.0005) && Object.keys(cleanWeights(a)).length === Object.keys(cleanWeights(b)).length;

@@ -51,11 +51,14 @@ def projection_tools() -> list:
 
 
 def local_quant_tools() -> list:
+    """The quant measures + the projection pair ONLY. Candidate discovery (market_screen / market_related)
+    belongs to the Allocation sub-agent — risk analyses the portfolio given in its brief, and the observed
+    failure mode was risk re-screening the whole universe on every turn."""
     from app.tools import agent_tools
 
     return [agent_tools.metrics, agent_tools.concentration,
             agent_tools.correlation, agent_tools.risk_contribution,
-            agent_tools.market_screen, agent_tools.market_related, *projection_tools()]
+            *projection_tools()]
 
 
 _mcp_clients: dict[str, object] = {}

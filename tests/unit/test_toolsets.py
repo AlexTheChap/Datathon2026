@@ -10,7 +10,7 @@ from app.agents.subagents.risk import risk_subagent
 from app.tools import toolsets
 
 LOCAL_NAMES = ["metrics", "concentration", "correlation", "risk_contribution",
-               "market_screen", "market_related", "projection", "vol_forecast"]
+               "projection", "vol_forecast"]                    # screening stays with Allocation
 PROJECTION_NAMES = ["projection", "vol_forecast"]   # in-process in both modes (need the run's profile)
 
 

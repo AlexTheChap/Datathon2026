@@ -284,7 +284,7 @@ def test_answer_with_checks_evidence_and_glossary(page, base_url):
 
     page.goto(f"{base_url}/#/runs/{run.run_id}")
     page.wait_for_selector("text=Profile checks")
-    assert page.locator(".verdict--block").first.inner_text().strip() == "Blocked"
+    assert page.locator(".verdict--block").first.inner_text().strip() == "Goes against your profile"
     assert page.locator("text=Words used in this answer").count() == 1       # a learner gets the glossary
     assert page.locator("text=All 5 statements were checked against the evidence").count() == 1
     page.wait_for_selector(".evidence-item")
@@ -407,6 +407,62 @@ def test_detail_level_follows_experience_and_can_be_changed(page, base_url):
     page.click("a.nav__link:has-text('My portfolio')")
     page.wait_for_selector(".hero-card")
     assert page.is_checked("input[name='detail-level'][value='detailed']")      # the choice is remembered
+    assert page.errors == []
+
+
+def test_what_if_sliders_rescore_the_mix_live_and_keep_100_percent(page, base_url):
+    _portfolio_for(page)
+    page.goto(f"{base_url}/#/portfolio")
+    page.wait_for_selector(".whatif__result .hero-card__figure")
+    assert "same as your portfolio" in page.inner_text(".whatif__result")
+    # Push QQQ (tech-heavy) to 80%: the others make room, the fit drops, and the reason is given.
+    page.evaluate("""() => { const i = document.getElementById('whatif-QQQ'); i.value = '80';
+                             i.dispatchEvent(new Event('input', { bubbles: true })); }""")
+    page.wait_for_selector(".whatif__result >> text=points vs your portfolio")
+    shares = page.eval_on_selector_all(".whatif__value", "els => els.map((e) => parseFloat(e.textContent))")
+    assert abs(sum(shares) - 100) < 0.6 and max(shares) == 80
+    text = page.inner_text(".whatif__result")
+    assert "−" in text and ("Risk level" in text or "Stocks and bonds" in text)
+    # Improve my score: a closer fit, each change said; "Try this mix" loads it into the sliders.
+    low = int(page.inner_text(".whatif__result .hero-card__figure").rstrip("%"))
+    page.click("button:has-text('Improve my score')")
+    page.wait_for_selector(".whatif__suggest >> text=A closer fit to your profile")
+    jump = page.inner_text(".whatif__jump")
+    assert jump.startswith(f"{low}%") and "Moved the share in stocks" in page.inner_text(".whatif__suggest")
+    page.click("button:has-text('Try this mix')")
+    page.wait_for_selector(".whatif__suggest >> text=The suggested mix is in the sliders")
+    page.wait_for_function(f"parseInt(document.querySelector('.whatif__result .hero-card__figure').textContent) > {low}")
+    shares = page.eval_on_selector_all(".whatif__value", "els => els.map((e) => parseFloat(e.textContent))")
+    assert abs(sum(shares) - 100) < 0.6
+    # Add a stock by ticker: it starts at 5%.
+    page.fill("#whatif-pick", "NVDA")
+    page.click(".whatif__add-row button:has-text('Add')")
+    page.wait_for_selector("#whatif-NVDA")
+    assert page.inner_text(".whatif__row[data-ticker='NVDA'] output") == "5%"
+    page.fill("#whatif-pick", "NOT-A-TICKER")
+    page.click(".whatif__add-row button:has-text('Add')")
+    page.wait_for_selector("text=isn't in the list of investments")
+    # Back to the portfolio: the same fit again, and the button is off.
+    page.click("button:has-text('Back to my portfolio')")
+    page.wait_for_selector(".whatif__result >> text=same as your portfolio")
+    assert page.locator("#whatif-NVDA").count() == 0 and page.is_disabled("button:has-text('Back to my portfolio')")
+    # Remove a holding, go back to the portfolio, add another: every holding has its row and the rows add up to 100%.
+    page.click(".whatif__row[data-ticker='XIU.TO'] button:has-text('Remove')")
+    page.wait_for_selector("#whatif-XIU\\.TO", state="detached")
+    page.click("button:has-text('Back to my portfolio')")
+    page.wait_for_selector(".whatif__row[data-ticker='XIU.TO']")
+    page.fill("#whatif-pick", "MSFT")
+    page.click(".whatif__add-row button:has-text('Add')")
+    page.wait_for_selector("#whatif-MSFT")
+    rows = page.eval_on_selector_all(".whatif__row", "els => els.map((e) => e.dataset.ticker)")
+    assert sorted(rows) == ["MSFT", "QQQ", "SPY", "XBB.TO", "XIU.TO"]
+    shares = page.eval_on_selector_all(".whatif__value", "els => els.map((e) => parseFloat(e.textContent))")
+    assert abs(sum(shares) - 100) < 0.6
+    # On a phone, no section is wider than the screen (the projection controls used to push every panel out).
+    page.set_viewport_size({"width": 390, "height": 900})
+    page.wait_for_timeout(200)
+    assert page.evaluate("""() => [...document.querySelectorAll('main section')]
+        .every((s) => s.getBoundingClientRect().right <= document.documentElement.clientWidth + 1)""")
     assert page.errors == []
 
 

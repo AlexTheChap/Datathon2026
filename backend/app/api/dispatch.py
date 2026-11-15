@@ -66,7 +66,20 @@ class InlineDispatcher:
             run.error = out.error
         except Exception as e:  # visible failure, never a run stuck in RUNNING
             run.status, run.error = "FAILED", f"{type(e).__name__}: {e}"
+            run.updated_at = _now()
+            self.runs.put(run)
+            attach_answer(run, self._explain_fn, self._records_fn)
+            run.updated_at = _now()
+            self.runs.put(run)
+            return
+        # The working draft goes live BEFORE the Explainer starts: pollers (run page, dashboard) read
+        # status DRAFTED + result.summary ~15-20s sooner, instead of silence for the whole answer pass.
+        run.status = "DRAFTED" if run.status == "DONE" else run.status   # out.status is DONE here
+        run.updated_at = _now()
+        self.runs.put(run)
         attach_answer(run, self._explain_fn, self._records_fn)
+        if run.status == "DRAFTED":      # only the checked answer completes a run; DRAFTED is never final
+            run.status = "DONE"
         run.updated_at = _now()
         self.runs.put(run)
 

@@ -4,8 +4,8 @@
     GET  /v1/runs           → the user's runs, newest first (dashboard history)
     GET  /v1/runs/{run_id}  → the run (status, plan, result once box ⑤ writes it, incl. the Explainer's answer)
     GET  /v1/runs/{run_id}/evidence → the run's evidence ledger (every tool call: inputs, output, source)
-    GET  /v1/runs/{run_id}/evidence/catalog → what the answer can cite (each item: id, tool, say, period,
-                            sources), nested ids included: the web app's evidence panel
+    GET  /v1/runs/{run_id}/evidence/catalog → what the answer can cite, as the page shows it (id, plain
+                            title, say, readable period and sources, assumptions); profile-rule verdicts left out
     GET  /v1/runs/{run_id}/replay   → the run's portfolios replayed day by day over the 2022 crisis (dashboard)
     GET  /v1/profile        → the stored profile
     POST /v1/profile/draft[/file] → profile fields read from the person's text or a PDF / Word file (onboarding)
@@ -21,6 +21,7 @@
                             possible values under the 2026 planning guidelines (percentiles only, n_paths ≤ 20000;
                             defaults: saved portfolio, simulated capital, profile horizon)
     POST /v1/fit-score {weights?} → how well the weights fit the caller's profile, out of 100, every point explained (no LLM)
+    POST /v1/fit-score/improve {weights?} → the closest mix that fits the profile better, each change explained (no LLM)
     POST /v1/rate-exposure {weights?} → how the holdings reacted to interest rates + the current rates (no LLM)
     GET  /v1/vol-forecast?tickers=A,B → GARCH volatility forecast vs last 3 months: rising | stable | easing
     GET  /v1/me             → who is signed in (actor_id, email, demo persona)
@@ -217,6 +218,10 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
     @api.post("/v1/fit-score")
     def fit_score(body: FitScoreIn, actor_id: str = Depends(current_actor)) -> dict[str, Any]:
         return svc.fit_score(actor_id, body)
+
+    @api.post("/v1/fit-score/improve")
+    def improve_fit(body: FitScoreIn, actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.improve_fit(actor_id, body)
 
     @api.get("/v1/vol-forecast")
     def vol_forecast(tickers: str, actor_id: str = Depends(current_actor)) -> dict[str, Any]:

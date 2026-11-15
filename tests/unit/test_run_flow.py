@@ -53,7 +53,8 @@ def test_dispatcher_stores_a_checked_answer():
     InlineDispatcher(svc.runs, run_fn=fake_orchestrator, explain_fn=explainer_with(FakeClient(draft())),
                      records_fn=FakeLedger().records).dispatch(run)
     saved = svc.runs.get(run.run_id)
-    assert statuses == ["RUNNING", "DONE"]
+    assert statuses == ["RUNNING", "DRAFTED", "DONE"]   # DRAFTED: the working draft goes live while the
+                                                    # explainer checks it (the poller reads result.summary)
     assert saved.result["summary"] == "draft"                       # the orchestrator's fields stay
     answer = saved.result["answer"]
     assert answer["kind"] == "explained" and answer["verification"]["claims_checked"] == 5
@@ -165,8 +166,11 @@ def test_evidence_catalog_endpoint_is_owner_only(monkeypatch):
                          headers={"X-Actor-Id": "robert"}).json()["run_id"]
     items = client.get(f"/v1/runs/{run_id}/evidence/catalog", headers={"X-Actor-Id": "robert"}).json()
     by_id = {i["id"]: i for i in items}
-    assert "ev-9de6c73e44" in by_id and by_id["ev-c5f01b9379"]["say"].startswith("In 2022")
-    assert by_id["ev-c5f01b9379"]["data_sources"]  # sources shown in the panel
+    assert "ev-9de6c73e44" not in by_id and by_id["ev-c5f01b9379"]["say"].startswith("In 2022")  # a rule check: left out
+    assert by_id["ev-c5f01b9379"]["sources"] == ["Yahoo Finance daily prices (downloaded 13 Nov 2026)",
+                                                 "Bank of Canada USD/CAD exchange rate"]  # publishers, not file paths
+    assert by_id["ev-c5f01b9379"]["period"] == "Jan 2022 to Dec 2022"
+    assert not any(i["tool"] == "governance_check" or i["tool"].endswith(" detail") for i in items)  # the fit score's job
     assert client.get(f"/v1/runs/{run_id}/evidence/catalog", headers={"X-Actor-Id": "mallory"}).status_code == 404
     raw = client.get(f"/v1/runs/{run_id}/evidence", headers={"X-Actor-Id": "robert"}).json()
     assert raw == LEDGER  # the raw ledger stays available for the dashboard

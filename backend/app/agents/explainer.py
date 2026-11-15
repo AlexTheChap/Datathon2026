@@ -19,6 +19,7 @@ import re
 import time
 from typing import Any, Optional
 
+from app.agents import plain_words
 from app.agents.claim_check import apply, check, context_numbers, count_claims
 from app.agents.evidence import TOP_LEVEL, EvidenceItem, build_catalog, governance_items
 from app.agents.output_guardrail import apply_masks, screen
@@ -48,8 +49,11 @@ def _verdict_checks(catalog: dict[str, EvidenceItem]) -> list[dict]:
         mix = ", ".join(f"{t} {w:.0%}" for t, w in sorted((g.weights or {}).items(), key=lambda kv: -kv[1]))
         blocked = [c.get("id") for c in (g.facts.get("checks") or []) if isinstance(c, dict) and c.get("status") == "BLOCK"] \
             if isinstance(g.facts, dict) else []
-        text = g.say or (f"Blocked by: {', '.join(x for x in blocked if x)}." if blocked else f"Verdict: {g.verdict}.")
-        out.append({"allocation": mix or "The portfolio checked", "verdict": g.verdict, "text": text, "evidence": [g.id]})
+        text = g.say or (f"This goes against: {', '.join(x for x in blocked if x)}." if blocked
+                         else PLAIN_VERDICT.get(g.verdict, PLAIN_VERDICT["UNVERIFIED"]))
+        names = plain_words.names_in(f"{mix} {text}")
+        out.append({"allocation": plain_words.plainify(mix, names) or "The portfolio checked", "verdict": g.verdict,
+                    "text": plain_words.plainify(text, names), "evidence": [g.id]})
     return out
 
 
@@ -80,6 +84,13 @@ def declined(run: Any) -> RunAnswer:
     )
 
 
+# A verdict with no sentence of its own, in the reader's words (the code stays in the `verdict` field).
+PLAIN_VERDICT = {"PASS": "This mix fits every limit of your profile.",
+                 "WARN": "This mix stays within your profile's firm limits, with a point worth keeping an eye on.",
+                 "BLOCK": "This mix goes against one of your profile's limits.",
+                 "UNVERIFIED": "This mix could not be fully checked against your profile, so it is not confirmed."}
+
+
 def fallback(run: Any, catalog: dict[str, EvidenceItem], note: str) -> RunAnswer:
     """Evidence sentences only: nothing that the tools did not say themselves."""
     points = [{"text": item.say, "evidence": [item.id]} for item in catalog.values()
@@ -87,8 +98,12 @@ def fallback(run: Any, catalog: dict[str, EvidenceItem], note: str) -> RunAnswer
     if not points:
         points = [{"text": item.say, "evidence": [item.id]} for item in catalog.values() if item.say][:6]
     checks = [{"allocation": ", ".join(f"{t} {w:.0%}" for t, w in (g.weights or {}).items()) or "The portfolio checked",
-               "verdict": g.verdict, "text": g.say or f"Governance verdict: {g.verdict}.", "evidence": [g.id]}
+               "verdict": g.verdict, "text": g.say or PLAIN_VERDICT.get(g.verdict, PLAIN_VERDICT["UNVERIFIED"]),
+               "evidence": [g.id]}
               for g in governance_items(catalog) if g.agent in TOP_LEVEL]
+    for x in points + checks:                                   # the reader's words (plain_words.py)
+        names = plain_words.names_in(" ".join(str(v) for v in x.values()))
+        x.update({k: plain_words.plainify(x[k], names) for k in ("text", "allocation") if k in x})
     return RunAnswer(
         kind="fallback",
         short_answer=("AlphaForge could not write the full explanation this time. Here is what the analysis "
@@ -113,6 +128,13 @@ def _final_verdicts(catalog: dict[str, EvidenceItem]) -> list[EvidenceItem]:
 
 
 def build_input(run: Any, orchestrator: dict, catalog: dict[str, EvidenceItem]) -> dict[str, Any]:
+    payload = _input(run, orchestrator, catalog)
+    # Rule 9: name companies and funds, never bare tickers. Every ticker the input mentions, with its name.
+    payload["names"] = plain_words.names_in(json.dumps(payload, ensure_ascii=False, default=str))
+    return payload
+
+
+def _input(run: Any, orchestrator: dict, catalog: dict[str, EvidenceItem]) -> dict[str, Any]:
     profile, request, plan = _dump(run.profile), _dump(run.request), _plan(run)
     return {
         "question": request.get("user_message"),
@@ -136,8 +158,20 @@ def build_input(run: Any, orchestrator: dict, catalog: dict[str, EvidenceItem]) 
     }
 
 
-def _feedback(issues) -> str:
+def _wording(draft: ExplainerDraft, names: dict[str, str]) -> list[tuple[str, int, list[str]]]:
+    """Sentences that still use verdict codes, rule ids, bare tickers or system words (rule 9)."""
+    texts = [("short_answer", 0, draft.short_answer)]
+    texts += [("key_points", i, p.text) for i, p in enumerate(draft.key_points)]
+    texts += [("checks", i, f"{c.allocation}. {c.text}") for i, c in enumerate(draft.checks)]
+    texts += [("limitations", i, p.text) for i, p in enumerate(draft.limitations)]
+    return [(sec, i, found) for sec, i, t in texts
+            if (found := plain_words.problems(t or "", {**plain_words.names_in(t or ""), **names}))]
+
+
+def _feedback(issues, wording=()) -> str:
     lines = [f"- {x.section}[{x.index}]: {x.reason}" for x in issues]
+    lines += [f"- {section}[{i}]: uses {', '.join(found)}; rewrite it in the reader's words (rule 9), naming "
+              "companies and funds from `names`" for section, i, found in wording]
     return ("The automatic check of your answer found these problems:\n" + "\n".join(lines) +
             "\nReturn the whole answer again. Fix each item: cite the evidence that contains the number, use the "
             "number as the evidence states it, rephrase so the statement says only what its cited evidence says, "
@@ -166,7 +200,9 @@ def explain(run: Any, orchestrator: Optional[dict], records: list[dict], *, clie
 
         client = AnthropicBedrock(aws_region=s.aws_region)
     system = [{"type": "text", "text": template.body, "cache_control": {"type": "ephemeral"}}]
-    payload = json.dumps(build_input(run, orchestrator, catalog), ensure_ascii=False, default=str)
+    model_input = build_input(run, orchestrator, catalog)
+    names = model_input["names"]
+    payload = json.dumps(model_input, ensure_ascii=False, default=str)
     # cache_control on the payload: the retry ask re-sends this block unchanged, so Bedrock
     # skips re-reading the evidence catalogue (the system template above is cached too).
     messages: list[dict] = [{"role": "user",
@@ -197,11 +233,12 @@ def explain(run: Any, orchestrator: Optional[dict], records: list[dict], *, clie
     try:
         draft = ask(messages)
         issues, unknown = verify(draft)
+        wording = _wording(draft, names)
         retried = False
-        if issues:
+        if issues or wording:
             retried = True
             messages += [{"role": "assistant", "content": draft.model_dump_json()},
-                         {"role": "user", "content": _feedback(issues)}]
+                         {"role": "user", "content": _feedback(issues, wording)}]
             draft = ask(messages)
             issues, unknown = verify(draft)
     except Exception as e:  # API error, refusal, invalid output: an honest fallback, never a failed run
@@ -215,15 +252,21 @@ def explain(run: Any, orchestrator: Optional[dict], records: list[dict], *, clie
                        for x in issues)
     removed = [RemovedClaim(section=x.section, text=x.text, reason=x.reason) for x in issues
                if not x.reason.startswith("cites evidence that does not exist")]
-    clean = lambda items: [i.model_copy(update={"text": _clean(i.text)}) for i in items]  # noqa: E731
+    def plain(t):  # citations out of the text, then the last resort of rule 9 (codes, rule ids, tickers -> words)
+        return plain_words.plainify(_clean(t), {**plain_words.names_in(t), **names}) if t else t   # any ticker
+
+    def clean(items):
+        return [i.model_copy(update={"text": plain(i.text),
+                                     **({"allocation": plain(i.allocation)} if hasattr(i, "allocation") else {})})
+                for i in items]
     return RunAnswer(
         kind="explained",
-        short_answer=SHORT_ANSWER_REMOVED if short_failed else _clean(final.short_answer),
+        short_answer=SHORT_ANSWER_REMOVED if short_failed else plain(final.short_answer),
         short_answer_evidence=[] if short_failed else final.short_answer_evidence,
         key_points=clean(final.key_points), checks=clean(final.checks) or _verdict_checks(catalog),
         limitations=clean(final.limitations),
         glossary=final.glossary if run.prompt_ref.style == "learning" else [],
-        clarifying_question=final.clarifying_question,
+        clarifying_question=plain(final.clarifying_question),
         not_analysed=_not_analysed(plan),
         verification=Verification(claims_checked=claims, removed=removed, unknown_ids_dropped=unknown, retried=retried,
                                   output_guardrail=guarded.status if guarded is not None else None),

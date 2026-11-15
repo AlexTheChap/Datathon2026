@@ -72,7 +72,7 @@ def test_governance_check_is_point_in_time_and_citable(run):
     ev = at.governance_check(WEIGHTS)
     assert ev["evidence_id"].startswith("ev-") and ev["tool"] == "governance_check"
     assert ev["as_of"] == "2022-06-30" and ev["output"]["verdict"] == ev["verdict"]
-    assert ev["verdict"] in ev["say"]
+    assert ev["say"] and not any(code in ev["say"] for code in ("PASS", "WARN", "BLOCK", "UNVERIFIED"))  # reader's words
     assert at.governance_check(WEIGHTS)["evidence_id"] == ev["evidence_id"]      # stable id
     assert at.governance_check({**WEIGHTS, "NVDA": 0.0, "XIU.TO": 0.4})["evidence_id"] != ev["evidence_id"]
 

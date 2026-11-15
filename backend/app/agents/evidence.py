@@ -42,6 +42,7 @@ class EvidenceItem:
     numbers: set[tuple[str, float]] = field(default_factory=set)  # (kind, value), see the module docstring
     seq: Optional[str] = None
     parent: Optional[str] = None   # the item this one was found inside (e.g. a governance verdict)
+    nested: list[str] = field(default_factory=list)  # a sub-agent finding: the evidence ids it was built from
 
     def for_model(self) -> dict[str, Any]:
         """What the Explainer sees: short, no raw series."""
@@ -58,7 +59,7 @@ class EvidenceItem:
         return out
 
     def for_user(self) -> dict[str, Any]:
-        """What the evidence panel shows (GET /v1/runs/{id}/evidence)."""
+        """The raw item (ids, tool, file-level sources): the audit view. user_catalog() is what the page shows."""
         out = self.for_model()
         out["assumptions"] = self.assumptions
         out["data_sources"] = self.data_sources
@@ -149,6 +150,7 @@ def _item_from_envelope(env: dict, record: dict) -> EvidenceItem:
         facts=_flatten(facts_source), assumptions=list(env.get("assumptions") or []),
         data_sources=list(env.get("data_sources") or []), verdict=env.get("verdict"),
         weights=weights if isinstance(weights, dict) else None, seq=record.get("seq"),
+        nested=[i for i in env.get("nested_evidence_ids") or [] if isinstance(i, str)],
     )
     item.numbers = _shown_numbers(item)
     return item
@@ -210,3 +212,42 @@ def build_catalog(records: list[dict]) -> dict[str, EvidenceItem]:
 
 def governance_items(catalog: dict[str, EvidenceItem]) -> list[EvidenceItem]:
     return [i for i in catalog.values() if i.verdict]
+
+
+def is_governance(item: EvidenceItem, catalog: dict[str, EvidenceItem]) -> bool:
+    """A profile-rules verdict, or one check found inside it: shown as the fit score, never as a cited card."""
+    from app.agents.sources import GOVERNANCE_TOOLS
+    if item.verdict or item.tool in GOVERNANCE_TOOLS:
+        return True
+    parent = catalog.get(item.parent) if item.parent else None
+    return parent is not None and item.tool.endswith(" detail") and is_governance(parent, catalog)
+
+
+def user_catalog(catalog: dict[str, EvidenceItem]) -> list[dict[str, Any]]:
+    """What the evidence panel shows: a plain title, the sentence, readable sources and period, the assumptions.
+
+    Governance verdicts are left out (the fit score card explains the fit in plain words). A sub-agent finding is
+    sourced by the evidence it was built from, never by "sub-agent analysis". The id stays (the citation links jump to
+    it) but the page does not print it."""
+    from app.agents import sources as src
+
+    def raw_sources(item: EvidenceItem, seen: set[str]) -> list[str]:
+        if item.id in seen:
+            return []
+        seen.add(item.id)
+        own = src.esg_screen_sources(item.data_sources) if item.tool == "esg_screen" else src.source_names(item.data_sources)
+        for nid in item.nested:
+            if nid in catalog:
+                own += raw_sources(catalog[nid], seen)
+        return list(dict.fromkeys(own))
+
+    out = []
+    for item in catalog.values():
+        if is_governance(item, catalog):
+            continue
+        out.append({
+            "id": item.id, "tool": item.tool, "title": src.TITLES.get(item.tool, item.tool.replace("_", " ").capitalize()),
+            "say": item.say, "period": src.period_text(item.period), "sources": raw_sources(item, set()),
+            "assumptions": item.assumptions, "mix": src.mix_text(item.weights), "weights": item.weights,
+        })
+    return out

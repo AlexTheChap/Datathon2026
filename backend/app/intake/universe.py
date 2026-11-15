@@ -34,7 +34,7 @@ COMMON_WORDS = frozenset({
     "HOOD", "TECH", "ICE", "BALL", "USB", "ECHO", "COST", "CASY", "LIN", "MET", "PEG", "UPS", "IEX", "EXE", "TT",
 })
 # Legal-form words stripped from the end of an extension name to get the name people use ("Visa Inc Class A").
-_SUFFIX = re.compile(r"(?:\s+(?:&|inc|corp|corporation|co|company|ltd|plc|nv|sa|class [a-c]|shares?|holdings?|"
+_SUFFIX = re.compile(r"(?:\s+(?:&|inc|corp|corporation|co|company|ltd|plc|nv|sa|(?:class|cl) [a-c]|cl|shares?|holdings?|"
                      r"group|the|[a-c])\.?)+$")
 # Short names that are also everyday words ("any news?", "my target", "a block of shares"): no alias from them.
 AMBIGUOUS_NAMES = frozenset({"ball", "block", "booking", "carnival", "everest", "flex", "news", "progressive",
@@ -64,6 +64,16 @@ def load_universe(path: Optional[str] = None) -> dict[str, Asset]:
 def short_name(name: str) -> str:
     """'Visa Inc Class A Shares' -> 'visa'; 'Ford Motor Co' -> 'ford motor'."""
     return _SUFFIX.sub("", name.lower().replace("+", "&").replace(",", "").replace(".", "")).strip()
+
+
+def display_name(name: str) -> str:
+    """The name to show a reader: 'Archer Daniels Midland Co' -> 'Archer Daniels Midland', 'Eli Lilly + Co' ->
+    'Eli Lilly'. Curated names ('Royal Bank of Canada') come out unchanged."""
+    n = re.sub(r"/the\b", "", name.replace(" + ", " & ").replace("+", "&"), flags=re.I).strip()
+    short = re.sub(_SUFFIX.pattern, "", n, flags=re.I).strip(" ,.&")
+    if len(short) < 2:
+        return n
+    return short.upper() if len(short) <= 3 and " " not in short else short   # 'Cme' -> 'CME' (acronym names)
 
 
 def aliases(universe: dict[str, Asset]) -> dict[str, str]:
