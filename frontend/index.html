@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AlphaForge, investment questions explained</title>
+  <meta name="description" content="Ask a question about your portfolio and see what AlphaForge will analyse, and why. Simulation only, not investment advice.">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <script>
+    /* Apply the saved mode before first paint, so the page never flashes the wrong one. */
+    try { const m = localStorage.getItem("af.mode"); if (m === "light" || m === "dark") document.documentElement.dataset.mode = m; } catch (e) {}
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="assets/app.css">
+  <!-- Sign-in settings written by scripts/setup_cognito.py (git-ignored). Without it the app runs in local dev mode. -->
+  <script src="config.js"></script>
+  <script type="module" src="assets/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="utility">
+      <div class="container utility__inner">
+        <p class="utility__label">Investment simulator</p>
+        <div class="utility__tools">
+          <button class="utility__btn" type="button" id="mode-toggle" aria-label="Switch to dark mode"></button>
+          <span class="utility__who" id="who"></span>
+          <button class="pill-sm" type="button" id="sign-out" hidden>Sign out</button>
+        </div>
+      </div>
+    </div>
+    <div class="mainbar">
+      <div class="container mainbar__inner">
+        <a class="wordmark" href="#/ask" aria-label="AlphaForge, home">AlphaForge</a>
+        <nav class="nav" aria-label="Main">
+          <a class="nav__link" href="#/ask" data-route="ask">Ask a question</a>
+          <a class="nav__link" href="#/profile" data-route="profile">My profile</a>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <noscript>
+      <div class="band band--head"><div class="container page-head">
+        <h1>AlphaForge needs JavaScript</h1>
+        <p>This app talks to the AlphaForge API from your browser. Turn JavaScript on and reload the page.</p>
+      </div></div>
+    </noscript>
+  </main>
+
+  <div class="visually-hidden" role="status" aria-live="polite" id="live"></div>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer__cols">
+        <nav aria-labelledby="footer-use">
+          <h2 class="footer__title" id="footer-use">Use AlphaForge</h2>
+          <ul>
+            <li><a href="#/ask">Ask a question</a></li>
+            <li><a href="#/profile">My investor profile</a></li>
+          </ul>
+        </nav>
+        <section aria-labelledby="footer-about">
+          <h2 class="footer__title" id="footer-about">About this simulation</h2>
+          <ul>
+            <li>Built for the PolyFinances Datathon 2026.</li>
+            <li>Market data up to November 12, 2026.</li>
+            <li>Every answer shows its sources and limits.</li>
+          </ul>
+        </section>
+      </div>
+      <p class="footer__legal">Simulation only. Nothing here is investment advice, and no real trade is ever placed. AlphaForge is a student prototype and is not affiliated with any bank.</p>
+    </div>
+  </footer>
+</body>
+</html>

@@ -23,7 +23,10 @@ scripts = ["requests", "beautifulsoup4", "lxml", "openpyxl"]
 # truststore: on Windows, lets botocore see the system certificates (otherwise CERTIFICATE_VERIFY_FAILED).
 bedrock = ["anthropic>=2.0", "truststore>=0.9"]
 # API (box 2): FastAPI app, run on Lambda behind API Gateway through the Mangum adapter (architecture.mmd L1).
-api = ["fastapi>=0.110", "mangum>=0.17"]
+api = ["fastapi>=0.110", "mangum>=0.17", "pyjwt[crypto]>=2.8"]   # pyjwt: verifies Cognito ID tokens (api/auth.py)
+# Browser tests of the frontend (tests/e2e/test_frontend_ui.py, skipped without it);
+# then run: python -m playwright install chromium
+ui = ["playwright>=1.45", "uvicorn>=0.30"]
 
 [build-system]
 requires = ["setuptools>=68"]
