@@ -1,0 +1,82 @@
+[
+ {
+  "tag": "before",
+  "run": 1,
+  "run_id": "bench-before-1-9da68d",
+  "enabled_agents": [
+   "risk",
+   "esg",
+   "allocation"
+  ],
+  "model_calls_total": 8,
+  "haiku_calls": 6,
+  "sonnet_calls": 2,
+  "model_ms_total": 33174,
+  "model_ms_max": 9653,
+  "wall_ms": {
+   "intake": 2761,
+   "orchestrator": 23434,
+   "explainer": 12040,
+   "total": 38240
+  },
+  "agents_tool_calls": {
+   "esg_subagent": {
+    "tool_calls": 2,
+    "tool_ms": 134
+   },
+   "allocation_subagent": {
+    "tool_calls": 2,
+    "tool_ms": 109
+   },
+   "risk_subagent": {
+    "tool_calls": 8,
+    "tool_ms": 1518
+   },
+   "synthesis": {
+    "tool_calls": 2,
+    "tool_ms": 127
+   }
+  },
+  "answer_kind": "explained"
+ },
+ {
+  "tag": "before",
+  "run": 2,
+  "run_id": "bench-before-2-8c995f",
+  "enabled_agents": [
+   "risk",
+   "esg",
+   "allocation"
+  ],
+  "model_calls_total": 9,
+  "haiku_calls": 7,
+  "sonnet_calls": 2,
+  "model_ms_total": 36371,
+  "model_ms_max": 10045,
+  "wall_ms": {
+   "intake": 1910,
+   "orchestrator": 22624,
+   "explainer": 23875,
+   "total": 48414
+  },
+  "agents_tool_calls": {
+   "esg_subagent": {
+    "tool_calls": 3,
+    "tool_ms": 335
+   },
+   "allocation_subagent": {
+    "tool_calls": 3,
+    "tool_ms": 119
+   },
+   "risk_subagent": {
+    "tool_calls": 8,
+    "tool_ms": 508
+   },
+   "synthesis": {
+    "tool_calls": 2,
+    "tool_ms": 151
+   }
+  },
+  "answer_kind": "explained"
+ }
+]
