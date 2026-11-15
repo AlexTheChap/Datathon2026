@@ -133,6 +133,10 @@ def main() -> None:
         truststore.inject_into_ssl()
     except ImportError:
         pass
+    if not args.profile:
+        from deploy_context_lambda import load_dotenv  # AWS_* from the git-ignored .env, never overrides
+
+        load_dotenv()
     import boto3
 
     session = boto3.Session(profile_name=args.profile, region_name=args.region)

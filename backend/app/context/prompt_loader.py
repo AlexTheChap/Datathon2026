@@ -132,6 +132,10 @@ def _parse(key: str, text: str) -> tuple[dict, str]:
 
 
 def _template(key: str, text: str, experience: str) -> PromptTemplate:
+    # Normalize line endings (and a stray BOM) before parsing AND hashing: a Windows checkout
+    # (core.autocrlf=true) yields CRLF files, which would otherwise fail the "---\n" front-matter
+    # check and give a different sha256 than the same template published from Linux.
+    text = text.lstrip("﻿").replace("\r\n", "\n")
     meta, body = _parse(key, text)
     for field, value in {"role": ROLE, "experience": experience}.items():
         if str(meta[field]) != value:

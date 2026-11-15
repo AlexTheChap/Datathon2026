@@ -61,6 +61,7 @@ def load_dotenv(path: Path = ROOT / ".env") -> None:
         line = line.strip()
         if line and not line.startswith("#") and "=" in line:
             key, value = line.split("=", 1)
+            key = key.removeprefix("export ").removeprefix("$env:")  # pasted bash / PowerShell lines
             value = value.strip().strip('"').strip("'")
             if value:
                 os.environ.setdefault(key.strip(), value)
