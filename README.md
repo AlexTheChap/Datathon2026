@@ -128,7 +128,7 @@ python -m app.market.refresh --mode midday --system-certs       # Windows behind
 At sign-up, "Inform me when…" (optional) asks which alerts a person wants (a stock they hold goes up, goes down,
 or has news) and how: by email or by text message, with a Canadian or U.S. mobile number only for texts. They change
 it later in the user menu → **My profile settings** (also: email, password, delete the account). Alerts are only
-ever about stocks the person holds. This text sender handles the news alerts of people who chose texts. On weekdays at 18:00 (Toronto), the news-alert agent
+ever about stocks the person holds. This text sender handles the news alerts of people who chose texts. Every 15 minutes from 7:00 to 22:45 (Toronto), the news-alert agent
 (`app.notify.alerts`, no language model) fetches the **SEC 8-K filings of the stocks each person holds** (their
 saved portfolio, nothing else) and sends one short text with at most 3 items. The same filing is never texted
 twice.

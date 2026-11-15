@@ -1,7 +1,8 @@
 """News-alert agent: fetches the news on the stocks each person holds and texts it to them (Amazon SNS SMS).
 
 Deterministic, no language model (the wording is fixed in app.notify.messages). One run (EventBridge Scheduler,
-weekdays 18:00 America/Toronto, scripts/deploy_sms_alerts.py):
+every 15 minutes, 7:00-22:45 America/Toronto, scripts/deploy_sms_alerts.py; a filing seen
+at night is texted at 7:00):
 
   1. people who chose text messages and ticked "news" (ContactStore: set at sign-up or in My profile settings);
   2. their HELD stocks = the tickers of their saved portfolio (Profile.portfolio), nothing else: no "similar"
