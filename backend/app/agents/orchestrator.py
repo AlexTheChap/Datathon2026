@@ -143,14 +143,13 @@ def build_orchestrator(inp: OrchestratorInput, ledger: EvidenceLedger | None = N
 
 def build_synthesis(inp: OrchestratorInput, ledger: EvidenceLedger, settings: Settings, as_of: str,
                     memory: MemoryBinding) -> Agent:
-    """Graph mode's top-level agent (Haiku by default, AF_MODEL_SYNTHESIS to override): joins the sub-agents'
-    findings, holds governance_check only, and carries the run's memory session like the tools-mode
-    orchestrator (it runs after the graph, not inside it)."""
+    """Graph mode's top-level agent (Sonnet): joins the sub-agents' findings, holds governance_check only, and
+    carries the run's memory session like the tools-mode orchestrator (it runs after the graph, not inside it)."""
     s = settings
 
     def make(session_manager) -> Agent:
         return Agent(
-            model=BedrockModel(model_id=s.model_synthesis, region_name=s.aws_region, cache_config=_CACHE),
+            model=BedrockModel(model_id=s.model_orchestrator, region_name=s.aws_region, cache_config=_CACHE),
             system_prompt=render_prompt(
                 "synthesis",
                 persona_block=persona_block(inp.profile, inp.language),
@@ -229,7 +228,7 @@ def run_orchestrator(inp: OrchestratorInput, settings: Settings | None = None) -
 
         if s.orchestration == "graph":
             # L8 parallel graph: the plan's sub-agents fork concurrently, one synthesis
-            # node joins them (Haiku by default; governance_check owns every verdict).
+            # node joins them (Sonnet keeps the deterministic governance_check only).
             from app.agents.graph import run as run_graph
 
             synthesis = build_synthesis(inp, led, s, as_of, memory)
@@ -240,7 +239,7 @@ def run_orchestrator(inp: OrchestratorInput, settings: Settings | None = None) -
             return OrchestratorOutput(
                 run_id=inp.run_id, status="DONE", language=inp.language, summary=g["summary"], as_of=as_of,
                 memory=memory.info(), evidence_ids=led.evidence_ids(inp.run_id),
-                model=s.model_synthesis, session_id=inp.session_id or inp.run_id if s.memory_id else None,
+                model=s.model_orchestrator, session_id=inp.session_id or inp.run_id if s.memory_id else None,
                 duration_ms=elapsed(),
             )
 
