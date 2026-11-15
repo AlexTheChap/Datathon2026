@@ -1,13 +1,15 @@
-"""Local evidence ledger (L15) — one JSONL file per run.
-
-Every tool call = one line (seq E-001, E-002…). The stable `evidence_id`
-produced by risk_tools lets a single piece of evidence be cited even when
-called several times. DynamoDBLedger (below) is the AWS version (RUN#id / EVID#…),
-same interface; make_ledger() picks one from the settings (AF_STORE).
+"""Evidence ledger (L15): every tool call = one record, numbered by `seq` ("E-001", "E-002"…: the order of the calls in
+the run). `seq` is NOT the citation key: the stable `evidence_id` ("ev-<hash>") produced by the tools is. It lets a single
+piece of evidence be cited even when called several times.
+- JsonlLedger: one JSONL file per run (data/runs), local. InMemoryLedger: tests and sub-agents run outside an orchestrator run.
+- DynamoDBLedger (below): the AWS version (RUN#id / EVID#<seq>#ev-<hash>), same interface.
+make_ledger() picks one from the settings (AF_STORE). Appends are thread-safe in every ledger (sub-agents may call
+tools in parallel).
 """
 from __future__ import annotations
 
 import json
+import threading
 import time
 from pathlib import Path
 from typing import Any, Protocol
@@ -31,42 +33,83 @@ def _truncate(value: Any) -> Any:
             "note": "Full payload recomputable via evidence_id (deterministic functions)."}
 
 
+class InMemoryLedger:
+    """Ledger kept in memory (tests, and sub-agents run outside an orchestrator run)."""
+
+    def __init__(self) -> None:
+        self._records: dict[str, list[dict[str, Any]]] = {}
+        self._lock = threading.Lock()
+
+    def append(self, run_id: str, record: dict[str, Any]) -> dict[str, Any]:
+        with self._lock:
+            rows = self._records.setdefault(run_id, [])
+            entry = {"seq": seq_label(len(rows) + 1), "run_id": run_id, "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), **record}
+            rows.append(entry)
+            return entry
+
+    def records(self, run_id: str) -> list[dict[str, Any]]:
+        with self._lock:
+            return list(self._records.get(run_id, []))
+
+    def evidence_ids(self, run_id: str) -> list[str]:
+        return _unique_ids(self.records(run_id))
+
+
+def seq_label(n: int) -> str:
+    """Call order in the run: E-001, E-002… (not a citation key)."""
+    return f"E-{n:03d}"
+
+
+def _unique_ids(records: list[dict[str, Any]]) -> list[str]:
+    """Unique ids, in order of first appearance."""
+    seen: list[str] = []
+    for r in records:
+        eid = r.get("evidence_id")
+        if eid and eid not in seen:
+            seen.append(eid)
+    return seen
+
+
 class JsonlLedger:
-    """Local ledger: data/runs/{run_id}.jsonl (created on first evidence)."""
+    """Local ledger: data/runs/{run_id}.jsonl (created on first evidence). Thread-safe: a lock guards the
+    sequence counter and the append, and the counter is kept in memory (the file is read once per run)."""
 
     def __init__(self, runs_dir: str | Path):
         self.dir = Path(runs_dir)
+        self._lock = threading.Lock()
+        self._counts: dict[str, int] = {}
 
     def _path(self, run_id: str) -> Path:
         return self.dir / f"{run_id}.jsonl"
 
     def append(self, run_id: str, record: dict[str, Any]) -> dict[str, Any]:
-        self.dir.mkdir(parents=True, exist_ok=True)
-        existing = self.records(run_id)
-        entry = {
-            "seq": f"E-{len(existing) + 1:03d}",
-            "run_id": run_id,
-            "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-            **record,
-        }
-        with self._path(run_id).open("a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
-        return entry
+        with self._lock:
+            self.dir.mkdir(parents=True, exist_ok=True)
+            if run_id not in self._counts:
+                self._counts[run_id] = len(self._read(run_id))
+            self._counts[run_id] += 1
+            entry = {
+                "seq": seq_label(self._counts[run_id]),
+                "run_id": run_id,
+                "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                **record,
+            }
+            with self._path(run_id).open("a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
+            return entry
 
-    def records(self, run_id: str) -> list[dict[str, Any]]:
+    def _read(self, run_id: str) -> list[dict[str, Any]]:
         p = self._path(run_id)
         if not p.exists():
             return []
         return [json.loads(line) for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
 
+    def records(self, run_id: str) -> list[dict[str, Any]]:
+        with self._lock:
+            return self._read(run_id)
+
     def evidence_ids(self, run_id: str) -> list[str]:
-        """Unique ids, in order of first appearance."""
-        seen: list[str] = []
-        for r in self.records(run_id):
-            eid = r.get("evidence_id")
-            if eid and eid not in seen:
-                seen.append(eid)
-        return seen
+        return _unique_ids(self.records(run_id))
 
 
 class DynamoDBLedger:
@@ -89,7 +132,7 @@ class DynamoDBLedger:
         return int(out["Attributes"]["n"])
 
     def append(self, run_id: str, record: dict[str, Any]) -> dict[str, Any]:
-        seq = f"E-{self._next_seq(run_id):03d}"
+        seq = seq_label(self._next_seq(run_id))
         entry = {"seq": seq, "run_id": run_id, "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), **record}
         data = json.dumps(_truncate(entry), ensure_ascii=False, default=str)
         item = {"PK": f"RUN#{run_id}", "SK": f"EVID#{seq}#{record.get('evidence_id') or '-'}",

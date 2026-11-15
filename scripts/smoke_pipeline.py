@@ -28,6 +28,7 @@ from app.schemas.execution_plan import ExecutionPlan  # noqa: E402
 from app.schemas.models import OrchestratorInput  # noqa: E402
 from app.agents.orchestrator import run_orchestrator  # noqa: E402
 from app.store.ledger import make_ledger  # noqa: E402
+from app.tools.context import default_as_of  # noqa: E402
 
 MESSAGES = {
     "robert": "I'm thinking of putting 20% in Nvidia, everyone is talking about it.",
@@ -87,7 +88,7 @@ def main() -> int:
         run_id=f"pipe-{uuid.uuid4().hex[:8]}",
         actor_id=actor_id,
         language=intake.profile.language,
-        as_of=intake.request.as_of.isoformat() if intake.request.as_of else "2026-11-12",
+        as_of=intake.request.as_of.isoformat() if intake.request.as_of else default_as_of(),
         profile=intake.profile,
         request=intake.request,
         execution_plan=plan,
@@ -100,12 +101,17 @@ def main() -> int:
         return 1
     print("\n--- answer ---")
     print(out.summary)
+    v = out.verification or {}
+    print(f"\n[claim verifier] ok={v.get('ok')} citations={v.get('n_citations')} unknown={v.get('unknown')} "
+          f"uncited_figures={len(v.get('uncited_numbers', []))} unmatched_figures={len(v.get('unmatched_numbers', []))}")
+    for m in v.get("unmatched_numbers", []):
+        print(f"  unmatched {m['number']} in: {m['sentence'][:120]}")
     print(f"\nEvidence ({len(out.evidence_ids)}): {', '.join(out.evidence_ids)}")
     print(f"\nTrace: .venv/bin/python scripts/show_run.py {out.run_id}")
     for r in make_ledger(s).records(out.run_id):
         caller = r.get("agent") or "orchestrator"
         print(f"  {r['seq']} [{caller}] {r['tool']}")
-    return 0
+    return 0 if v.get("ok", True) else 1     # an answer with an unknown citation is a failed smoke test
 
 
 if __name__ == "__main__":

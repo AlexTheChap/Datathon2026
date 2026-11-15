@@ -25,9 +25,11 @@ def orchestrator_input(run: RunRecord, portfolio_weights: Optional[dict[str, flo
         named = {p.ticker: p.weight for p in req.positions if p.weight is not None}
         weights = named or None
     return OrchestratorInput(
-        run_id=run.run_id, actor_id=run.actor_id, language=run.profile.language,
+        run_id=run.run_id, actor_id=run.actor_id, session_id=run.session_id,   # conversation: AgentCore Memory (L17)
+        language=run.profile.language,
         as_of=req.as_of.isoformat() if req.as_of else None,
         profile=run.profile, request=req, execution_plan=run.execution_plan, portfolio_weights=weights,
+        prompt_ref=run.prompt_ref,                                              # box 4 template for the Explainer
     )
 
 
@@ -35,9 +37,11 @@ class InlineDispatcher:
     note = None
 
     def __init__(self, runs: RunStore, portfolio_weights: Optional[dict[str, float]] = None,
-                 run_fn: Optional[Callable[[OrchestratorInput], Any]] = None):
+                 run_fn: Optional[Callable[[OrchestratorInput], Any]] = None,
+                 portfolio_for: Optional[Callable[[str], Optional[dict[str, float]]]] = None):
         self.runs = runs
         self.portfolio_weights = portfolio_weights
+        self.portfolio_for = portfolio_for  # actor_id -> current weights (until portfolio upload exists)
         self._run_fn = run_fn  # injectable for tests (no Bedrock)
 
     def dispatch(self, run: RunRecord) -> None:
@@ -48,7 +52,10 @@ class InlineDispatcher:
                 from app.agents.orchestrator import run_orchestrator
 
                 self._run_fn = run_orchestrator
-            out = self._run_fn(orchestrator_input(run, self.portfolio_weights))
+            weights = self.portfolio_weights
+            if weights is None and self.portfolio_for:
+                weights = self.portfolio_for(run.actor_id)
+            out = self._run_fn(orchestrator_input(run, weights))
             run.status = out.status
             run.result = out.model_dump(mode="json")
             run.error = out.error

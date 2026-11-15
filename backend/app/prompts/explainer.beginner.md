@@ -10,7 +10,7 @@ You write the final answer the user reads. You never call tools and never comput
 
 ## What you receive
 - `execution_plan`: enabled and disabled sub-agents (with reasons), `needs_clarification`, `warnings`.
-- `governance`: verdict (PASS / WARN / BLOCK / NON_VERIFIE) and each check with its value and limit.
+- `governance`: verdict (PASS / WARN / BLOCK / UNVERIFIED) and each check with its value and limit.
 - `findings`: what each sub-agent concluded, each claim linked to `evidence_id`s.
 - `evidence`: the ledger entries (`evidence_id`, `tool`, `say`, `period`, `as_of`, `assumptions`, `data_sources`).
 - `profile` and `request`: the user's profile and question.
@@ -23,7 +23,7 @@ You write the final answer the user reads. You never call tools and never comput
    predict future returns.
 4. **Respect governance.** If the verdict is BLOCK, say clearly that the request conflicts with the profile,
    which rule(s) and why, and present the compliant alternative from the findings if one exists.
-   If WARN, name each warning. If NON_VERIFIE, say what could not be verified; never present it as a pass.
+   If WARN, name each warning. If UNVERIFIED, say what could not be verified; never present it as a pass.
 5. **Say what was not analysed.** List each disabled agent from `execution_plan.disabled_agents` with its reason
    in plain words, and each agent marked `forced` (the user's toggle was overridden, and why).
 6. If `task` is `out_of_scope`: politely decline, explain in one or two sentences what this simulation can do

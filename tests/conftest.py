@@ -2,6 +2,7 @@
 core/personas.json (Amira, Mateo, Robert). Run from the repo root: python -m pytest -q tests
 """
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -14,6 +15,8 @@ EXAMPLES = APP / "schemas" / "examples"
 if str(ROOT / "backend") not in sys.path:
     sys.path.insert(0, str(ROOT / "backend"))
 
+# The tests are offline: a developer's .env (AF_MEMORY_ID) must never make them call AgentCore.
+os.environ["AF_MEMORY_ID"] = ""
 from app.schemas import Profile, Request  # noqa: E402
 
 

@@ -44,12 +44,18 @@ class Settings(BaseSettings):
 
     # Bedrock models — node ⑤: Sonnet for the orchestrator (and the Explainer later),
     # Haiku for the sub-agents.
-    model_orchestrator: str = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    model_orchestrator: str = "us.anthropic.claude-sonnet-5-5"
     model_subagent: str = "us.anthropic.claude-haiku-5-5"
     aws_region: str = "us-east-1"
+    # Reference date of a run when neither the request nor the payload gives one. Empty = the last
+    # date of the curated data (never a hard-coded date).
+    default_as_of: str | None = None
 
     # AgentCore Memory (L17) — empty = no persistent memory (local development).
     memory_id: str | None = None
+    # Soft preferences loaded from long-term memory at the start of each run (namespace /preferences/{actorId}/).
+    memory_prefs_top_k: int = 10
+    memory_prefs_relevance: float = 0.0     # minimum score of a record to be used (0 = all of the top_k)
 
     # Box ⑥ on AWS — empty = local fallbacks (tests, offline development).
     # AF_GATEWAY_URL: AgentCore Gateway (MCP) serving the quant tools (scripts/deploy_quant_gateway.py, L12);
@@ -70,6 +76,8 @@ class Settings(BaseSettings):
     rules_path: Path = REPO_ROOT / "backend" / "app" / "core" / "rules.yaml"
     personas_path: Path = REPO_ROOT / "backend" / "app" / "core" / "personas.json"
     prompts_dir: Path = REPO_ROOT / "backend" / "app" / "prompts"
+    # Dated news corpus (scripts/ingest_news.py): news_index.csv, one event per row.
+    news_dir: Path = REPO_ROOT / "data" / "external" / "news"
 
     # Local evidence ledger (L15) — one JSONL file per run.
     runs_dir: Path = REPO_ROOT / "data" / "runs"

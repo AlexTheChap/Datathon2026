@@ -186,3 +186,29 @@ def test_service_from_env():
     assert isinstance(svc, ApiService) and isinstance(svc.runs, InMemoryRunStore)
     with pytest.raises(ValueError):
         service_from_env({"AF_STORE": "postgres"})
+
+
+# ---------- Example personas and the served frontend ----------
+
+def test_personas_are_ready_to_save_profile_forms(client):
+    personas = client.get("/v1/personas").json()
+    assert [p["id"] for p in personas] == ["amira", "mateo", "robert"]
+    for p in personas:
+        assert "actor_id" not in p["profile_form"]
+        r = client.put("/v1/profile", json=p["profile_form"], headers={"X-Actor-Id": f"try-{p['id']}"})
+        assert r.status_code == 200, p["id"]
+    robert = personas[2]
+    assert robert["profile_form"]["exclusions"] == [{"type": "asset_class", "value": "crypto", "min_severity": None}]
+    assert robert["example_question"].startswith("I'm thinking of putting 20% in Nvidia")
+
+
+def test_frontend_is_served_and_api_routes_still_win(client):
+    page = client.get("/")
+    assert page.status_code == 200 and "<title>AlphaForge" in page.text
+    assert client.get("/assets/app.js").status_code == 200
+    assert client.get("/health").json() == {"status": "ok"}  # API route, not a static file
+
+
+def test_frontend_serving_can_be_turned_off(svc, monkeypatch):
+    monkeypatch.setenv("AF_SERVE_FRONTEND", "0")
+    assert TestClient(create_app(svc)).get("/").status_code == 404

@@ -140,11 +140,13 @@ def as_strands_tool(kb_id: Optional[str] = None):
 
         Args:
             query: what to look for, e.g. "NVDA export restrictions to China".
-            as_of: point-in-time date YYYY-MM-DD (nothing published after it is returned).
+            as_of: point-in-time date YYYY-MM-DD (nothing published after it is returned); never later than
+                the run's reference date.
             tickers: optional tickers, e.g. ["NVDA"]; macro/press items use "MACRO", "MARKET", "GEOPOLITICS", "CRYPTO".
             doc_type: "news" or "filing"; both when omitted.
             k: number of passages (1-20).
         """
-        return news_search(query, as_of=as_of, tickers=tickers, doc_type=doc_type, k=k, kb_id=kb_id)
+        from app.tools.context import effective_as_of     # the run's date bounds what the model asks for
+        return news_search(query, as_of=effective_as_of(as_of), tickers=tickers, doc_type=doc_type, k=k, kb_id=kb_id)
 
     return search_news
