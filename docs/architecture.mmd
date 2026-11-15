@@ -159,7 +159,8 @@ flowchart TB
   %%      (InvokeAgentRuntime). CURRENT (AF_DISPATCH=lambda, deployed): POST /v1/runs saves the run QUEUED, answers
   %%      202 and invokes the SAME Lambda asynchronously ({"af_dispatch_run": run_id}); that invocation runs the
   %%      orchestrator then the Explainer and writes RUNNING → DONE / FAILED. Async retries are off (0), so a
-  %%      run is never analysed twice; a run cut by the 15-min Lambda timeout stays RUNNING (not swept yet).
+  %%      run is never analysed twice; a run cut by the 15-min Lambda timeout is marked FAILED when next read
+  %%      (RUNNING with no update for AF_RUN_STALE_MINUTES, 20 by default).
   %%      Locally: AF_DISPATCH=inline (default, before POST returns) | local (background thread) | none.
   PLAN -->|"ExecutionPlan"| ORCH
   %% L7  Prompt loader → Explainer: only keys travel (level, style, version, sha256) in the run record; the

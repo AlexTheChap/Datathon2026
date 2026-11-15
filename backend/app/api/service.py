@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal, Optional, Protocol
 
@@ -37,9 +38,14 @@ from app.schemas import PortfolioRef, Profile
 from app.schemas.models import profile_from_persona
 from app.schemas.profile import AgentToggles
 from app.store.profiles import InMemoryProfileStore, ProfileStore
-from app.store.runs import InMemoryRunStore, RunRecord, RunStore, new_run_id, new_session_id
+from app.store.runs import InMemoryRunStore, RunRecord, RunStore, _now, new_run_id, new_session_id
 
 MAX_TEXT_CHARS = 4000
+# A run still RUNNING this long after its last update is dead: on AWS the analysis runs in a Lambda invocation
+# capped at 15 minutes, and a timed-out invocation cannot write its own outcome (AF_RUN_STALE_MINUTES overrides).
+RUN_STALE_AFTER = timedelta(minutes=float(os.environ.get("AF_RUN_STALE_MINUTES") or 20))
+STALE_RUN_ERROR = ("The analysis stopped before it finished (time limit reached) and was marked as failed. "
+                   "Ask again to start a new one.")
 PERSONAS_PATH = Path(__file__).resolve().parents[1] / "core" / "personas.json"
 
 
@@ -186,11 +192,28 @@ class ApiService:
         run = self.runs.get(run_id)
         if run is None or run.actor_id != actor_id:  # never reveal another user's run
             raise ApiError(404, "Run not found.")
+        return self._expire_if_stale(run)
+
+    def _expire_if_stale(self, run: RunRecord, now: Optional[datetime] = None) -> RunRecord:
+        """A RUNNING run whose worker died (Lambda timeout, crash, restart) would poll forever: past
+        RUN_STALE_AFTER without an update it is saved as FAILED with a plain explanation."""
+        if run.status != "RUNNING":
+            return run
+        try:
+            updated = datetime.fromisoformat(run.updated_at)
+        except (TypeError, ValueError):
+            return run
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+        if (now or datetime.now(timezone.utc)) - updated < RUN_STALE_AFTER:
+            return run
+        run = run.model_copy(update={"status": "FAILED", "error": STALE_RUN_ERROR, "updated_at": _now()})
+        self.runs.put(run)
         return run
 
     # ----- GET /v1/runs (history for the dashboard) -----
     def list_runs(self, actor_id: str, limit: int = 50) -> list[RunSummary]:
-        return [RunSummary.from_run(r) for r in self.runs.list_for_actor(actor_id, limit)]
+        return [RunSummary.from_run(self._expire_if_stale(r)) for r in self.runs.list_for_actor(actor_id, limit)]
 
     # ----- GET /v1/runs/{run_id}/replay (dashboard "if 2022 happened again" chart) -----
     def get_replay(self, actor_id: str, run_id: str) -> dict[str, Any]:
