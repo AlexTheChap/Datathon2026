@@ -386,7 +386,10 @@ function quoteFrom(reason) {
 function whyEnabled(agent, task) {
   const r = agent.reason || "";
   const out = [];
-  if (r.includes("required by task")) out.push(`Needed for a ${TASKS[task] || "question like yours"}.`);
+  if (r.includes("required by task")) {
+    const what = TASKS[task] || "question like yours";
+    out.push(`Needed for ${/^[aeiou]/i.test(what) ? "an" : "a"} ${what}.`);
+  }
   if (r.includes("include_rag")) out.push("You asked about news or what people are saying.");
   if (r.includes("preference mentions ESG")) out.push("Your profile says ESG matters to you.");
   if (r.includes("profile exclusion")) out.push("Your profile excludes controversial companies, so they must be checked.");
@@ -948,7 +951,7 @@ function profileForm(saved, initialStatus = null) {
         h("span", { class: "choice__desc" }, l.desc))))),
     h("fieldset", null,
       h("legend", null, "Analyses"),
-      h("p", { class: "legend-help" }, "Turn off what you don't want. You can also say it in a question, like “I don't care about the news”. If a question can't be answered without an analysis, it still runs and the answer says why."),
+      h("p", { class: "legend-help" }, "On means AlphaForge may use it when a question needs it: it doesn't run for every question. Off means it is skipped, unless a question can't be answered without it (the answer then says why). You can also say it in a question, like “I don't care about the news”."),
       h("div", { class: "panel panel--plain" }, toggleRows)),
   );
 
@@ -1390,7 +1393,7 @@ function renderRun(main, runId) {
         h("span", { class: "plan__mark plan__mark--off" }, icon("minus", 28)),
         h("span", { class: "plan__name" }, (AGENTS[d.agent] || { name: d.agent }).name),
         h("p", { class: "plan__why" }, whyDisabled(d))))) : null,
-      notNeeded.length ? h("p", { class: "muted" }, `Not needed for this question: ${notNeeded.map((d) => (AGENTS[d.agent] || { name: d.agent }).name).join(", ")}.`) : null,
+      notNeeded.length ? h("p", { class: "muted" }, `Not needed for this question: ${notNeeded.map((d) => (AGENTS[d.agent] || { name: d.agent }).name).join(", ")}. An analysis switched on in your profile runs only when a question needs it.`) : null,
       !userOff.length && !notNeeded.length ? h("p", { class: "muted" }, "Nothing was left out.") : null);
 
     const answer = drawAnswer(run, { scope: "page" });
