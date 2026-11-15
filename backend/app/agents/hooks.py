@@ -93,6 +93,12 @@ class EvidenceHook:
             record["error"] = f"{type(event.exception).__name__}: {event.exception}"
         payload = _payload(getattr(event, "result", None))
         record["payload"] = payload
+        # Sub-agent calls carry no tool_use in this Strands flow: recover the
+        # brief from the returned envelope's "inputs" so the trace is complete.
+        if record["tool_input"] is None and isinstance(payload, list):
+            block = next((b for b in payload if isinstance(b, dict) and "inputs" in b), None)
+            if block:
+                record["tool_input"] = block["inputs"]
         # evidence_id when the tool returns a risk_tools envelope (dict or {json: …} block)
         candidate = payload if isinstance(payload, dict) else None
         if candidate is None and isinstance(payload, list):
