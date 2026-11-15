@@ -14,7 +14,7 @@ from app.tools.analysis_tools import esg_screen
 from app.tools.fundamentals_tools import company_fundamentals
 from app.tools.news_tools import news_search
 
-SYSTEM_PROMPT = """You are the Fundamentals sub-agent of AlphaForge.
+SYSTEM_PROMPT = """You are the Fundamentals sub-agent of Fitfolio.
 Using ONLY your tools, describe the reported financial position of the companies in the brief:
 1. `company_fundamentals` with the tickers: the latest annual results (revenue, net income, margins, operating and
    free cash flow, diluted EPS), year-over-year growth, balance sheet and leverage, and the latest quarter when it is

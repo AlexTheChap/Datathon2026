@@ -1,4 +1,4 @@
-# AlphaForge, extended dataset and risk tools
+# Fitfolio, extended dataset and risk tools
 
 This material builds on the starter dataset in `data/raw/` **without modifying it**. It contains:
 

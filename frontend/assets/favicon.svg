@@ -1,1 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#cd1f2a"/><text x="16" y="23.5" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="21" font-weight="700" fill="#fefbfb">A</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <title>Fitfolio</title>
+  <style>.ink { stroke: #172A44; } @media (prefers-color-scheme: dark) { .ink { stroke: #FFFFFF; } }</style>
+  <path class="ink" d="M27 55V24a13 13 0 0 1 13-13h7" stroke-width="8"/>
+  <path d="M11 39l10-6 8 4 20-13" stroke="#E41C23" stroke-width="6"/>
+  <path d="M41 22.5l8.5 1.5-1.5 8.5" stroke="#E41C23" stroke-width="6"/>
+</svg>

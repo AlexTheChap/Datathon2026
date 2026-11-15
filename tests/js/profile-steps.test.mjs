@@ -266,7 +266,7 @@ test("Preferences and constraints: the raw text goes to the server and what was 
   assert.equal(calls.save.at(-1).payload.preferences_text, text);             // unchanged, not trimmed or rewritten
   const shown = card(steps, "preferences").find((e) => e.className === "understood");
   assert.equal(shown.hidden, false);
-  assert.match(shown.textContent, /AlphaForge understood/);
+  assert.match(shown.textContent, /Fitfolio understood/);
   assert.match(shown.textContent, /Preferences.*I want some diversification/);
   assert.match(shown.textContent, /Constraints.*not only tech.*little interest in very speculative investments/);
   assert.equal(shown.all().filter((e) => e.tagName === "UL").length, 2);       // two plain lists
@@ -284,7 +284,7 @@ test("the help text and label of the preferences field are the agreed words", ()
   const { steps } = setup();
   const text = card(steps, "preferences").textContent;
   assert.match(text, /Preferences and constraints/);
-  assert.match(text, /In your own words: what you like, what you want to avoid, anything AlphaForge should keep in mind\. Example: I want some diversification and not only tech; little interest in very speculative investments\./);
+  assert.match(text, /In your own words: what you like, what you want to avoid, anything Fitfolio should keep in mind\. Example: I want some diversification and not only tech; little interest in very speculative investments\./);
   assert.ok(!/Interests/.test(steps.el.textContent));
 });
 

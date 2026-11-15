@@ -55,7 +55,7 @@ def _event_id(*parts: str) -> str:  # same scheme as scripts/ingest_news.py
 
 class SecFilingsSource:
     """SEC EDGAR, 10 requests/second at most, with the contact the SEC requires in the User-Agent
-    (AF_SEC_CONTACT, e.g. "AlphaForge Datathon team@example.com")."""
+    (AF_SEC_CONTACT, e.g. "Fitfolio Datathon team@example.com")."""
 
     def __init__(self, contact: str | None = None, pause: float = 0.15, opener=None):
         self.contact = contact or os.environ.get("AF_SEC_CONTACT")

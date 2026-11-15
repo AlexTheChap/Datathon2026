@@ -125,7 +125,7 @@ def test_many_news_items_stay_within_two_segments():
 @pytest.mark.parametrize("word", ["Buy", "sell", "We recommend", "you should", "price target", "upgrade"])
 def test_advice_wording_is_refused(word):
     with pytest.raises(AdviceWordingError):
-        check_wording(f"AlphaForge: {word} this. {CLOSING}")
+        check_wording(f"Fitfolio: {word} this. {CLOSING}")
 
 
 # ---------- news sources ----------
@@ -150,11 +150,11 @@ def test_sec_source_reads_8k_filings_of_held_tickers():
         body = tickers if req.full_url.endswith("company_tickers.json") else filings
         return io.BytesIO(json.dumps(body).encode())
 
-    src = SecFilingsSource(contact="AlphaForge test@example.com", pause=0, opener=opener)
+    src = SecFilingsSource(contact="Fitfolio test@example.com", pause=0, opener=opener)
     events = src.events(["NVDA", "XIU.TO"], "2026-11-05", "2026-11-12")
     assert [(e.ticker, e.published_at, e.headline) for e in events] == [
         ("NVDA", "2026-11-12", "executive departure or appointment")]   # 10-Q, out of window, exhibits-only: out
-    assert all(ua == "AlphaForge test@example.com" for _, ua in seen)
+    assert all(ua == "Fitfolio test@example.com" for _, ua in seen)
     assert src.cik("BRK-B") == "0001067983" and src.cik("XOM") == "0000034088"
 
 

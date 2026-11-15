@@ -18,7 +18,7 @@ export const STEP_NOUN = {
   horizon: "Investment horizon", money: "Capital and largest loss", objective: "Goal",
   preferences: "Preferences and constraints", limits: "Hard limits", analyses: "Analyses",
 };
-export const PREFERENCES_HELP = "In your own words: what you like, what you want to avoid, anything AlphaForge should "
+export const PREFERENCES_HELP = "In your own words: what you like, what you want to avoid, anything Fitfolio should "
   + "keep in mind. Example: I want some diversification and not only tech; little interest in very speculative investments.";
 export const AGE_MIN = 18;
 export const AGE_MAX = 120;
@@ -122,7 +122,7 @@ function makeCards(ctx, uid) {
 
   // 1. Age
   const age = define("age", { legend: "Your age", optional: true });
-  age.body = [numberInput(age, "age", "Age in years", { help: "Context only. It never sets your risk level or what AlphaForge analyses.",
+  age.body = [numberInput(age, "age", "Age in years", { help: "Context only. It never sets your risk level or what Fitfolio analyses.",
     attrs: { min: String(AGE_MIN), max: String(AGE_MAX), step: "1" } })];
   age.read = () => ({ age: intOrNull(age.controls.age) });
   age.write = (v) => { age.controls.age.value = v.age ?? ""; };
@@ -239,14 +239,14 @@ function makeCards(ctx, uid) {
   prefs.write = (v) => { prefsInput.value = v.preferences_text || ""; };
   prefs.validate = () => (prefsInput.value.length > PREFERENCES_MAX
     ? [["preferences_text", `Keep it under ${PREFERENCES_MAX.toLocaleString("en-CA")} characters.`]] : []);
-  /** "AlphaForge understood — Preferences: … / Constraints: …": what the server derived, as two plain lists. */
+  /** "Fitfolio understood — Preferences: … / Constraints: …": what the server derived, as two plain lists. */
   prefs.showUnderstood = (profile) => {
     const p = (profile && profile.preferences) || [];
     const c = (profile && profile.constraints) || [];
     if (!p.length && !c.length) { understood.hidden = true; understood.replaceChildren(); return; }
     const list = (title, items) => [h("p", { class: "understood__title" }, title),
       items.length ? h("ul", { class: "understood__list" }, items.map((x) => h("li", null, x))) : h("p", { class: "small muted" }, "None")];
-    understood.replaceChildren(h("p", { class: "understood__lead" }, "AlphaForge understood"), ...list("Preferences", p), ...list("Constraints", c));
+    understood.replaceChildren(h("p", { class: "understood__lead" }, "Fitfolio understood"), ...list("Preferences", p), ...list("Constraints", c));
     understood.hidden = false;
   };
 
@@ -272,7 +272,7 @@ function makeCards(ctx, uid) {
   const analyses = define("analyses", { legend: "Analyses", optional: true });
   const switches = ANALYSES.map((a) => h("input", { class: "switch", type: "checkbox", role: "switch", id: `${uid}-toggle-${a}`, name: `toggle-${a}` }));
   const quotes = {};   // a = the user's words when a chat message changed it
-  analyses.body = [h("p", { class: "legend-help" }, "On means AlphaForge may use it when a question needs it: it doesn't run for every question. "
+  analyses.body = [h("p", { class: "legend-help" }, "On means Fitfolio may use it when a question needs it: it doesn't run for every question. "
     + "Off means it is skipped, unless a question can't be answered without it (the answer then says why). You can also say it in a question, like “I don't care about the news”."),
   h("div", { class: "panel panel--plain" }, ANALYSES.map((a, i) => h("div", { class: "switch-row" },
     h("div", { class: "switch-row__text" },

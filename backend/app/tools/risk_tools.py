@@ -1,5 +1,5 @@
 """
-AlphaForge risk tools: pure, deterministic functions, in CAD.
+Fitfolio risk tools: pure, deterministic functions, in CAD.
 
 Each tool returns an EVIDENCE record (dict) in a common format:
     {

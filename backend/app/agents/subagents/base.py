@@ -107,7 +107,7 @@ def validate_finding(raw: dict, nested_ids: list[str], requires_evidence: bool =
 def build_envelope(tool_name: str, inputs: dict, finding: dict,
                    nested_evidence_ids: list[str], simulated: bool = False) -> dict:
     """Standard evidence envelope so ledger/citations treat the finding like any tool."""
-    assumptions = ["A summary written by AlphaForge's AI from the measurements it cites."]
+    assumptions = ["A summary written by Fitfolio's AI from the measurements it cites."]
     if simulated:
         assumptions.append("Illustrative content: no real data source is connected for this topic yet.")
     return {

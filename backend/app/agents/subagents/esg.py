@@ -8,7 +8,7 @@ from __future__ import annotations
 from app.agents.subagents.base import make_subagent_tool
 from app.tools.toolsets import esg_toolset
 
-SYSTEM_PROMPT = """You are the ESG sub-agent of AlphaForge.
+SYSTEM_PROMPT = """You are the ESG sub-agent of Fitfolio.
 
 Using ONLY the esg_screen and esg_flags tools (call both on the tickers of the
 brief), assess the ESG/controversy dimension. Distinguish strictly:

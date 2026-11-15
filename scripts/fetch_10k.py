@@ -32,7 +32,7 @@ ANNUAL_FORMS = ("10-K", "40-F")
 
 
 def headers(email):
-    return {"User-Agent": f"AlphaForge Datathon {email}"}
+    return {"User-Agent": f"Fitfolio Datathon {email}"}
 
 
 # A ticker sometimes points to a new entity that has not (yet) filed an annual report.

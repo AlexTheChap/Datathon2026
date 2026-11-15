@@ -68,11 +68,11 @@ def test_new_user_answers_inline_then_gets_a_plan(page):
     page.fill("#question", "Is my portfolio too risky?")
     page.click("button[aria-label='Ask']")
     page.wait_for_selector(".msg--user:has-text('Is my portfolio too risky?')")   # the question appears as a message
-    page.wait_for_selector("text=AlphaForge needs one detail")
+    page.wait_for_selector("text=Fitfolio needs one detail")
     page.click("label.choice:has-text('Low to moderate')")
     page.click("label.choice:has-text('Advanced')")
     page.click("button:has-text('Continue')")
-    page.wait_for_selector("text=AlphaForge will look at: Portfolio risk.")
+    page.wait_for_selector("text=Fitfolio will look at: Portfolio risk.")
     page.wait_for_selector("text=Low to moderate")  # the side summary now shows the saved profile
     assert page.errors == []
 
@@ -83,7 +83,7 @@ def test_news_switched_off_in_chat_shows_in_plan_profile_and_can_be_undone(page)
     page.fill("#question", "I don't care about the news. I'm thinking of putting 20% in Nvidia, everyone is talking about it.")
     page.keyboard.press("Control+Enter")
     page.wait_for_selector("text=News is now off in your profile")
-    page.locator("summary:has-text('How AlphaForge worked on this')").last.click()   # the plan, inside the answer
+    page.locator("summary:has-text('How Fitfolio worked on this')").last.click()   # the plan, inside the answer
     page.wait_for_selector("text=Off because you said")
     assert page.locator("text=Off because you said").count() == 1  # the plan quotes the user
 
@@ -99,7 +99,7 @@ def test_a_setting_said_alone_in_chat_is_confirmed_without_an_analysis(page):
     page.fill("#question", "I do not care about the news anymore for my portfolio")
     page.keyboard.press("Control+Enter")
     page.wait_for_selector("text=Done. News is now switched off")
-    assert page.locator("text=How AlphaForge worked on this").count() == 0     # no analysis ran
+    assert page.locator("text=How Fitfolio worked on this").count() == 0     # no analysis ran
     assert page.locator("a:has-text('Set up your profile')").count() == 0
     page.click("button:has-text('Undo')")
     page.wait_for_selector("text=News is back on")
@@ -118,7 +118,7 @@ def test_learning_switch_is_saved_and_picks_the_learning_template(page):
     page.wait_for_selector("text=Explained so you learn")  # the side summary
     page.fill("#question", "Is my portfolio too risky?")
     page.keyboard.press("Enter")                                              # Enter sends, like a chat
-    page.locator("summary:has-text('How AlphaForge worked on this')").last.click()
+    page.locator("summary:has-text('How Fitfolio worked on this')").last.click()
     page.wait_for_selector("text=Explained for beginner investors, so you learn")
     assert page.errors == []
 
@@ -233,7 +233,7 @@ def test_cognito_demo_sign_in_seeds_the_persona_and_signs_out(base_url, monkeypa
         pg.route("https://cognito-idp.us-east-1.amazonaws.com/", fake_cognito)
 
         pg.goto(f"{base_url}/#/profile")
-        pg.wait_for_selector("text=Sign in to AlphaForge")
+        pg.wait_for_selector("text=Sign in to Fitfolio")
         assert pg.is_hidden(".nav")
         pg.click("button.demo-account:has-text('Robert')")
         pg.wait_for_selector("text=Your investor profile")  # back to the page asked for
@@ -249,7 +249,7 @@ def test_cognito_demo_sign_in_seeds_the_persona_and_signs_out(base_url, monkeypa
             status=400, content_type="application/x-amz-json-1.1", body=json.dumps({"__type": "NotAuthorizedException"})))
         pg.click("a.nav__link:has-text('Ask')")  # the chat loads the history: the API sees the forged token, answers 401
         # Refused right after signing in: the app names the real cause instead of "session expired"
-        pg.wait_for_selector("text=AlphaForge couldn't confirm your sign-in")
+        pg.wait_for_selector("text=Fitfolio couldn't confirm your sign-in")
         assert pg.evaluate("localStorage.getItem('af.session')") is None
         browser.close()
     assert "InitiateAuth" in calls and errors == []
@@ -553,7 +553,7 @@ def test_i_already_have_a_portfolio(page, base_url):
 
 def test_portfolio_without_a_profile_asks_for_one(page, base_url):
     page.goto(f"{base_url}/#/portfolio")
-    page.wait_for_selector("text=First, tell AlphaForge about you")
+    page.wait_for_selector("text=First, tell Fitfolio about you")
     page.click("main a:has-text('Set up my profile')")
     page.wait_for_selector("#q-card-age.q-card--open")                        # a new user gets the first question
     assert page.errors == []
@@ -591,7 +591,7 @@ def test_profile_set_up_step_by_step(page, base_url):
     page.click("button[aria-label='Save goal']")
     page.fill("#q-preferences_text", "I want some diversification and not only tech; little interest in very speculative investments.")
     page.click("button[aria-label='Save preferences and constraints']")
-    page.wait_for_selector(".understood:has-text('AlphaForge understood')")
+    page.wait_for_selector(".understood:has-text('Fitfolio understood')")
     understood = page.locator(".understood").inner_text()
     assert "I want some diversification" in understood and "not only tech" in understood
     page.check("input[name='limit-crypto']")

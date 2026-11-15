@@ -76,7 +76,7 @@ def _not_analysed(plan: dict) -> list[str]:
 def declined(run: Any) -> RunAnswer:
     return RunAnswer(
         kind="declined",
-        short_answer=("AlphaForge can't do that. It is a simulation tool: it never places real trades and does not give "
+        short_answer=("Fitfolio can't do that. It is a simulation tool: it never places real trades and does not give "
                       "personal financial advice. It can test how risky a portfolio is, show how sensitive it is to "
                       "interest rates, check it against your profile or propose a simulated allocation."),
         not_analysed=_not_analysed(_plan(run)),
@@ -106,7 +106,7 @@ def fallback(run: Any, catalog: dict[str, EvidenceItem], note: str) -> RunAnswer
         x.update({k: plain_words.plainify(x[k], names) for k in ("text", "allocation") if k in x})
     return RunAnswer(
         kind="fallback",
-        short_answer=("AlphaForge could not write the full explanation this time. Here is what the analysis "
+        short_answer=("Fitfolio could not write the full explanation this time. Here is what the analysis "
                       "itself found, word for word." if points else
                       "The analysis did not produce any result this time. Try asking again."),
         key_points=points, checks=checks, not_analysed=_not_analysed(_plan(run)), note=note,

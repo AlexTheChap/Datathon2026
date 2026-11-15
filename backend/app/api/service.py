@@ -192,7 +192,7 @@ class ApiService:
         if res.status == "profile_updated":  # only settings changed (saved by the Intake): confirm, run nothing
             return 200, MessageOut(kind="message", message=res.message, **common)
         if res.request is None:  # input refused (e.g. guardrail): nothing to plan
-            return 200, MessageOut(kind="message", message="This request cannot be processed. AlphaForge is a "
+            return 200, MessageOut(kind="message", message="This request cannot be processed. Fitfolio is a "
                                    "simulation tool for investment analysis.", **common)
 
         ctx = context_handler({"profile": res.profile.model_dump(mode="json") if res.profile else None,
@@ -477,7 +477,7 @@ class ApiService:
 
     # ----- DELETE /v1/account (My profile settings > Delete account) -----
     def delete_account(self, actor_id: str, demo_persona: Optional[str] = None) -> dict[str, Any]:
-        """Erase what AlphaForge keeps about the person: profile, notification choice (phone, email, texts sent),
+        """Erase what Fitfolio keeps about the person: profile, notification choice (phone, email, texts sent),
         analyses and their evidence. The sign-in account itself is deleted by the page (Cognito DeleteUser).
         A shared demo account (amira/mateo/robert.demo@…) is refused: its password is public, so one visitor must
         not be able to remove it for everyone."""

@@ -10,6 +10,6 @@ Word file: advisor notes, a questionnaire, a letter about their finances) or the
   what was ignored ("a grocery list", "medical appointments", "the company's holiday schedule"). Empty when
   everything is relevant. Describe personal identifiers only generically ("an account number", "a home address"):
   never copy names, numbers or addresses.
-- A field the document does not clearly support stays null or empty. AlphaForge asks the person for it next.
+- A field the document does not clearly support stays null or empty. Fitfolio asks the person for it next.
 - Never infer the risk level, the experience or `learning` from age, gender, job title alone or any personal trait:
   only from what is said about their goals, their tolerance for losses and their knowledge of investing.

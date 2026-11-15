@@ -181,8 +181,8 @@ def _settings_changes(stored: Optional[Profile], profile: Profile,
     said: list[str] = []
     for c in toggle_changes:
         name = _ANALYSIS_NAMES.get(c.agent, c.agent)
-        said.append(f"{name} is now switched on: AlphaForge may use it when a question needs it." if c.enabled
-                    else f"{name} is now switched off: AlphaForge won't use it unless a question can't be answered without it.")
+        said.append(f"{name} is now switched on: Fitfolio may use it when a question needs it." if c.enabled
+                    else f"{name} is now switched off: Fitfolio won't use it unless a question can't be answered without it.")
     added = [e for e in after.get("exclusions") or [] if e not in (before.get("exclusions") or [])]
     said += [f"New hard limit: {_limit_words(e)}." for e in added]
     if after.get("risk_band") != before.get("risk_band"):

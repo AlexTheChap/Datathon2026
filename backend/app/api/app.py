@@ -99,11 +99,11 @@ def log_auth_mode() -> None:
         from .auth import signin_settings
 
         pool = signin_settings()["user_pool_id"] or "NOT SET (backend/app/core/signin.json): every request will get 401"
-        log.info("AlphaForge API sign-in: Amazon Cognito (user pool %s)", pool)
+        log.info("Fitfolio API sign-in: Amazon Cognito (user pool %s)", pool)
     elif mode == "dev":
-        log.info("AlphaForge API sign-in: dev mode, X-Actor-Id header, no password (local tests only)")
+        log.info("Fitfolio API sign-in: dev mode, X-Actor-Id header, no password (local tests only)")
     else:
-        log.info("AlphaForge API sign-in: API Gateway authorizer only; direct local requests get 401 "
+        log.info("Fitfolio API sign-in: API Gateway authorizer only; direct local requests get 401 "
                  "(start with AF_AUTH_MODE=cognito or dev)")
 
 
@@ -115,7 +115,7 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
     from app.core.config import get_settings
 
     get_settings()   # loads the repo .env first: AWS_* must exist before Bedrock clients sign requests
-    api = FastAPI(title="AlphaForge API (box 2)", version="1.0",
+    api = FastAPI(title="Fitfolio API (box 2)", version="1.0",
                   description="Simulation only: nothing here is investment advice.")
     svc = service or service_from_env()
 

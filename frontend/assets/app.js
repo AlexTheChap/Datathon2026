@@ -1,4 +1,4 @@
-// AlphaForge frontend (box ① of docs/architecture.mmd): plain ES module, no framework, no build step.
+// Fitfolio frontend (box ① of docs/architecture.mmd): plain ES module, no framework, no build step.
 // Talks to the box ② API (POST/GET /v1/runs, GET/PUT /v1/profile, GET /v1/me) and, when
 // to Amazon Cognito for the login (settings served by the API as config.js, from backend/app/core/signin.json).
 // Every piece of user or server text goes into the page as a text node (never as HTML).
@@ -177,7 +177,7 @@ async function cognito(action, body, { withClient = true } = {}) {
       body: JSON.stringify(withClient ? { ClientId: CONFIG.clientId, ...body } : body),
     });
   } catch {
-    throw new CognitoError("Network", "AlphaForge can't reach the sign-in service. Check your connection, then try again.");
+    throw new CognitoError("Network", "Fitfolio can't reach the sign-in service. Check your connection, then try again.");
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new CognitoError(String(data.__type || "").split("#").pop(), data.message || "");
@@ -294,7 +294,7 @@ async function api(method, path, body, retried = false) {
     if (!s) throw new ApiError(401, (data && data.detail) || "Sign in to continue."); // another request signed out first
     const fresh = s && s.signedInAt && Date.now() - s.signedInAt < 120_000;
     signOut(fresh
-      ? "AlphaForge couldn't confirm your sign-in. Please try signing in again."
+      ? "Fitfolio couldn't confirm your sign-in. Please try signing in again."
       : "Your session has expired. Sign in again.");
   }
   if (!res.ok) throw new ApiError(res.status, data && data.detail);
@@ -303,16 +303,16 @@ async function api(method, path, body, retried = false) {
 
 /** POST a file (multipart): same sign-in as api(), the browser sets the multipart boundary. */
 function errorText(err, what) {
-  if (err.status === 0) return { title: "AlphaForge isn't responding", body: "The app can't reach its server. Check your connection, then try again." };
+  if (err.status === 0) return { title: "Fitfolio isn't responding", body: "The app can't reach its server. Check your connection, then try again." };
   if (err.status === 401) return { title: "You're not signed in", body: "Sign in again, then try again." };
   const detail = typeof err.detail === "string" ? err.detail : "";
   if (err.status === 502 && /expired|security token|credentials|UnrecognizedClient|AccessDenied/i.test(detail)) {
-    return { title: "AlphaForge can't reach its AI service", body: "The service is unavailable right now. Your text is kept: try again in a few minutes." };
+    return { title: "Fitfolio can't reach its AI service", body: "The service is unavailable right now. Your text is kept: try again in a few minutes." };
   }
   if (err.status === 502 && /could not be reached|unreachable|Throttl/i.test(detail)) {
-    return { title: "AlphaForge can't reach its AI service right now", body: "The service didn't answer. Your text is kept: try again in a moment." };
+    return { title: "Fitfolio can't reach its AI service right now", body: "The service didn't answer. Your text is kept: try again in a moment." };
   }
-  if (err.status === 502) return { title: `AlphaForge couldn't read ${what}`, body: "AlphaForge didn't get a usable answer this time. Your text is kept: try again." };
+  if (err.status === 502) return { title: `Fitfolio couldn't read ${what}`, body: "Fitfolio didn't get a usable answer this time. Your text is kept: try again." };
   if (err.status === 422 && detail) return { title: "That didn't work", body: detail };
   if (err.status === 422) return { title: "Some details aren't valid", body: "Check the highlighted fields, then try again." };
   return { title: "Something went wrong", body: `The server answered with an error (${err.status}). Try again in a moment.` };
@@ -434,12 +434,12 @@ function dashboardContext() {
 function renderNoSignIn(main) {
   document.querySelector(".nav").hidden = true;
   document.getElementById("ask-fab").hidden = true;
-  document.title = "Sign-in unavailable, AlphaForge";
+  document.title = "Sign-in unavailable, Fitfolio";
   main.replaceChildren(band("head", h("div", { class: "page-head" },
     h("h1", null, "Sign-in isn't available"),
-    h("p", null, "AlphaForge can only be used with an account, and this server has no sign-in set up. Try again later."))),
+    h("p", null, "Fitfolio can only be used with an account, and this server has no sign-in set up. Try again later."))),
   band("body", h("div", { class: "panel stack-sm" },
-    h("p", { class: "small muted" }, "If this keeps happening, contact the team that runs AlphaForge."))));
+    h("p", { class: "small muted" }, "If this keeps happening, contact the team that runs Fitfolio."))));
 }
 function route() {
   if (!COGNITO && !DEV) { renderNoSignIn(document.getElementById("main")); setWho(); return; }
@@ -473,7 +473,7 @@ function route() {
   }
   closeUserMenu();
   placeNavIndicator();
-  document.title = `${match.title}, AlphaForge`;
+  document.title = `${match.title}, Fitfolio`;
   const main = document.getElementById("main");
   routeSeq += 1;
   main.replaceChildren();
@@ -500,7 +500,7 @@ function placeNavIndicator() {
 window.addEventListener("resize", () => placeNavIndicator());
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => placeNavIndicator()); // widths change once the font loads
 
-/* ---------------- Ask: a conversation with AlphaForge ---------------- */
+/* ---------------- Ask: a conversation with Fitfolio ---------------- */
 
 // The pipeline's stages, shown in order while an analysis runs (POST /v1/runs answers when the run is done).
 const STEPS = ["Reading your question", "Choosing what to analyse", "Running the analyses",
@@ -510,7 +510,7 @@ const isFinalRun = (r) => r.status === "DONE" || r.status === "FAILED" || (r.sta
 
 function renderAsk(main) {
   const portfolioReady = syncPortfolio(dashboardContext()).then(() => { state.profile = undefined; drawSide(); }).catch(() => {});
-  const log = h("div", { class: "chat__log", role: "log", "aria-label": "Conversation with AlphaForge" });
+  const log = h("div", { class: "chat__log", role: "log", "aria-label": "Conversation with Fitfolio" });
   const textarea = h("textarea", {
     class: "chat__input", id: "question", name: "question", rows: "1", maxlength: "4000",
     placeholder: "Ask about your portfolio…", "aria-label": "Your question",
@@ -522,7 +522,7 @@ function renderAsk(main) {
     h("div", { class: "chat__box" }, textarea, submit),
     error,
     h("p", { class: "chat__help", id: "question-help" },
-      "Enter to send, Shift+Enter for a new line. Questions about “my portfolio” use the portfolio AlphaForge built for you."));
+      "Enter to send, Shift+Enter for a new line. Questions about “my portfolio” use the portfolio Fitfolio built for you."));
 
   const grow = () => { textarea.style.height = "auto"; textarea.style.height = `${Math.min(textarea.scrollHeight, 220)}px`; };
   textarea.addEventListener("input", () => { clearError(); grow(); });
@@ -540,7 +540,7 @@ function renderAsk(main) {
   const welcome = () => h("div", { class: "chat__welcome" },
     h("span", { class: "msg__avatar msg__avatar--lg", "aria-hidden": "true" }, "A"),
     h("h2", null, "What would you like to know?"),
-    h("p", { class: "lede" }, "Ask in your own words. AlphaForge picks the analyses, checks the result against your profile, and shows every source."),
+    h("p", { class: "lede" }, "Ask in your own words. Fitfolio picks the analyses, checks the result against your profile, and shows every source."),
     h("div", { class: "examples", role: "group", "aria-label": "Example questions. Picking one fills the box; nothing is sent until you press Ask." },
       EXAMPLE_QUESTIONS.map((q) => h("button", { class: "example", type: "button",
         onclick: () => { textarea.value = q; grow(); clearError(); textarea.focus(); } }, q))));
@@ -576,7 +576,7 @@ function renderAsk(main) {
       drawSide();
       // A detail asked in the thread (risk level, experience) is saved with the question: say so, never echo the answer.
       const savedWords = profileForm ? `${[profileForm.risk_band && "Risk level", profileForm.experience && "Experience"].filter(Boolean).join(" and ")} saved. ` : "";
-      announce(savedWords + (data.kind === "run" ? "AlphaForge answered." : data.kind === "question" ? "AlphaForge needs one detail." : "AlphaForge replied."));
+      announce(savedWords + (data.kind === "run" ? "Fitfolio answered." : data.kind === "question" ? "Fitfolio needs one detail." : "Fitfolio replied."));
     } catch (err) {
       turn.status = "error";
       turn.error = err;
@@ -607,7 +607,7 @@ function renderAsk(main) {
     h("div", { class: "msg__bubble" }, h("span", { class: "visually-hidden" }, "You asked: "), text));
   const ai = (...content) => h("div", { class: "msg msg--ai" },
     h("span", { class: "msg__avatar", "aria-hidden": "true" }, "A"),
-    h("div", { class: "msg__body" }, h("span", { class: "visually-hidden" }, "AlphaForge: "), content));
+    h("div", { class: "msg__body" }, h("span", { class: "visually-hidden" }, "Fitfolio: "), content));
 
   function renderTurn(turn) {
     window.clearInterval(turn.timer);
@@ -650,7 +650,7 @@ function renderAsk(main) {
     const names = (turn.reply.enabled_agents || []).map((a) => (AGENTS[a] || { name: a }).name);
     if (!run || (!run.result && run.status !== "FAILED")) { // plan only: this server doesn't run the agents
       return [h("p", { class: "turn__label" }, "Analysis planned"),
-        h("p", null, names.length ? `AlphaForge will look at: ${names.join(", ")}.`
+        h("p", null, names.length ? `Fitfolio will look at: ${names.join(", ")}.`
           : "Nothing to analyse: this request asks for something a simulation can't do."),
         run ? planDetails(run) : null,
         run && run.note ? h("p", { class: "small muted" }, run.note) : null,
@@ -660,12 +660,12 @@ function renderAsk(main) {
       h("p", { class: "small" }, h("a", { href: `#/runs/${run.run_id}` }, "Open this analysis as a page"))];
   }
 
-  /** "How AlphaForge worked on this": the plan, folded inside the message. */
+  /** "How Fitfolio worked on this": the plan, folded inside the message. */
   function planDetails(run) {
     const plan = run.execution_plan;
     const enabled = plan.enabled_agents || [];
     const userOff = (plan.disabled_agents || []).filter((d) => !/not needed/.test(d.reason));
-    return h("details", { class: "fold" }, h("summary", null, "How AlphaForge worked on this"),
+    return h("details", { class: "fold" }, h("summary", null, "How Fitfolio worked on this"),
       h("div", { class: "stack-sm" },
         enabled.length ? h("ul", { class: "plan plan--compact" }, enabled.map((a) => h("li", { class: "plan__item" },
           h("span", { class: "plan__mark" }, icon("check", 20)),
@@ -681,7 +681,7 @@ function renderAsk(main) {
   function drawQuestion(turn) {
     const r = turn.reply;
     const missing = (r.missing_fields || []).filter((f) => f === "risk_band" || f === "experience");
-    const out = [h("p", { class: "turn__label" }, "AlphaForge needs one detail"), h("p", null, r.question)];
+    const out = [h("p", { class: "turn__label" }, "Fitfolio needs one detail"), h("p", null, r.question)];
     if (!missing.length) {
       out.push(h("div", { class: "notice" },
         h("button", { class: "link-btn", type: "button",
@@ -775,7 +775,7 @@ function renderAsk(main) {
   main.append(
     band("head", h("div", { class: "page-head page-head--split" },
       h("div", { class: "stack-sm" },
-        h("h1", null, "Ask AlphaForge"),
+        h("h1", null, "Ask Fitfolio"),
         h("p", null, "Ask about your portfolio the way you would say it. Each answer shows what was analysed, the checks against your profile, and its sources.")),
       newChat)),
     band("body", h("div", { class: "columns chat" },
@@ -811,7 +811,7 @@ function profileSummary(p) {
 function noProfile() {
   return h("section", { class: "panel empty", "aria-labelledby": "summary-title" },
     h("h2", { id: "summary-title", class: "section-title" }, "No profile yet"),
-    h("p", { class: "lede" }, "AlphaForge needs your risk level and experience before it can analyse anything."),
+    h("p", { class: "lede" }, "Fitfolio needs your risk level and experience before it can analyse anything."),
     h("a", { class: "btn btn--secondary", href: "#/profile" }, "Set up your profile"));
 }
 
@@ -833,7 +833,7 @@ function renderProfile(main) {
   const head = band("head", h("div", { class: "page-head" },
     h("div", { class: "stack-sm" },
       h("h1", null, "Your investor profile"),
-      h("p", null, "One question at a time. AlphaForge uses your answers to decide what to analyse and how to explain the results. Only your risk level and experience are required."))));
+      h("p", null, "One question at a time. Fitfolio uses your answers to decide what to analyse and how to explain the results. Only your risk level and experience are required."))));
   const seq = routeSeq;
   loadProfile(true).then((profile) => {
     if (seq !== routeSeq) return; // the person went elsewhere (or came back) meanwhile: never draw twice
@@ -915,8 +915,8 @@ function drawAnswer(run, { scope = "page", chat = false, animate = false } = {})
     const waiting = run.status === "QUEUED" || run.status === "RUNNING";
     section.append(h("div", { class: chat ? "stack-sm" : "empty" },
       h("p", null, run.status === "FAILED" ? "No answer: the analysis stopped before the end." : "The answer will appear here."),
-      run.status === "QUEUED" && run.note ? h("p", { class: "muted small" }, "Analyses aren't available right now, so AlphaForge stops at the plan.") : null,
-      run.status === "RUNNING" ? h("p", { class: "muted small" }, "Working on it: AlphaForge gathers the figures, then writes and checks the answer.") : null,
+      run.status === "QUEUED" && run.note ? h("p", { class: "muted small" }, "Analyses aren't available right now, so Fitfolio stops at the plan.") : null,
+      run.status === "RUNNING" ? h("p", { class: "muted small" }, "Working on it: Fitfolio gathers the figures, then writes and checks the answer.") : null,
       !waiting && run.result && run.result.answer_error ? h("p", { class: "muted small" }, "The explanation could not be written this time.") : null));
     return section;
   }
@@ -1151,7 +1151,7 @@ function renderRun(main, runId) {
     const notNeeded = (plan.disabled_agents || []).filter((d) => /not needed/.test(d.reason));
     const statusLine = {
       QUEUED: "Waiting to start.",
-      RUNNING: "AlphaForge is analysing and writing your answer. This takes about a minute; the page updates by itself.",
+      RUNNING: "Fitfolio is analysing and writing your answer. This takes about a minute; the page updates by itself.",
       DONE: "The analysis is complete.",
       FAILED: "The analysis stopped before the end. You can ask your question again.",
     }[run.status];
@@ -1165,13 +1165,13 @@ function renderRun(main, runId) {
         stoppedPolling ? h("button", { class: "link-btn", type: "button", onclick: () => { polls = 0; shown = null; load(); } }, "Check again") : null),
       h("nav", { class: "on-page", "aria-label": "On this page" },
         h("span", { class: "on-page__label" }, "On this page"),
-        h("button", { type: "button", onclick: jump("plan-title") }, "What AlphaForge will look at"),
+        h("button", { type: "button", onclick: jump("plan-title") }, "What Fitfolio will look at"),
         h("button", { type: "button", onclick: jump("left-title") }, "Left out"),
         h("button", { type: "button", onclick: jump("answer-title-page") }, "Answer"),
         h("button", { type: "button", onclick: jump("details-title") }, "Details")));
 
     const lookedAt = h("section", { class: "plan-panel", "aria-labelledby": "plan-title" },
-      h("h2", { id: "plan-title" }, "What AlphaForge will look at"),
+      h("h2", { id: "plan-title" }, "What Fitfolio will look at"),
       enabled.length
         ? h("ul", { class: "plan" }, enabled.map((a) => h("li", { class: "plan__item" },
           h("span", { class: "plan__mark" }, icon("check", 28)),
@@ -1447,7 +1447,7 @@ function deleteSection(session) {
   const confirmWord = "DELETE";
   const typed = settingsField("set-delete", "confirm", `To confirm, type ${confirmWord}`, { type: "text", autocomplete: "off", spellcheck: "false" });
   const f = settingsForm("set-delete", "Delete my account",
-    "This deletes your sign-in account and everything AlphaForge keeps about you: your profile, your portfolio, your analyses and your notification choice. It can't be undone.",
+    "This deletes your sign-in account and everything Fitfolio keeps about you: your profile, your portfolio, your analyses and your notification choice. It can't be undone.",
     [typed], "Delete my account", async ({ formError }) => {
       if (typed.input.value.trim() !== confirmWord) return fieldProblem(typed, `Type ${confirmWord} in capital letters.`);
       if (!window.confirm("Delete your account and all its data? This can't be undone.")) return;
@@ -1536,7 +1536,7 @@ function renderSignIn(main) {
   main.append(
     h("div", { class: "band band--hero" }, h("div", { class: "container" },
       h("h1", null, "Investment questions, explained."),
-      h("p", null, "Ask about your portfolio and see exactly what AlphaForge analyses, and why. Simulation only."))),
+      h("p", null, "Ask about your portfolio and see exactly what Fitfolio analyses, and why. Simulation only."))),
     band("body", box));
 
   const fillBox = (...parts) => box.replaceChildren(...parts.filter(Boolean)); // replaceChildren would print "null"
@@ -1608,7 +1608,7 @@ function renderSignIn(main) {
         return btn;
       });
       fillBox(
-        h("div", { class: "page-head" }, h("h2", null, "Sign in to AlphaForge"),
+        h("div", { class: "page-head" }, h("h2", null, "Sign in to Fitfolio"),
           h("p", null, "Use your account, or explore with a demo investor. Simulation only: nothing here is investment advice.")),
         status,
         h("form", { class: "auth-form", novalidate: true, onsubmit: async (e) => {

@@ -106,7 +106,7 @@ def deploy_lambda(lam, zip_path: Path, role_arn: str) -> str:
             try:
                 lam.create_function(FunctionName=FUNCTION, Runtime=RUNTIME, Role=role_arn,
                                     Handler="app.tools.quant_gateway.handler", Code={"ZipFile": code},
-                                    Description="AlphaForge quant tools (box 6) behind the AgentCore Gateway",
+                                    Description="Fitfolio quant tools (box 6) behind the AgentCore Gateway",
                                     Tags=TAGS, **cfg)
                 break
             except lam.exceptions.InvalidParameterValueException as e:
@@ -170,7 +170,7 @@ def ensure_gateway(ac, role_arn: str) -> dict:
         for attempt in range(8):  # new role propagation
             try:
                 gw = ac.create_gateway(name=GATEWAY, roleArn=role_arn, protocolType="MCP", authorizerType="AWS_IAM",
-                                       description="AlphaForge quant tools (metrics, risk, scenarios, optimizer)",
+                                       description="Fitfolio quant tools (metrics, risk, scenarios, optimizer)",
                                        tags=TAGS)
                 break
             except ac.exceptions.ValidationException as e:
@@ -191,7 +191,7 @@ def ensure_targets(ac, gateway_id: str, lambda_arn: str) -> None:
     creds = [{"credentialProviderType": "GATEWAY_IAM_ROLE"}]
     for name, tools in TARGETS.items():
         cfg = {"mcp": {"lambda": {"lambdaArn": lambda_arn, "toolSchema": {"inlinePayload": tools}}}}
-        desc = f"AlphaForge {name} tools: {', '.join(t['name'] for t in tools)}"
+        desc = f"Fitfolio {name} tools: {', '.join(t['name'] for t in tools)}"
         if name in existing:
             tid = existing[name]
             ac.update_gateway_target(gatewayIdentifier=gateway_id, targetId=tid, name=name, description=desc,
@@ -335,7 +335,7 @@ def main() -> None:
         return
     if not args.test_only:
         iam = session.client("iam")
-        lambda_role, new1 = ensure_role(iam, LAMBDA_ROLE, LAMBDA_TRUST, "AlphaForge quant tools Lambda (box 6)", TAGS)
+        lambda_role, new1 = ensure_role(iam, LAMBDA_ROLE, LAMBDA_TRUST, "Fitfolio quant tools Lambda (box 6)", TAGS)
         iam.attach_role_policy(RoleName=LAMBDA_ROLE,
                                PolicyArn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole")
         if curated_s3():  # read-only access to the curated Parquet prefix (L14)
@@ -362,7 +362,7 @@ def main() -> None:
         lambda_arn = deploy_lambda(session.client("lambda"), build_zip(), lambda_role)
 
         gw_role, new2 = ensure_role(iam, GATEWAY_ROLE, trust_policy("bedrock-agentcore.amazonaws.com", account),
-                                    "AlphaForge AgentCore Gateway: may invoke the quant tools Lambda only", TAGS)
+                                    "Fitfolio AgentCore Gateway: may invoke the quant tools Lambda only", TAGS)
         iam.put_role_policy(RoleName=GATEWAY_ROLE, PolicyName="invoke-quant-lambda", PolicyDocument=json.dumps({
             "Version": "2012-10-17",
             "Statement": [{"Effect": "Allow", "Action": "lambda:InvokeFunction", "Resource": lambda_arn}]}))

@@ -1,4 +1,4 @@
-"""Create (or reuse) AlphaForge's sign-in on Amazon Cognito (box ① login, link L1), with boto3 only.
+"""Create (or reuse) Fitfolio's sign-in on Amazon Cognito (box ① login, link L1), with boto3 only.
 
     python scripts/setup_cognito.py            # create or update the user pool, the web client, 3 demo accounts
     python scripts/setup_cognito.py --test     # + sign in as each demo account and show the token's claims
@@ -102,8 +102,8 @@ def ensure_pool(idp) -> str:
         EmailConfiguration={"EmailSendingAccount": "COGNITO_DEFAULT"},
         VerificationMessageTemplate={
             "DefaultEmailOption": "CONFIRM_WITH_CODE",
-            "EmailSubject": "Your AlphaForge code",
-            "EmailMessage": "Your AlphaForge verification code is {####}. AlphaForge is a simulation; it never asks "
+            "EmailSubject": "Your Fitfolio code",
+            "EmailMessage": "Your Fitfolio verification code is {####}. Fitfolio is a simulation; it never asks "
                             "for bank details.",
         },
         UserPoolTags=TAGS,
@@ -159,7 +159,7 @@ def ensure_demo_users(idp, pool_id: str, password: str) -> list[dict]:
 
 def write_signin(region: str, pool_id: str | None, client_id: str | None) -> None:
     """The app's sign-in settings, tracked in git (commit the file so every copy of the site gets sign-in)."""
-    data = {"_comment": "AlphaForge sign-in (Amazon Cognito user pool 'alphaforge-users', web client 'alphaforge-web'). "
+    data = {"_comment": "Fitfolio sign-in (Amazon Cognito user pool 'alphaforge-users', web client 'alphaforge-web'). "
                         "Not secrets: every visitor's browser receives these ids. Written by scripts/setup_cognito.py; "
                         "AF_COGNITO_* environment variables override them.",
             "region": region, "user_pool_id": pool_id, "client_id": client_id}

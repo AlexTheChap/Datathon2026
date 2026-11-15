@@ -102,7 +102,7 @@ ITEMS_8K = {  # 8-K items kept (the most informative for an investor)
 
 def sec_8k_events(universe: pd.DataFrame, start: str, end: str, email: str) -> pd.DataFrame:
     import requests
-    h = {"User-Agent": f"AlphaForge Datathon {email}"}
+    h = {"User-Agent": f"Fitfolio Datathon {email}"}
     from sec_cik import cik_for, cik_map
     sec = cik_map(h)
     rows = []

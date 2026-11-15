@@ -116,7 +116,7 @@ def build_image(session, account: str, region: str) -> str:
     print(f"• Build context uploaded: s3://{bucket}/{NAME}/source.zip ({len(data) / 1e6:.1f} MB)")
     uri = ensure_repo(ecr)
 
-    role_arn, new = ensure_role(iam, BUILD_ROLE, CODEBUILD_TRUST, "AlphaForge API image build (CodeBuild)", TAGS)
+    role_arn, new = ensure_role(iam, BUILD_ROLE, CODEBUILD_TRUST, "Fitfolio API image build (CodeBuild)", TAGS)
     iam.put_role_policy(RoleName=BUILD_ROLE, PolicyName="build", PolicyDocument=json.dumps({
         "Version": "2012-10-17", "Statement": [
             {"Effect": "Allow", "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
@@ -215,7 +215,7 @@ def deploy_lambda(lam, image: str, role_arn: str, env: dict) -> str:
         for attempt in range(10):  # a brand-new role takes a few seconds before Lambda can assume it
             try:
                 lam.create_function(FunctionName=NAME, PackageType="Image", Code={"ImageUri": image}, Role=role_arn,
-                                    Description="AlphaForge API (box 2) + agents (box 5)", Tags=TAGS, **cfg)
+                                    Description="Fitfolio API (box 2) + agents (box 5)", Tags=TAGS, **cfg)
                 break
             except lam.exceptions.InvalidParameterValueException as e:
                 if "role" not in str(e).lower() or attempt == 9:
@@ -313,7 +313,7 @@ def main() -> None:
     table = json.loads(DATA_LAYER.read_text())["table"] if DATA_LAYER.exists() else "alphaforge"
     image = build_image(session, account, region)
     iam = session.client("iam")
-    role_arn, _ = ensure_role(iam, LAMBDA_ROLE, LAMBDA_TRUST, "AlphaForge API Lambda (box 2 + box 5 agents)", TAGS)
+    role_arn, _ = ensure_role(iam, LAMBDA_ROLE, LAMBDA_TRUST, "Fitfolio API Lambda (box 2 + box 5 agents)", TAGS)
     iam.put_role_policy(RoleName=LAMBDA_ROLE, PolicyName="api",
                         PolicyDocument=json.dumps(lambda_policy(account, region, table)))
     url = deploy_lambda(session.client("lambda"), image, role_arn, lambda_env(table))

@@ -251,7 +251,7 @@ def test_personas_are_ready_to_save_profile_forms(client):
 
 def test_frontend_is_served_and_api_routes_still_win(client):
     page = client.get("/")
-    assert page.status_code == 200 and "<title>AlphaForge" in page.text
+    assert page.status_code == 200 and "<title>Fitfolio" in page.text
     assert client.get("/assets/app.js").status_code == 200
     assert client.get("/health").json() == {"status": "ok"}  # API route, not a static file
 

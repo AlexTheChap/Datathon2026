@@ -117,7 +117,7 @@ def main() -> int:
     ap.add_argument("--out", default=str(ROOT / "data/curated/fundamentals.csv"))
     a = ap.parse_args()
 
-    h = {"User-Agent": f"AlphaForge Datathon {a.email}"}
+    h = {"User-Agent": f"Fitfolio Datathon {a.email}"}
     uni = pd.read_csv(a.universe)
     wanted = a.tickers or uni.loc[uni["asset_class"] == "equity", "ticker"].tolist()
     from sec_cik import cik_for, cik_map

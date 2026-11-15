@@ -1,5 +1,5 @@
 {
-  "_comment": "AlphaForge sign-in (Amazon Cognito user pool 'alphaforge-users', web client 'alphaforge-web'). Not secrets: every visitor's browser receives these ids. Written by scripts/setup_cognito.py; AF_COGNITO_* environment variables override them.",
+  "_comment": "Fitfolio sign-in (Amazon Cognito user pool 'alphaforge-users', web client 'alphaforge-web'). Not secrets: every visitor's browser receives these ids. Written by scripts/setup_cognito.py; AF_COGNITO_* environment variables override them.",
   "region": "us-east-1",
   "user_pool_id": "us-east-1_LeOvJINYo",
   "client_id": "3l6b2ufqnna161fdft3hdvvel3"

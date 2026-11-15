@@ -1,4 +1,4 @@
-"""AgentCore Memory (link L17): create, inspect and delete the memory resource of AlphaForge.
+"""AgentCore Memory (link L17): create, inspect and delete the memory resource of Fitfolio.
 
   .venv/bin/python scripts/agentcore_memory.py create [--write-env]   # idempotent: reuses an existing one
   .venv/bin/python scripts/agentcore_memory.py status
@@ -27,7 +27,7 @@ from bedrock_agentcore.memory import MemoryClient
 
 
 def find_memory(client: MemoryClient) -> dict | None:
-    """The AlphaForge memory of this account (ids look like `AlphaForgeMemory-xxxxxxxxxx`)."""
+    """The Fitfolio memory of this account (ids look like `FitfolioMemory-xxxxxxxxxx`)."""
     return next((m for m in client.list_memories() if str(m.get("id", "")).startswith(f"{MEMORY_NAME}-")), None)
 
 
@@ -73,7 +73,7 @@ def main() -> int:
         else:
             mem = client.create_memory_and_wait(
                 name=MEMORY_NAME, strategies=STRATEGIES, event_expiry_days=90,
-                description="AlphaForge: session history (short term) and soft investment preferences (long term).")
+                description="Fitfolio: session history (short term) and soft investment preferences (long term).")
             mid = mem["id"]
             print(f"Memory created: {mid} ({mem.get('status')})")
         if args.write_env:

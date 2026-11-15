@@ -164,7 +164,7 @@ def main() -> int:
         todo = todo[todo["tickers"].isin(a.tickers)]
     if a.limit:
         todo = todo.head(a.limit)
-    h = {"User-Agent": f"AlphaForge Datathon {a.email}"}
+    h = {"User-Agent": f"Fitfolio Datathon {a.email}"}
     session = requests.Session()
     done = failed = 0
     for n, (i, r) in enumerate(todo.iterrows(), 1):

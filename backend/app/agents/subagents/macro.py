@@ -5,7 +5,7 @@ from app.agents.subagents.base import make_subagent_tool
 from app.tools import agent_tools
 from app.tools.analysis_tools import macro_snapshot, rate_sensitivity
 
-SYSTEM_PROMPT = """You are the Macro sub-agent of AlphaForge.
+SYSTEM_PROMPT = """You are the Macro sub-agent of Fitfolio.
 
 Using ONLY the tools available to you (macro snapshot, rate sensitivity,
 correlation), describe the macro environment relevant to the brief.

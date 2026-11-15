@@ -1,5 +1,5 @@
 """
-Builds the curated dataset from the AlphaForge starter dataset.
+Builds the curated dataset from the Fitfolio starter dataset.
 
 Usage:
     python scripts/build_curated.py --starter data/raw --out data/curated

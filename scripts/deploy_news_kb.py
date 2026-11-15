@@ -137,7 +137,7 @@ def ensure_vector_index(sv, vbucket: str) -> str:
 
 def ensure_kb_role(iam, account: str, region: str, bucket: str, index_arn: str) -> tuple[str, bool]:
     arn, created = ensure_role(iam, ROLE, trust_policy("bedrock.amazonaws.com", account),
-                               "AlphaForge Bedrock Knowledge Base (news & docs, S3 Vectors)", TAGS)
+                               "Fitfolio Bedrock Knowledge Base (news & docs, S3 Vectors)", TAGS)
     policy = {"Version": "2012-10-17", "Statement": [
         {"Effect": "Allow", "Action": "bedrock:InvokeModel",
          "Resource": f"arn:aws:bedrock:{region}::foundation-model/{EMBED_MODEL}"},
@@ -168,7 +168,7 @@ def ensure_kb(ag, role_arn: str, index_arn: str, region: str) -> dict:
             try:
                 kb = ag.create_knowledge_base(
                     name=KB_NAME, roleArn=role_arn,
-                    description="AlphaForge news (8-K filings, rate decisions) and annual-report "
+                    description="Fitfolio news (8-K filings, rate decisions) and annual-report "
                                 "risk/legal sections; filter published_date <= as_of",
                     knowledgeBaseConfiguration={"type": "VECTOR", "vectorKnowledgeBaseConfiguration": {
                         "embeddingModelArn": f"arn:aws:bedrock:{region}::foundation-model/{EMBED_MODEL}",

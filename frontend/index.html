@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AlphaForge, investment questions explained</title>
-  <meta name="description" content="See the simulated portfolio AlphaForge builds from your profile, ask questions about it, and see what was analysed and why. Simulation only, not investment advice.">
+  <title>Fitfolio, investment questions explained</title>
+  <meta name="description" content="See the simulated portfolio Fitfolio builds from your profile, ask questions about it, and see what was analysed and why. Simulation only, not investment advice.">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <script>
     /* Apply the saved mode before first paint, so the page never flashes the wrong one. */
@@ -36,7 +36,13 @@
     </div>
     <div class="mainbar">
       <div class="container mainbar__inner">
-        <a class="wordmark" href="#/portfolio" aria-label="AlphaForge, home">AlphaForge</a>
+        <a class="wordmark" href="#/portfolio" aria-label="Fitfolio, home">
+          <!-- frontend/assets/fitfolio-logo.svg, inline so the navy stroke can turn white in dark mode (--logo-ink) -->
+          <svg class="wordmark__logo" viewBox="0 0 64 64" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M27 55V24a13 13 0 0 1 13-13h7" stroke="var(--logo-ink)" stroke-width="8"/>
+            <path d="M11 39l10-6 8 4 20-13" stroke="#E41C23" stroke-width="6"/>
+            <path d="M41 22.5l8.5 1.5-1.5 8.5" stroke="#E41C23" stroke-width="6"/>
+          </svg><span>Fitfolio</span></a>
         <nav class="nav" aria-label="Main">
           <a class="nav__link" href="#/portfolio" data-route="portfolio">My portfolio</a>
           <a class="nav__link" href="#/ask" data-route="ask">Ask a question</a>
@@ -56,8 +62,8 @@
   <main id="main" tabindex="-1">
     <noscript>
       <div class="band band--head"><div class="container page-head">
-        <h1>AlphaForge needs JavaScript</h1>
-        <p>This app talks to the AlphaForge API from your browser. Turn JavaScript on and reload the page.</p>
+        <h1>Fitfolio needs JavaScript</h1>
+        <p>This app talks to the Fitfolio API from your browser. Turn JavaScript on and reload the page.</p>
       </div></div>
     </noscript>
   </main>
@@ -70,7 +76,7 @@
     <div class="container">
       <div class="footer__cols">
         <nav aria-labelledby="footer-use">
-          <h2 class="footer__title" id="footer-use">Use AlphaForge</h2>
+          <h2 class="footer__title" id="footer-use">Use Fitfolio</h2>
           <ul>
             <li><a href="#/portfolio">My portfolio</a></li>
             <li><a href="#/ask">Ask a question</a></li>
@@ -87,7 +93,7 @@
           </ul>
         </section>
       </div>
-      <p class="footer__legal">Simulation only. Nothing here is investment advice, and no real trade is ever placed. AlphaForge is a student prototype and is not affiliated with any bank.</p>
+      <p class="footer__legal">Simulation only. Nothing here is investment advice, and no real trade is ever placed. Fitfolio is a student prototype and is not affiliated with any bank.</p>
     </div>
   </footer>
 </body>

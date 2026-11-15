@@ -32,7 +32,7 @@ NAME = "alphaforge"
 STATE = BUILD / "guardrail.json"
 TAGS = {"project": "alphaforge", "component": "guardrail"}
 
-BLOCKED_INPUT = "AlphaForge can't process this message. Please rephrase it without instructions to the system or personal identifiers."
+BLOCKED_INPUT = "Fitfolio can't process this message. Please rephrase it without instructions to the system or personal identifiers."
 BLOCKED_OUTPUT = "This part of the answer was withheld by a safety check."
 
 TOPICS = [
@@ -52,7 +52,7 @@ PII_MASK_OUTPUT = ["EMAIL", "PHONE", "ADDRESS"]
 
 def config(grounding: float, relevance: float) -> dict:
     return {
-        "description": "AlphaForge: intake input filter and Explainer output grounding check (L18).",
+        "description": "Fitfolio: intake input filter and Explainer output grounding check (L18).",
         "contentPolicyConfig": {"filtersConfig": [
             {"type": "PROMPT_ATTACK", "inputStrength": "HIGH", "outputStrength": "NONE"}]},
         "topicPolicyConfig": {"topicsConfig": [

@@ -16,7 +16,7 @@ Point-in-time: N-PORT = latest report FILED on or before --as-of (published ~60 
 month end). Issuer files (SPY, XIU) only exist as of today's date: if that date is later
 than --as-of, a warning is printed and the holdings_date column shows it.
 N-PORT tickers are recovered by CUSIP via the SPY file (S&P 500); otherwise the ticker is empty.
-Sectors: AlphaForge universe, then iShares file (XIU), then GICS from the Wikipedia S&P 500
+Sectors: Fitfolio universe, then iShares file (XIU), then GICS from the Wikipedia S&P 500
 list (CURRENT sectors); otherwise empty ("unclassified").
 """
 from __future__ import annotations
@@ -47,7 +47,7 @@ NPORT_SERIES = {"QQQ": "S000101292", "ESGV": "S000063075"}
 
 
 def sec_headers(email):
-    return {"User-Agent": f"AlphaForge Datathon {email}"}
+    return {"User-Agent": f"Fitfolio Datathon {email}"}
 
 
 def fetch_spy() -> pd.DataFrame:
@@ -107,7 +107,7 @@ def fetch_nport(fund: str, series: str, as_of: str, email: str) -> pd.DataFrame:
 def sp500_table() -> pd.DataFrame:
     """Wikipedia S&P 500 list (CC BY-SA): Symbol, Security, GICS Sector, Date added…"""
     html = requests.get("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
-                        headers={"User-Agent": "AlphaForge Datathon (research script)"}, timeout=30).text
+                        headers={"User-Agent": "Fitfolio Datathon (research script)"}, timeout=30).text
     t = pd.read_html(io.StringIO(html))[0]
     t["Symbol"] = t["Symbol"].str.replace(".", "-", regex=False)
     return t

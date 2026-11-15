@@ -77,7 +77,7 @@ class Profile(BaseModel):
     )
     portfolio: Optional[dict[str, float]] = Field(
         default=None,
-        description="The user's current simulated portfolio (ticker -> weight): the one AlphaForge built from this "
+        description="The user's current simulated portfolio (ticker -> weight): the one Fitfolio built from this "
         "profile (web app, My portfolio). A question about \"my portfolio\" that names no asset is analysed on it.",
     )
     portfolio_run_id: Optional[str] = Field(

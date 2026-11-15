@@ -1,7 +1,7 @@
-# AlphaForge AI starter dataset
+# Fitfolio AI starter dataset
 
 
-Optional starting data for the PolyFinances AlphaForge AI datathon. You can use it as is, add to it, or ignore it. Everything here is simulation material. Nothing in it is investment advice.
+Optional starting data for the PolyFinances Fitfolio AI datathon. You can use it as is, add to it, or ignore it. Everything here is simulation material. Nothing in it is investment advice.
 
 Window: **2021-11-12 to 2026-11-12** (5 years, retrieved 2026-11-13). Five years instead of three so the 2022 drawdown, when stocks and bonds fell together, is in the sample.
 

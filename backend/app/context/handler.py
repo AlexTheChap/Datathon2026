@@ -30,10 +30,10 @@ from .prompt_loader import PromptSource, resolve_explainer_prompt
 
 PROFILE_REQUIRED_MESSAGE = (
     "Please create your investor profile first: fill in the profile form (risk tolerance, investment "
-    "horizon and experience level). AlphaForge needs it before it can analyse any request."
+    "horizon and experience level). Fitfolio needs it before it can analyse any request."
 )
 OUT_OF_SCOPE_NOTE = (
-    " Note that AlphaForge is a simulation: it never places real trades and does not give "
+    " Note that Fitfolio is a simulation: it never places real trades and does not give "
     "personalized financial advice."
 )
 

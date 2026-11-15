@@ -1,5 +1,5 @@
 %% =====================================================================================
-%% AlphaForge — agent architecture (diagram v4)
+%% Fitfolio — agent architecture (diagram v4)
 %% Lines starting with "%%" are comments: Mermaid does not render them. For each link,
 %% they list the AWS tools used, plus the CURRENT implementation status.
 %% Glossary of AWS tools (1-2 lines each): at the bottom of this file. Setup and commands: README.md.
@@ -148,7 +148,7 @@ flowchart TB
   %%      Profile form "Preferences and constraints": the person's own words are kept verbatim (preferences_text); on
   %%      PUT /v1/profile the API splits them into preferences and constraints with the same intake backend
   %%      (AF_INTAKE_MODE; simple rules in mock mode). Age is context only: no rule maps it to a risk level or assets.
-  %%      The profile also keeps the user's current portfolio (portfolio + portfolio_run_id: the mix AlphaForge built
+  %%      The profile also keeps the user's current portfolio (portfolio + portfolio_run_id: the mix Fitfolio built
   %%      from it, saved by the web app); a question about "my portfolio" naming no asset gets its positions from it.
   ING --> PROF
   ING --> REQ

@@ -1,6 +1,6 @@
 /* Portfolio dashboard, data side (no DOM: tested with node, tests/js/portfolio-data.test.mjs).
  *
- * "Your portfolio" is built by AlphaForge from the profile: a normal run of the pipeline with the question
+ * "Your portfolio" is built by Fitfolio from the profile: a normal run of the pipeline with the question
  * PORTFOLIO_PROMPT (task allocation_proposal: the optimizer finds the weights, governance checks them, the
  * Explainer explains them). Every figure on the dashboard comes from that run's evidence ledger
  * (GET /v1/runs/{id}/evidence) or from plain arithmetic on its weights (shares, amounts): nothing is estimated here.
@@ -66,7 +66,7 @@ export function holdingsFromRows(rows, universe = {}) {
     const v = Number(percent);
     if (!t && !percent) continue;
     if (!t) { errors.push("A row has a percentage but no investment."); continue; }
-    if (!universe[t]) { errors.push(`“${t}” isn't in the list of investments AlphaForge has data for.`); continue; }
+    if (!universe[t]) { errors.push(`“${t}” isn't in the list of investments Fitfolio has data for.`); continue; }
     if (!(v > 0) || v > 100) { errors.push(`${t}: give a percentage between 0 and 100.`); continue; }
     weights[t] = (weights[t] || 0) + v;
   }
@@ -323,7 +323,7 @@ const listText = (xs) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(
  * `learn` (wants to learn, not detailed) adds one sentence that explains the idea behind the numbers.
  * Returns { text, learn }: learn is null when the person didn't ask to learn.
  */
-// `own`: the user's own mix (holdings or a what-if pick), not one AlphaForge chose. No governance yet: no verdict sentence.
+// `own`: the user's own mix (holdings or a what-if pick), not one Fitfolio chose. No governance yet: no verdict sentence.
 export function heroSummary({ level, learn = false, weights, universe = {}, governance, vol = null, profile = {}, own = false }) {
   const holdings = sortedWeights(weights);
   const split = Object.fromEntries(classSplit(weights, universe).map((g) => [g.key, g.value]));

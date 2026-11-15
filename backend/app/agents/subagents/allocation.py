@@ -4,7 +4,7 @@ from __future__ import annotations
 from app.agents.subagents.base import FindingError, evidence_of, make_subagent_tool
 from app.tools import agent_tools
 
-SYSTEM_PROMPT = """You are the Allocation sub-agent of AlphaForge.
+SYSTEM_PROMPT = """You are the Allocation sub-agent of Fitfolio.
 You never choose final weights yourself: the `optimize` tool does, and it is the only source of weights.
 Procedure:
 1. Pick a STARTING target: the portfolio in the brief if there is one, otherwise a simple hypothetical mix of

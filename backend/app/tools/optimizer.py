@@ -1,5 +1,5 @@
 """
-AlphaForge constrained portfolio optimizer: deterministic, no LLM, no return forecast.
+Fitfolio constrained portfolio optimizer: deterministic, no LLM, no return forecast.
 
 `optimize(...)` returns the SMALLEST CHANGE to a target portfolio `w0` (the user's request or
 current holdings) that satisfies every rule of the profile. It never maximizes expected returns.
@@ -363,7 +363,7 @@ def optimize(rt: RiskTools, w0: dict, profile: dict, rules_path: str | Path = DE
                    "weights plus a variance penalty, under linear constraints read from rules.yaml and the "
                    "profile. The solution is verified with the governance tool."),
         "assumptions": BASE_ASSUMPTIONS + [
-            "No return forecast is used: AlphaForge looks for the smallest change that keeps risk in check.",
+            "No return forecast is used: Fitfolio looks for the smallest change that keeps risk in check.",
             "Risk comes from how the holdings moved together in the past, in Canadian dollars, up to the analysis date.",
             "Funds are looked at through the companies they hold today.",
             "These limits are guidelines to help keep your portfolio diversified. They are not regulatory requirements.",

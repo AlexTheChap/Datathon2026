@@ -135,7 +135,7 @@ def test_config_js_needs_no_local_file(monkeypatch, tmp_path):
 
 def test_demo_persona_only_for_the_demo_domain():
     assert Identity("s", "robert.demo@alphaforge.example").demo_persona == "robert"
-    assert Identity("s", "ROBERT.demo@AlphaForge.example").demo_persona == "robert"
+    assert Identity("s", "ROBERT.demo@Fitfolio.example").demo_persona == "robert"
     assert Identity("s", "robert@gmail.com").demo_persona is None
     assert Identity("s", "evil.demo@alphaforge.example").demo_persona is None
     assert Identity("s", None).demo_persona is None

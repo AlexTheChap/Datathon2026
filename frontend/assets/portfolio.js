@@ -1,4 +1,4 @@
-/* "My portfolio" (#/portfolio): the dashboard of the portfolio AlphaForge builds from the user's profile.
+/* "My portfolio" (#/portfolio): the dashboard of the portfolio Fitfolio builds from the user's profile.
  *
  * Flow: after the profile is saved (or on the first visit with a profile and no portfolio yet), the app asks the
  * pipeline PORTFOLIO_PROMPT; the run's evidence becomes this page. Detail follows the user's experience
@@ -29,7 +29,7 @@ const sleep = (ms) => new Promise((r) => { window.setTimeout(r, ms); });
 async function ask(ctx, question) {
   const { data } = await ctx.api("POST", "/v1/runs", { text: question });
   if (data.kind !== "run") {
-    const err = new Error(data.message || data.question || "AlphaForge could not start the analysis.");
+    const err = new Error(data.message || data.question || "Fitfolio could not start the analysis.");
     err.reply = data;
     throw err;
   }
@@ -154,7 +154,7 @@ export async function openHoldingsDialog(ctx, { initial = null } = {}) {
     h("div", { class: "dialog__head" },
       h("h2", { id: "holdings-title", class: "section-title" }, "The portfolio you already have"),
       closeButton(ctx, "Close", () => dialog.close())),
-    h("p", { class: "small muted" }, "Add each stock, fund or bond fund you hold and its share of your money. AlphaForge analyses this mix as it is and scores how well it fits your profile. It builds nothing new until you ask it to."),
+    h("p", { class: "small muted" }, "Add each stock, fund or bond fund you hold and its share of your money. Fitfolio analyses this mix as it is and scores how well it fits your profile. It builds nothing new until you ask it to."),
     rows, options,
     h("div", { class: "holdings__foot" },
       h("button", { class: "btn btn--secondary btn--sm", type: "button", onclick: () => {
@@ -236,7 +236,7 @@ export async function renderPortfolio(main, ctx) {
     ctx.band("head", h("div", { class: "page-head page-head--split" },
       h("div", { class: "stack-sm" },
         h("h1", null, "Your portfolio"),
-        h("p", null, "The simulated portfolio AlphaForge builds from your profile, or the one you already have, with what it holds, how risky it is and how well it fits you. Simulation only, not advice.")),
+        h("p", null, "The simulated portfolio Fitfolio builds from your profile, or the one you already have, with what it holds, how risky it is and how well it fits you. Simulation only, not advice.")),
       h("div", { class: "page-head__tools" }, toolsSlot, detailSlot))),
     ctx.band("body", body));
 
@@ -255,8 +255,8 @@ export async function renderPortfolio(main, ctx) {
     if (!profile) {
       detailSlot.replaceChildren();
       body.replaceChildren(h("section", { class: "panel empty" },
-        h("h2", { class: "section-title" }, "First, tell AlphaForge about you"),
-        h("p", { class: "lede" }, "Your portfolio is built from your profile: your risk level, your horizon and your experience. Fill it in, save it, and AlphaForge builds your portfolio right away."),
+        h("h2", { class: "section-title" }, "First, tell Fitfolio about you"),
+        h("p", { class: "lede" }, "Your portfolio is built from your profile: your risk level, your horizon and your experience. Fill it in, save it, and Fitfolio builds your portfolio right away."),
         h("a", { class: "btn btn--primary", href: "#/profile" }, "Set up my profile")));
       return;
     }
@@ -406,7 +406,7 @@ function buildingPanel(ctx) {
   const { h } = ctx;
   return h("section", { class: "panel building", "aria-live": "polite" },
     h("p", { class: "building__head" }, h("span", { class: "spinner", "aria-hidden": "true" }), "Building your portfolio"),
-    h("p", { class: "lede" }, "AlphaForge is choosing a mix that fits your profile, checking it against your rules and writing the explanation. This takes about a minute. You can keep using the app: this page updates when it's ready."));
+    h("p", { class: "lede" }, "Fitfolio is choosing a mix that fits your profile, checking it against your rules and writing the explanation. This takes about a minute. You can keep using the app: this page updates when it's ready."));
 }
 
 /** No portfolio yet: build one from the profile, or enter the one the person already has. */
@@ -414,7 +414,7 @@ export function startChoice(ctx, { title = "No portfolio yet", headingLevel = "h
   const { h } = ctx;
   return h("div", { class: "stack-sm start-choice" },
     h(headingLevel, { class: "section-title" }, title),
-    h("p", { class: "lede" }, "AlphaForge can build a portfolio from your profile in about a minute, or analyse the one you already have and score how well it fits you."),
+    h("p", { class: "lede" }, "Fitfolio can build a portfolio from your profile in about a minute, or analyse the one you already have and score how well it fits you."),
     h("div", { class: "start-choice__actions" },
       h("button", { class: "btn btn--primary", type: "button", onclick: () => { startBuild(ctx); if (location.hash === "#/portfolio") ctx.route(); else location.hash = "#/portfolio"; } }, "Build my portfolio"),
       h("button", { class: "btn btn--secondary", type: "button", onclick: () => openHoldingsDialog(ctx) }, "I already have a portfolio")));
@@ -429,7 +429,7 @@ function buildFailed(ctx, job) {
   const retry = () => { startJob(ctx, "portfolio", job.question || D.PORTFOLIO_PROMPT); ctx.route(); };
   if (job.error) {
     if (job.error.reply) {
-      return h("section", { class: "panel" }, h("h2", { class: "section-title" }, "AlphaForge needs something first"),
+      return h("section", { class: "panel" }, h("h2", { class: "section-title" }, "Fitfolio needs something first"),
         h("p", null, job.error.message), h("a", { class: "link-btn", href: "#/profile" }, "Open my profile"));
     }
     return ctx.alertBox(job.error, "your portfolio", retry);
@@ -439,7 +439,7 @@ function buildFailed(ctx, job) {
   return h("section", { class: "panel" },
     h("h2", { class: "section-title" }, planOnly ? "Analyses aren't available right now" : "Your portfolio couldn't be built this time"),
     h("p", { class: "lede" }, planOnly
-      ? "AlphaForge can't run analyses right now, so no portfolio can be built. Try again later."
+      ? "Fitfolio can't run analyses right now, so no portfolio can be built. Try again later."
       : "The analysis stopped before the end. You can see what happened, or try again."),
     h("div", { class: "notice" },
       h("a", { class: "link-btn", href: `#/runs/${run.run_id}` }, "See what happened"),
@@ -467,7 +467,7 @@ function banners(view, building) {
   if (building) {
     out.push(h("div", { class: "banner", role: "status" }, h("span", { class: "spinner", "aria-hidden": "true" }),
       h("span", null, hasHoldings
-        ? "AlphaForge is optimizing your portfolio: a mix close to what you hold that fits your profile better. This page updates when it's ready."
+        ? "Fitfolio is optimizing your portfolio: a mix close to what you hold that fits your profile better. This page updates when it's ready."
         : "A new portfolio is being built from your updated profile. This page updates when it's ready.")));
   } else if (job && job.done && (job.error || (job.run && job.run.status !== "DONE")) && !job.seen) {
     const bar = h("div", { class: "banner banner--action", role: "status" },
@@ -546,7 +546,7 @@ function heroCard(view) {
     ? [`${p.optimized ? "Optimized from what you hold" : "Built from your profile"} on ${ctx.timeText(p.builtAt)} \u00B7 `,
       h("a", { href: `#/runs/${p.runId}` }, "See how it was built and its sources")]
     : p.runId ? [`Analysed on ${ctx.timeText(p.builtAt)} \u00B7 `, h("a", { href: `#/runs/${p.runId}` }, "See the analysis and its sources")]
-      : [p.pending ? "AlphaForge is analysing this mix (about a minute). This page updates when it's done." : "This mix hasn't been analysed yet."];
+      : [p.pending ? "Fitfolio is analysing this mix (about a minute). This page updates when it's done." : "This mix hasn't been analysed yet."];
   return h("section", { class: "panel hero-card", "aria-labelledby": "hero-title" },
     h("div", { class: "hero-card__main stack-sm" },
       !p.chosen || p.governance ? h("span", { class: `verdict verdict--${vs.cls}` }, ctx.icon(vs.icon, 14), verdictWord(v)) : null,
@@ -631,7 +631,7 @@ function whatIfSection(view) {
     const raw = pick.value.trim();
     const t = uni[raw] ? raw : uni[raw.toUpperCase()] ? raw.toUpperCase()
       : Object.keys(uni).find((k) => (uni[k].name || "").toLowerCase() === raw.toLowerCase());
-    if (!t) { pickHelp.textContent = raw ? `“${raw}” isn't in the list of investments AlphaForge has data for.` : "Type a ticker or a name first."; return; }
+    if (!t) { pickHelp.textContent = raw ? `“${raw}” isn't in the list of investments Fitfolio has data for.` : "Type a ticker or a name first."; return; }
     if (!order.includes(t)) order.push(t);
     pick.value = ""; pickHelp.textContent = "Starts at 5%; the others make room.";
     setWeights(D.addHolding(weights, t, weights[t] ? weights[t] : 0.05), true);
@@ -729,7 +729,7 @@ function whatIfSection(view) {
     try {
       await adoptWeights(ctx, mix);
       trials.delete(p.key);
-      ctx.announce("This mix is now your portfolio. AlphaForge is analysing it.");
+      ctx.announce("This mix is now your portfolio. Fitfolio is analysing it.");
       window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
       ctx.route();
     } catch (err) {
@@ -1082,7 +1082,7 @@ function checksSection(view) {
         value || (level === "detailed" && c.detail) ? h("p", { class: "check-row__text" }, value, level === "detailed" && c.detail ? ` ${c.detail}` : "") : null);
     })) : h("p", { class: "muted" }, p.pending ? "Being checked against your profile (about a minute)."
       : p.chosen ? "This mix hasn't been checked against your profile yet." : "This portfolio hasn't been checked against your profile."),
-    learnNote(view, "your profile sets limits, for example how big one company can be. AlphaForge's rules check every limit; a portfolio that breaks one is never proposed."));
+    learnNote(view, "your profile sets limits, for example how big one company can be. Fitfolio's rules check every limit; a portfolio that breaks one is never proposed."));
 }
 
 const analysisOn = (profile, agent) => !(profile.agent_toggles && profile.agent_toggles[agent] === false);

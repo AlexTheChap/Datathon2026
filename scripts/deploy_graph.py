@@ -133,8 +133,8 @@ def ensure_vpc(ec2, region: str) -> dict:
         print(f"• Security group created: {name} {gid}")
         return gid
 
-    sg_lambda = sg(f"{NAME}-lambda", "AlphaForge Lambdas that query Neptune")
-    sg_neptune = sg(f"{NAME}-neptune", "AlphaForge Neptune: openCypher 8182 from the Lambdas only")
+    sg_lambda = sg(f"{NAME}-lambda", "Fitfolio Lambdas that query Neptune")
+    sg_neptune = sg(f"{NAME}-neptune", "Fitfolio Neptune: openCypher 8182 from the Lambdas only")
     try:
         ec2.authorize_security_group_ingress(GroupId=sg_neptune, IpPermissions=[{
             "IpProtocol": "tcp", "FromPort": 8182, "ToPort": 8182,
@@ -154,7 +154,7 @@ def ensure_neptune(nep, net: dict) -> dict:
         nep.describe_db_subnet_groups(DBSubnetGroupName=SUBNET_GROUP)
     except nep.exceptions.DBSubnetGroupNotFoundFault:
         nep.create_db_subnet_group(DBSubnetGroupName=SUBNET_GROUP, SubnetIds=net["subnet_ids"], Tags=tags,
-                                   DBSubnetGroupDescription="AlphaForge market graph (private subnets)")
+                                   DBSubnetGroupDescription="Fitfolio market graph (private subnets)")
         print(f"• Neptune subnet group created: {SUBNET_GROUP}")
     try:
         nep.describe_db_clusters(DBClusterIdentifier=CLUSTER)
@@ -211,7 +211,7 @@ def s3_statements(bucket: str, read: list[str], write: list[str]) -> list[dict]:
 def ensure_roles(iam, account: str, region: str, bucket: str, curated_prefix: str, neptune: dict) -> dict:
     basic = BASIC_EXECUTION
     vpc_access = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
-    refresh_arn, n1 = ensure_role(iam, REFRESH_ROLE, LAMBDA_TRUST, "AlphaForge market refresh (Yahoo -> S3)", TAGS)
+    refresh_arn, n1 = ensure_role(iam, REFRESH_ROLE, LAMBDA_TRUST, "Fitfolio market refresh (Yahoo -> S3)", TAGS)
     iam.attach_role_policy(RoleName=REFRESH_ROLE, PolicyArn=basic)
     iam.put_role_policy(RoleName=REFRESH_ROLE, PolicyName="market-refresh", PolicyDocument=json.dumps({
         "Version": "2012-10-17", "Statement": [
@@ -219,7 +219,7 @@ def ensure_roles(iam, account: str, region: str, bucket: str, curated_prefix: st
             {"Effect": "Allow", "Action": "lambda:InvokeFunction",
              "Resource": f"arn:aws:lambda:{region}:{account}:function:{LOADER}"}]}))
 
-    loader_arn, n2 = ensure_role(iam, LOADER_ROLE, LAMBDA_TRUST, "AlphaForge graph loader (S3 -> Neptune)", TAGS)
+    loader_arn, n2 = ensure_role(iam, LOADER_ROLE, LAMBDA_TRUST, "Fitfolio graph loader (S3 -> Neptune)", TAGS)
     for p in (basic, vpc_access):
         iam.attach_role_policy(RoleName=LOADER_ROLE, PolicyArn=p)
     iam.put_role_policy(RoleName=LOADER_ROLE, PolicyName="graph-loader", PolicyDocument=json.dumps({
@@ -278,13 +278,13 @@ def deploy_lambdas(session, zip_path: Path, roles: dict, net: dict, neptune: dic
              Environment={"Variables": {"AF_CURATED_S3": layer["curated_s3"], "AF_MARKET_S3": market_s3,
                                         "AF_NEPTUNE_ENDPOINT": neptune["endpoint"],
                                         "AF_NEPTUNE_PORT": str(neptune["port"])}}),
-        "AlphaForge market graph loader: S3 market tables -> Neptune (inside the graph VPC)")
+        "Fitfolio market graph loader: S3 market tables -> Neptune (inside the graph VPC)")
     refresh_arn = deploy_function(
         lam, REFRESH, roles["refresh"], "app.market.refresh.handler", code,
         dict(Timeout=900, MemorySize=3008, EphemeralStorage={"Size": 1024},
              Environment={"Variables": {"AF_CURATED_S3": layer["curated_s3"], "AF_MARKET_S3": market_s3,
                                         "AF_GRAPH_LOADER": LOADER, "HOME": "/tmp", "XDG_CACHE_HOME": "/tmp"}}),
-        "AlphaForge market refresh: Yahoo Finance (S&P 500 + universe) -> S3, twice a day")
+        "Fitfolio market refresh: Yahoo Finance (S&P 500 + universe) -> S3, twice a day")
     return {"refresh_arn": refresh_arn, "loader_arn": loader_arn, "market_s3": market_s3}
 
 
@@ -294,7 +294,7 @@ def ensure_schedules(sch, refresh_arn: str, role_arn: str) -> None:
     for name, (cron, payload) in SCHEDULES.items():
         kwargs = dict(Name=name, ScheduleExpression=cron, ScheduleExpressionTimezone=TIMEZONE,
                       FlexibleTimeWindow={"Mode": "OFF"}, State="ENABLED",
-                      Description=f"AlphaForge market refresh ({payload['mode']})",
+                      Description=f"Fitfolio market refresh ({payload['mode']})",
                       Target={"Arn": refresh_arn, "RoleArn": role_arn, "Input": json.dumps(payload),
                               "RetryPolicy": {"MaximumRetryAttempts": 2, "MaximumEventAgeInSeconds": 3600}})
         try:

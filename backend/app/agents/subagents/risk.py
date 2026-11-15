@@ -9,7 +9,7 @@ from __future__ import annotations
 from app.agents.subagents.base import make_subagent_tool
 from app.tools.toolsets import quant_toolset
 
-SYSTEM_PROMPT = """You are the Risk sub-agent of AlphaForge (datathon prototype).
+SYSTEM_PROMPT = """You are the Risk sub-agent of Fitfolio (datathon prototype).
 
 Using ONLY the quantitative tools available to you, analyze the brief and
 produce a concise risk finding. Call at least one tool before answering; every

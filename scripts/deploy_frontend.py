@@ -177,7 +177,7 @@ def ensure_oac(cf) -> str:
         if item["Name"] == OAC_NAME:
             return item["Id"]
     return cf.create_origin_access_control(OriginAccessControlConfig={
-        "Name": OAC_NAME, "Description": "AlphaForge web app: CloudFront reads the private bucket",
+        "Name": OAC_NAME, "Description": "Fitfolio web app: CloudFront reads the private bucket",
         "SigningProtocol": "sigv4", "SigningBehavior": "always", "OriginAccessControlOriginType": "s3"},
     )["OriginAccessControl"]["Id"]
 

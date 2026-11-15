@@ -1,4 +1,4 @@
-# AlphaForge AI — Datathon PolyFinances 2026
+# Fitfolio AI — Datathon PolyFinances 2026
 
 Self-explaining, agentic investment decision-support prototype for the
 PolyFinances Datathon 2026 challenge: *"Artificial intelligence for investment
@@ -49,7 +49,7 @@ cd backend && AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app
 
 Open http://127.0.0.1:8000. The first log line says which sign-in mode the API runs in, and the page follows it.
 A new user sets up the profile one question at a time , and
-asks questions in a chat. The home page is **My portfolio**: once a profile is saved, AlphaForge builds a simulated portfolio from it (about a
+asks questions in a chat. The home page is **My portfolio**: once a profile is saved, Fitfolio builds a simulated portfolio from it (about a
 minute) and shows it as a dashboard whose level of detail follows the user's experience.
 `AF_INTAKE_MODE=bedrock` (with the `.env` keys) uses the real Claude Haiku intake. Each question runs the
 analysis and the Explainer (Claude Sonnet on Bedrock) synchronously (`AF_DISPATCH=inline`, the default): the
@@ -157,7 +157,7 @@ twice.
 
 ```bash
 python -m app.notify.alerts --source corpus --since 2026-11-01 --until 2026-11-12 --dry-run   # from backend/
-.venv/bin/python scripts/deploy_sms_alerts.py --sec-contact "AlphaForge Datathon you@example.com" --test
+.venv/bin/python scripts/deploy_sms_alerts.py --sec-contact "Fitfolio Datathon you@example.com" --test
 .venv/bin/python scripts/deploy_sms_alerts.py --verify-phone +15145550123    # SMS sandbox: verify each demo phone
 .venv/bin/python scripts/deploy_sms_alerts.py --verify-phone +15145550123 --code 123456
 .venv/bin/python scripts/deploy_sms_alerts.py --send-test +15145550123

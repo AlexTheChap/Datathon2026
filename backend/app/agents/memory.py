@@ -32,7 +32,7 @@ from app.core.config import Settings
 
 log = logging.getLogger(__name__)
 
-MEMORY_NAME = "AlphaForgeMemory"
+MEMORY_NAME = "FitfolioMemory"
 PREFERENCES_NAMESPACE = "/preferences/{actorId}/"
 STRATEGIES: list[dict[str, Any]] = [{
     "userPreferenceMemoryStrategy": {

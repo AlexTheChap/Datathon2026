@@ -63,7 +63,7 @@ def build_zip() -> Path:
 
 
 def ensure_intake_role(iam) -> str:
-    arn, created = ensure_role(iam, ROLE, LAMBDA_TRUST, "AlphaForge Intake Lambda (box 3)", TAGS)
+    arn, created = ensure_role(iam, ROLE, LAMBDA_TRUST, "Fitfolio Intake Lambda (box 3)", TAGS)
     if created:
         time.sleep(10)  # IAM propagation before Lambda can assume it
     iam.attach_role_policy(RoleName=ROLE, PolicyArn=BASIC_EXECUTION)
@@ -86,7 +86,7 @@ def deploy(lam, zip_path: Path, role_arn: str, region: str) -> None:
                 lam.create_function(FunctionName=FUNCTION, Runtime=RUNTIME, Role=role_arn,
                                     Handler="app.api.intake_handler.handler", Code={"ZipFile": code},
                                     Timeout=60, MemorySize=512, Environment=env,
-                                    Description="AlphaForge Intake (box 3): free text -> Profile + Request JSON")
+                                    Description="Fitfolio Intake (box 3): free text -> Profile + Request JSON")
                 break
             except lam.exceptions.InvalidParameterValueException as e:
                 if "role" not in str(e).lower() or attempt == 5:

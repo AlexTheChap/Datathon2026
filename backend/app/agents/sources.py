@@ -64,10 +64,10 @@ _RULES: list[tuple[re.Pattern, Optional[str]]] = [(re.compile(p, re.I), label) f
     (r"sub-agent analysis", None),                        # replaced by the sources of the evidence it used
     (r"esg_flags\.json", "NBIM exclusion list"),
     (r"^data/curated \(prices, holdings", None),          # vague; the specific files are listed elsewhere
-    (r"rules\.yaml", "AlphaForge's guideline limits for each risk profile"),
+    (r"rules\.yaml", "Fitfolio's guideline limits for each risk profile"),
     (r"projection_assumptions\.yaml", "FP Canada and IQPF Projection Assumption Guidelines 2026"),
-    (r"vol_forecast\.csv", "AlphaForge volatility forecast, based on daily prices"),
-    (r"rate_sensitivity\.csv", "AlphaForge rate sensitivity, measured on daily prices and bond yields"),
+    (r"vol_forecast\.csv", "Fitfolio volatility forecast, based on daily prices"),
+    (r"rate_sensitivity\.csv", "Fitfolio rate sensitivity, measured on daily prices and bond yields"),
     (r"fx_usdcad", "Bank of Canada USD/CAD exchange rate"),
     (r"macro_rates|macro_daily_asof", "Bank of Canada and US Federal Reserve (FRED) rates and inflation"),
     (r"Bank of Canada / Federal Reserve rate decisions", "Bank of Canada and Federal Reserve rate decisions"),

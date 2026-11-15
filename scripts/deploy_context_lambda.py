@@ -78,7 +78,7 @@ def publish_prompts(s3, bucket: str) -> None:
 # ---------- IAM ----------
 
 def ensure_context_role(iam, bucket: str) -> str:
-    arn, created = ensure_role(iam, ROLE, LAMBDA_TRUST, "AlphaForge Context resolution Lambda (box 4)", TAGS)
+    arn, created = ensure_role(iam, ROLE, LAMBDA_TRUST, "Fitfolio Context resolution Lambda (box 4)", TAGS)
     if created:
         time.sleep(10)  # IAM propagation before Lambda can assume it
     iam.attach_role_policy(RoleName=ROLE, PolicyArn=BASIC_EXECUTION)
@@ -104,7 +104,7 @@ def deploy(lam, zip_path: Path, role_arn: str, bucket: str) -> None:
                 lam.create_function(FunctionName=FUNCTION, Runtime=RUNTIME, Role=role_arn,
                                     Handler="app.context.handler.handler", Code={"ZipFile": code},
                                     Architectures=["x86_64"], Tags=TAGS,
-                                    Description="AlphaForge Context resolution (box 4): Profile + Request -> "
+                                    Description="Fitfolio Context resolution (box 4): Profile + Request -> "
                                                 "ExecutionPlan + PromptRef", **common)
                 break
             except lam.exceptions.InvalidParameterValueException as e:

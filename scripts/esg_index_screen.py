@@ -112,7 +112,7 @@ def main():
               f"{(g.status == 'undetermined_recent_addition').sum()} undetermined recent additions")
         mine = g[g.in_universe]
         if len(mine):
-            print("   AlphaForge universe: " + ", ".join(
+            print("   Fitfolio universe: " + ", ".join(
                 f"{r.ticker} {'✓' if r.in_esg_fund else '✗'}" for r in mine.itertuples()))
     print(f"→ {out}")
 

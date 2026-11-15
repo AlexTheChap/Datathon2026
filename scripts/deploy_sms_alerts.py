@@ -1,6 +1,6 @@
 """Deploy the news-alert agent: SEC news on held stocks -> SMS (Amazon SNS), every 15 min 7:00-22:45 Toronto. boto3 only.
 
-    python scripts/deploy_sms_alerts.py --sec-contact "AlphaForge Datathon you@example.com"   # create / update
+    python scripts/deploy_sms_alerts.py --sec-contact "Fitfolio Datathon you@example.com"   # create / update
     python scripts/deploy_sms_alerts.py --test                    # dry run in AWS: who would get which text
     python scripts/deploy_sms_alerts.py --sandbox-status          # SMS sandbox? verified numbers?
     python scripts/deploy_sms_alerts.py --verify-phone +15145550123              # sends a code by SMS
@@ -66,7 +66,7 @@ def build_zip() -> Path:
 
 
 def ensure_roles(iam, account: str, region: str, table_arn: str) -> tuple[str, str]:
-    arn, new1 = ensure_role(iam, ROLE, LAMBDA_TRUST, "AlphaForge news-alert agent (SEC news -> SMS)", TAGS)
+    arn, new1 = ensure_role(iam, ROLE, LAMBDA_TRUST, "Fitfolio news-alert agent (SEC news -> SMS)", TAGS)
     iam.attach_role_policy(RoleName=ROLE, PolicyArn=BASIC_EXECUTION)
     iam.put_role_policy(RoleName=ROLE, PolicyName="news-alerts", PolicyDocument=json.dumps({
         "Version": "2012-10-17", "Statement": [
@@ -96,7 +96,7 @@ def deploy_lambda(lam, zip_path: Path, role_arn: str, env: dict) -> str:
             try:
                 lam.create_function(FunctionName=FUNCTION, Runtime=RUNTIME, Role=role_arn,
                                     Handler="app.notify.alerts.handler", Code={"ZipFile": code}, Tags=TAGS,
-                                    Description="AlphaForge news-alert agent: SEC news on held stocks -> SMS", **cfg)
+                                    Description="Fitfolio news-alert agent: SEC news on held stocks -> SMS", **cfg)
                 break
             except lam.exceptions.InvalidParameterValueException as e:
                 if "role" not in str(e).lower() or attempt == 9:
@@ -109,7 +109,7 @@ def deploy_lambda(lam, zip_path: Path, role_arn: str, env: dict) -> str:
 
 def ensure_schedule(sch, fn_arn: str, role_arn: str) -> None:
     kwargs = dict(Name=SCHEDULE, ScheduleExpression=CRON, ScheduleExpressionTimezone=TIMEZONE,
-                  FlexibleTimeWindow={"Mode": "OFF"}, State="ENABLED", Description="AlphaForge news alerts by SMS",
+                  FlexibleTimeWindow={"Mode": "OFF"}, State="ENABLED", Description="Fitfolio news alerts by SMS",
                   Target={"Arn": fn_arn, "RoleArn": role_arn, "Input": "{}",
                           "RetryPolicy": {"MaximumRetryAttempts": 1, "MaximumEventAgeInSeconds": 3600}})
     try:
@@ -154,7 +154,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--profile")
     ap.add_argument("--region", default=None)
-    ap.add_argument("--sec-contact", help='SEC User-Agent contact, e.g. "AlphaForge Datathon you@example.com" '
+    ap.add_argument("--sec-contact", help='SEC User-Agent contact, e.g. "Fitfolio Datathon you@example.com" '
                                           "(or AF_SEC_CONTACT in .env)")
     ap.add_argument("--app-url", help="link to the web app added to each text (or AF_APP_URL)")
     ap.add_argument("--test", action="store_true", help="dry run in AWS after deploying")
@@ -214,7 +214,7 @@ def main() -> None:
         layer = json.loads(DATA_LAYER.read_text())
         contact = args.sec_contact or os.environ.get("AF_SEC_CONTACT")
         if not contact:
-            sys.exit('The SEC requires a contact: --sec-contact "AlphaForge Datathon you@example.com" '
+            sys.exit('The SEC requires a contact: --sec-contact "Fitfolio Datathon you@example.com" '
                      "(or AF_SEC_CONTACT in .env).")
         env = {"AF_STORE": "dynamodb", "AF_TABLE": layer["table"], "AF_SEC_CONTACT": contact}
         if args.app_url or os.environ.get("AF_APP_URL"):
