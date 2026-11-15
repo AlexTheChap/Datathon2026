@@ -206,7 +206,8 @@ def test_source_from_env():
 def test_handler_returns_plan_and_prompt_ref(example_profile, example_request):
     out = handler({"profile": example_profile.model_dump(mode="json"),
                    "request": example_request.model_dump(mode="json")})
-    assert set(out) == {"execution_plan", "prompt_ref"}
+    assert set(out) == {"schema_version", "status", "execution_plan", "prompt_ref"}
+    assert out["status"] == "planned"
     ExecutionPlan.model_validate(out["execution_plan"])
     PromptRef.model_validate(out["prompt_ref"])
     json.dumps(out)  # serializable as is in the InvokeAgentRuntime payload

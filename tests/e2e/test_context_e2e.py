@@ -156,6 +156,19 @@ def test_out_of_scope_chain(s3):
     PromptRef.model_validate(payload["prompt_ref"])   # the Explainer still gets its template to decline
 
 
+def test_new_user_trade_request_gets_create_profile_message(s3):
+    """Real Intake output (mock backend, no stored profile): out_of_scope + profile null → ④ answers
+    with the fixed 'create your profile first' message instead of failing."""
+    from app.intake import MockBackend, run_intake
+
+    res = run_intake("Buy 100 Tesla shares for me right now.", "u-brand-new", backend=MockBackend())
+    assert res.status == "out_of_scope" and res.profile is None  # what the Intake really emits
+    event = json.loads(json.dumps({"profile": None, "request": json.loads(res.request.model_dump_json())}))
+    out = handler(event)
+    assert out["status"] == "profile_required"
+    assert "create your investor profile" in out["message"] and "never places real trades" in out["message"]
+
+
 def test_prompt_republished_between_resolution_and_run_is_refused(s3):
     """A template changed in S3 between the Lambda and the Runtime must never be used silently."""
     _, payload = _run_chain(*INTAKE["robert"])
