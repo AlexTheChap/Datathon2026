@@ -129,10 +129,13 @@ const timeText = (iso) => {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" });
 };
 
-/* ---------------- Identity: Amazon Cognito sign-in, or local dev mode without config.js ---------------- */
+/* ---------------- Identity: Amazon Cognito sign-in. No account, no app. ----------------
+ * DEV (no password, a "guest-…" id kept in this browser) only when config.js says {auth: "dev"}: the API serves that
+ * only when started with AF_AUTH_MODE=dev, for local tests. Without sign-in settings the app does not run at all. */
 
-const CONFIG = window.AF_CONFIG || { auth: "dev" };
+const CONFIG = window.AF_CONFIG || { auth: "none" };
 const COGNITO = CONFIG.auth === "cognito";
+const DEV = CONFIG.auth === "dev";
 const SESSION_KEY = "af.session";
 const DEMO_EMAIL = /^(amira|mateo|robert)\.demo@alphaforge\.example$/i;
 
@@ -147,6 +150,7 @@ function claimsOf(jwt) {
 
 function actorId() {
   if (COGNITO) { const s = readSession(); return s ? claimsOf(s.idToken).sub : null; }
+  if (!DEV) return null;  // never a guest without an explicit local test setup
   let id = store.get("af.actor");
   if (!id) {
     id = `guest-${Math.random().toString(36).slice(2, 7)}`;
@@ -254,8 +258,10 @@ async function api(method, path, body, retried = false) {
     const token = await idToken();
     if (!token) { signOut("Your session has expired. Sign in again."); throw new ApiError(401, "Sign in to continue."); }
     headers.Authorization = `Bearer ${token}`;
-  } else {
+  } else if (DEV) {
     headers["X-Actor-Id"] = actorId();
+  } else {
+    throw new ApiError(401, "Sign-in is not set up.");
   }
   let res;
   try {
@@ -289,8 +295,10 @@ async function upload(path, formData) {
     const token = await idToken();
     if (!token) { signOut("Your session has expired. Sign in again."); throw new ApiError(401, "Sign in to continue."); }
     headers.Authorization = `Bearer ${token}`;
-  } else {
+  } else if (DEV) {
     headers["X-Actor-Id"] = actorId();
+  } else {
+    throw new ApiError(401, "Sign-in is not set up.");
   }
   let res;
   try { res = await fetch(API_BASE + path, { method: "POST", headers, body: formData }); } catch { throw new ApiError(0, "network"); }
@@ -431,7 +439,20 @@ function dashboardContext() {
   return { h, icon, api, band, alertBox, skeleton, announce, money, timeText, VERDICTS, actorId, store, route,
     loadProfile: async (force) => loadProfile(force) };
 }
+/** No sign-in settings (no config.js, or a server not started with Cognito): nothing of the app is shown. */
+function renderNoSignIn(main) {
+  document.querySelector(".nav").hidden = true;
+  document.getElementById("ask-fab").hidden = true;
+  document.title = "Sign-in unavailable, AlphaForge";
+  main.replaceChildren(band("head", h("div", { class: "page-head" },
+    h("h1", null, "Sign-in isn't available"),
+    h("p", null, "AlphaForge can only be used with an account, and this server has no sign-in set up. Try again later."))),
+  band("body", h("div", { class: "panel stack-sm" },
+    h("p", { class: "small muted" }, "For whoever runs this server: start the API with AF_AUTH_MODE=cognito and the "
+      + "sign-in settings written by scripts/setup_cognito.py (frontend/config.js and .env)."))));
+}
 function route() {
+  if (!COGNITO && !DEV) { renderNoSignIn(document.getElementById("main")); setWho(); return; }
   const hash = window.location.hash || HOME;
   if (state.dirty && currentHash === "#/profile" && hash !== "#/profile") {
     if (!window.confirm("Your profile has unsaved changes. Leave without saving?")) {
@@ -930,10 +951,10 @@ function profileForm(saved, initialStatus = null) {
       if (state.dirty && !window.confirm("Your profile has unsaved changes. Sign out without saving?")) return;
       signOut("You're signed out.");
     } }, "Sign out"))) : h("section", { class: "panel stack-sm", "aria-labelledby": "account-title" },
-    h("h2", { id: "account-title", class: "section-title" }, "Demo user"),
-    h("p", { class: "small muted" }, `You are ${actorId()}. Until sign-in is added, this name is kept in this browser only.`),
+    h("h2", { id: "account-title", class: "section-title" }, "Local test user"),
+    h("p", { class: "small muted" }, `Local test mode (AF_AUTH_MODE=dev): you are ${actorId()}, a name kept in this browser only.`),
     h("div", null, h("button", { class: "btn btn--secondary", type: "button", onclick: () => {
-      if (!window.confirm("Start over as a new demo user? Your current profile stays saved under the old name.")) return;
+      if (!window.confirm("Start over as a new test user? Your current profile stays saved under the old name.")) return;
       try { localStorage.removeItem("af.actor"); } catch { /* ignore */ }
       state.profile = undefined; state.thread = []; state.dirty = false;
       setWho(); window.location.hash = "#/profile"; route();
@@ -1465,7 +1486,7 @@ function passwordProblem(pw) {
 }
 
 function renderSignIn(main) {
-  if (!COGNITO) { window.location.hash = HOME; return; }
+  if (!COGNITO) { if (DEV) window.location.hash = HOME; return; }
   const flow = { mode: "signin", email: "", password: "" }; // the password stays in memory only, for auto sign-in
   let notice = "";
   try { notice = sessionStorage.getItem("af.signin.msg") || ""; sessionStorage.removeItem("af.signin.msg"); } catch { /* ignore */ }
@@ -1714,7 +1735,7 @@ function setWho() {
     who.textContent = s ? s.email : "";
     out.hidden = !s;
   } else {
-    who.textContent = `Demo user ${actorId()}`;
+    who.textContent = DEV ? `Local test user ${actorId()}` : "";
     out.hidden = true;
   }
 }

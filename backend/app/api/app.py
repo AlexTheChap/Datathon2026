@@ -174,13 +174,17 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
 
         @api.get("/config.js", include_in_schema=False)
         def frontend_config() -> Response:
-            """The page's sign-in settings always match how this API checks callers: the Cognito config only when
-            this API verifies Cognito tokens, otherwise none (the page then runs in dev mode)."""
+            """The page's sign-in settings always match how this API checks callers: the Cognito config when this API
+            verifies Cognito tokens; the no-password test mode only when this API runs with AF_AUTH_MODE=dev (local
+            tests); otherwise none, and the page then refuses to run (no account, no app: never a guest user)."""
             cfg = frontend / "config.js"
             if auth_mode() == "cognito" and cfg.is_file():
                 body = cfg.read_text(encoding="utf-8")
+            elif auth_mode() == "dev":
+                body = ("// Local test mode (AF_AUTH_MODE=dev): no password, X-Actor-Id header. Never for real users.\n"
+                        'window.AF_CONFIG = {"auth": "dev"};\n')
             else:
-                body = "// Sign-in is off: this API does not verify Cognito tokens (AF_AUTH_MODE is not cognito).\n"
+                body = "// No sign-in settings on this server: the page does not run without an account.\n"
             return Response(body, media_type="application/javascript", headers={"Cache-Control": "no-store"})
 
         api.mount("/", _FreshStaticFiles(directory=frontend, html=True), name="frontend")

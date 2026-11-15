@@ -34,7 +34,7 @@ def test_config_js_keeps_cognito_and_calls_the_api_on_the_same_origin():
     cognito = 'window.AF_CONFIG = {"auth": "cognito", "clientId": "abc"};'
     text = deploy.config_js(cognito)
     assert cognito in text and text.endswith('window.AF_API_BASE = "";\n')
-    assert "dev mode" in deploy.config_js(None)
+    assert "does not run without sign-in" in deploy.config_js(None)
 
 
 def test_api_origin_takes_the_stage_as_origin_path_and_refuses_http():

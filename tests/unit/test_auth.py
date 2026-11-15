@@ -159,13 +159,18 @@ def site(tmp_path, monkeypatch):
     return tmp_path
 
 
-@pytest.mark.parametrize("mode, served", [("cognito", True), ("dev", False), ("jwt", False)])
-def test_config_js_is_served_only_when_the_api_verifies_cognito_tokens(site, monkeypatch, mode, served):
+@pytest.mark.parametrize("mode, auth", [("cognito", "cognito"), ("dev", "dev"), ("jwt", None)])
+def test_config_js_matches_how_the_api_checks_callers(site, monkeypatch, mode, auth):
+    """Cognito settings only when the API verifies Cognito tokens; the no-password test mode only with AF_AUTH_MODE=dev;
+    otherwise no settings at all, and the page refuses to run (never a guest user)."""
     monkeypatch.setenv("AF_AUTH_MODE", mode)
     r = TestClient(create_app(ApiService(intake_backend=MockBackend(), dispatcher=NoDispatcher()))).get("/config.js")
     assert r.status_code == 200 and r.headers["content-type"].startswith("application/javascript")
-    assert ("AF_CONFIG" in r.text) is served
     assert r.headers["cache-control"] == "no-store"
+    if auth is None:
+        assert "AF_CONFIG" not in r.text
+    else:
+        assert f'"auth": "{auth}"' in r.text
 
 
 def test_startup_log_names_the_sign_in_mode(monkeypatch, caplog):

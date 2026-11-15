@@ -20,6 +20,11 @@ from app.intake import MockBackend  # noqa: E402
 SERVICE = ApiService(intake_backend=MockBackend(), dispatcher=NoDispatcher())  # plan only (no Bedrock in tests); tests attach answers to its runs
 
 
+def DEV_CONFIG(route):
+    """These tests use the explicit local test mode (the page never falls back to it on its own)."""
+    route.fulfill(status=200, content_type="application/javascript", body='window.AF_CONFIG = {"auth": "dev"};')
+
+
 def NO_CONFIG(route):
     route.fulfill(status=200, content_type="application/javascript", body="")
 
@@ -53,7 +58,7 @@ def page(base_url):
         except Exception as e:  # browser binary not installed
             pytest.skip(f"Chromium for Playwright is not installed: {e}")
         ctx = browser.new_context(viewport={"width": 1280, "height": 860})
-        ctx.route("**/config.js", NO_CONFIG)  # local sign-in config (git-ignored) must not leak into dev-mode tests
+        ctx.route("**/config.js", DEV_CONFIG)  # explicit local test mode; the git-ignored sign-in config must not leak in
         ctx.add_init_script("localStorage.setItem('af.actor', JSON.stringify('e2e-' + Math.random().toString(36).slice(2)))")
         pg = ctx.new_page()
         pg.errors = []
@@ -159,7 +164,7 @@ def test_phone_layout_has_no_horizontal_scroll(base_url):
         except Exception as e:
             pytest.skip(f"Chromium for Playwright is not installed: {e}")
         pg = browser.new_page(viewport={"width": 360, "height": 780})
-        pg.route("**/config.js", NO_CONFIG)
+        pg.route("**/config.js", DEV_CONFIG)
         for route in ("#/ask", "#/profile"):
             pg.goto(f"{base_url}/{route}")
             pg.wait_for_selector("h1")
@@ -406,7 +411,7 @@ def test_portfolio_on_a_phone_has_no_sideways_scroll(base_url):
         except Exception as e:
             pytest.skip(f"Chromium for Playwright is not installed: {e}")
         ctx = browser.new_context(viewport={"width": 360, "height": 780})
-        ctx.route("**/config.js", NO_CONFIG)
+        ctx.route("**/config.js", DEV_CONFIG)
         ctx.add_init_script("localStorage.setItem('af.actor', JSON.stringify('e2e-phone-pf'))")
         page = ctx.new_page()
         page.goto(f"{base_url}/#/ask")
@@ -549,3 +554,24 @@ def test_switching_an_analysis_off_hides_it_without_rebuilding(page, base_url):
     assert [r.request.user_message for r in SERVICE.runs.list_for_actor(run.actor_id, 20)].count(
         "Build a simulated portfolio that fits my profile.") == 1                  # no new build
     assert page.errors == []
+
+
+def test_without_sign_in_settings_there_is_no_guest_and_no_app(base_url):
+    """No config.js (or one without Cognito): the page shows nothing of the app and creates no guest user."""
+    with playwright_api.sync_playwright() as p:
+        try:
+            browser = p.chromium.launch()
+        except Exception as e:  # noqa: BLE001  (browser binary not installed)
+            pytest.skip(f"Chromium for Playwright is not installed: {e}")
+        pg = browser.new_page()
+        calls = []
+        pg.on("request", lambda r: calls.append(r.url) if "/v1/" in r.url else None)
+        pg.route("**/config.js", NO_CONFIG)
+        pg.goto(f"{base_url}/#/portfolio")
+        pg.wait_for_selector("text=Sign-in isn't available")
+        assert pg.is_hidden(".nav") and pg.inner_text("#who") == ""
+        assert "guest" not in pg.inner_text("body").lower() and "demo user" not in pg.inner_text("body").lower()
+        assert pg.evaluate("localStorage.getItem('af.actor')") is None and calls == []
+        pg.goto(f"{base_url}/#/ask")
+        pg.wait_for_selector("text=Sign-in isn't available")
+        browser.close()
