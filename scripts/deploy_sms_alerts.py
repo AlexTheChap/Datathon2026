@@ -47,7 +47,7 @@ DEPS = ["pydantic>=2.7,<3", "tzdata"]
 TAGS = {"project": "alphaforge", "component": "news-alerts"}
 DATA_LAYER = BUILD / "data_layer.json"
 STATE = BUILD / "sms_alerts.json"
-TEST_TEXT = "AlphaForge: test text. News alerts on the stocks you hold are set up. Info only. Reply STOP to opt out."
+TEST_TEXT = "Fitfolio: test text. News alerts on the stocks you hold are set up. Info only. Reply STOP to opt out."
 
 
 def build_zip() -> Path:

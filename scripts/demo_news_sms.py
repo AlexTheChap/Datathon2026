@@ -163,7 +163,7 @@ def main() -> None:
     sch.create_schedule(
         Name=name, ScheduleExpression=f"at({when:%Y-%m-%dT%H:%M:%S})", ScheduleExpressionTimezone=TZ_NAME,
         FlexibleTimeWindow={"Mode": "OFF"}, ActionAfterCompletion="DELETE", State="ENABLED",
-        Description=f"AlphaForge demo news SMS: {body['demo_news']['ticker']}",
+        Description=f"Fitfolio demo news SMS: {body['demo_news']['ticker']}",
         Target={"Arn": fn_arn, "RoleArn": role_arn, "Input": json.dumps(body),
                 "RetryPolicy": {"MaximumRetryAttempts": 0, "MaximumEventAgeInSeconds": 300}})
     print(f"• Scheduled: {name} at {when:%Y-%m-%d %H:%M:%S} {TZ_NAME} (deletes itself after it runs; "

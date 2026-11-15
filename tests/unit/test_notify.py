@@ -111,7 +111,7 @@ def test_every_store_keeps_choices_and_the_sent_log(make, tmp_path):
 
 def test_a_text_is_short_factual_and_closes_with_the_disclaimer():
     text = compose([ev("NVDA", "2026-11-12", "executive departure or appointment"), ev("JNJ", "2026-10-13")])
-    assert text.startswith("AlphaForge: news on stocks you hold.")
+    assert text.startswith("Fitfolio: news on stocks you hold.")
     assert "NVDA: SEC 8-K filing on Nov 12 (executive departure or appointment)." in text
     assert text.endswith(CLOSING) and len(text) <= MAX_CHARS
 
@@ -239,7 +239,7 @@ def test_lambda_handler_uses_the_sec_source_and_dry_run(world, monkeypatch, caps
     r = alerts.handler({"dry_run": True, "since": "2026-11-09", "until": "2026-11-12"})
     assert r["texts_sent"] == 1 and not contacts.was_sent("robert", "N-NVDA-2026-11-12")
     logged = capsys.readouterr().out
-    assert "5145550123" not in logged and "AlphaForge: news" not in logged   # CloudWatch: no number, no text
+    assert "5145550123" not in logged and "Fitfolio: news" not in logged   # CloudWatch: no number, no text
 
 
 # ---------- API ----------

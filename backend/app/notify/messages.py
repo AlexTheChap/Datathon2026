@@ -41,7 +41,7 @@ def compose(events: list[NewsEvent], app_url: str | None = None) -> str:
         raise ValueError("no news to send")
     lines = [f"{e.ticker}: {e.source} on {_day(e.published_at)} ({e.headline})." for e in events[:MAX_ITEMS]]
     more = len(events) - MAX_ITEMS
-    head = "AlphaForge: news on stocks you hold."
+    head = "Fitfolio: news on stocks you hold."
     tail = ([f"+{more} more in the app."] if more > 0 else []) + ([app_url] if app_url else []) + [CLOSING]
     text = " ".join([head, *lines, *tail])
     while len(text) > MAX_CHARS and len(lines) > 1:   # keep it to two segments: drop items, say how many
