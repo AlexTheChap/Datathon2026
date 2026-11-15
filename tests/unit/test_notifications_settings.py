@@ -161,3 +161,51 @@ def test_storage_default_is_file_locally_and_dynamodb_on_lambda(tmp_path, monkey
     on_lambda = service_from_env({"AWS_LAMBDA_FUNCTION_NAME": "alphaforge-api", "AF_DISPATCH": "none"})
     assert type(on_lambda.profiles).__name__ == "DynamoDBProfileStore"
     assert type(on_lambda.contacts).__name__ == "DynamoDBContactStore"
+
+
+def test_a_shared_demo_account_cannot_be_deleted():
+    svc = ApiService(dispatcher=NoDispatcher())
+    svc.ensure_demo_profile("demo-sub", "robert")
+    from app.api.service import ApiError
+
+    with pytest.raises(ApiError) as e:
+        svc.delete_account("demo-sub", demo_persona="robert")
+    assert e.value.status == 403
+    assert svc.profiles.get("demo-sub") is not None            # nothing erased
+
+
+def test_setup_cognito_resets_an_existing_demo_account(monkeypatch):
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(root / "scripts"))
+    spec = importlib.util.spec_from_file_location("setup_cognito", root / "scripts" / "setup_cognito.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    class Idp:
+        class exceptions:
+            class UsernameExistsException(Exception):
+                pass
+
+        def __init__(self):
+            self.calls = []
+
+        def admin_create_user(self, **kw):
+            raise self.exceptions.UsernameExistsException()
+
+        def admin_update_user_attributes(self, **kw):
+            self.calls.append(("attrs", kw["Username"], kw["UserAttributes"]))
+
+        def admin_set_user_password(self, **kw):
+            self.calls.append(("password", kw["Username"], kw["Password"]))
+
+    idp = Idp()
+    mod.ensure_demo_users(idp, "pool", "Secret-123456")
+    resets = [c for c in idp.calls if c[0] == "attrs"]
+    assert {c[1] for c in resets} == {"amira.demo@alphaforge.example", "mateo.demo@alphaforge.example",
+                                      "robert.demo@alphaforge.example"}
+    assert all({"Name": "email", "Value": c[1]} in c[2] for c in resets)
+    assert sum(1 for c in idp.calls if c[0] == "password") == 3

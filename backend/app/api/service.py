@@ -290,9 +290,13 @@ class ApiService:
         return notify_view(c)
 
     # ----- DELETE /v1/account (My profile settings > Delete account) -----
-    def delete_account(self, actor_id: str) -> dict[str, Any]:
+    def delete_account(self, actor_id: str, demo_persona: Optional[str] = None) -> dict[str, Any]:
         """Erase what AlphaForge keeps about the person: profile, notification choice (phone, email, texts sent),
-        analyses and their evidence. The sign-in account itself is deleted by the page (Cognito DeleteUser)."""
+        analyses and their evidence. The sign-in account itself is deleted by the page (Cognito DeleteUser).
+        A shared demo account (amira/mateo/robert.demo@…) is refused: its password is public, so one visitor must
+        not be able to remove it for everyone."""
+        if demo_persona:
+            raise ApiError(403, "This is a shared demo account: it can't be deleted.")
         run_ids = self.runs.delete_for_actor(actor_id)
         ledger = self._ledger()
         for run_id in run_ids:

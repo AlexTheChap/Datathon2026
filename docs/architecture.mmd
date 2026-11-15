@@ -110,6 +110,8 @@ flowchart TB
   %%      validates it before the Lambda. CURRENT (deployed): CloudFront routes /v1/* to the Lambda Function URL
   %%      (auth NONE) and the API verifies the token itself (AF_AUTH_MODE=cognito, see below).
   %%      Demo accounts share one password, published in config.js on purpose (one-click demo).
+  %%      So their email, password and deletion are locked (web app + DELETE /v1/account → 403), and re-running
+  %%      scripts/setup_cognito.py resets them (password, email) if a visitor changed them through Cognito directly.
   %%      BUILT: user pool alphaforge-users + public web client alphaforge-web (scripts/setup_cognito.py): email +
   %%      password, sign-up with an emailed code, forgot password, 3 demo accounts (amira/mateo/robert.demo@
   %%      alphaforge.example) whose profile is seeded from personas.json on first sign-in. The browser calls Cognito

@@ -175,8 +175,9 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
         return svc.put_notifications(ident.actor_id, body, ident.email)
 
     @api.delete("/v1/account")
-    def delete_account(actor_id: str = Depends(actor_id_from)) -> dict[str, Any]:
-        return svc.delete_account(actor_id)
+    def delete_account(request: Request) -> dict[str, Any]:
+        ident = identity_from(request)            # a shared demo account is refused (its password is public)
+        return svc.delete_account(ident.actor_id, demo_persona=ident.demo_persona)
 
     # Onboarding (box ③): read the person's answers or a document, return the profile fields found. Saves nothing.
     @api.post("/v1/profile/draft")
