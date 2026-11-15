@@ -17,12 +17,13 @@ from typing import Any
 from strands import Agent
 
 from app.agents.hooks import EvidenceHook
+from app.agents.subagents import subagents_for_toggles
+from app.agents.subagents.base import run_context
 from app.context.prompt_loader import load_prompt
 from app.context.tool_guide import tools_block
 from app.core.config import Settings, get_settings
 from app.schemas.models import OrchestratorInput, OrchestratorOutput, Profile
 from app.store.ledger import JsonlLedger
-from app.agents.subagents.risk import SUBAGENT_TOOLS
 from app.tools import agent_tools
 
 
@@ -90,9 +91,11 @@ def build_orchestrator(inp: OrchestratorInput, ledger: JsonlLedger | None = None
         )
 
     led = ledger or JsonlLedger(s.abs_path(s.runs_dir))
+    # Sub-agents enabled by the investor's toggles (plan-resolver behavior, node ④)
+    subagents = subagents_for_toggles(inp.profile.agent_toggles)
     return Agent(
         system_prompt=system_prompt,
-        tools=[*agent_tools.ALL_TOOLS, *SUBAGENT_TOOLS],
+        tools=[*agent_tools.ALL_TOOLS, *subagents],
         hooks=[EvidenceHook(led, inp.run_id)],
         session_manager=session_manager,
     )
@@ -123,6 +126,8 @@ def run_orchestrator(inp: OrchestratorInput, settings: Settings | None = None) -
     s = settings or get_settings()
     led = JsonlLedger(s.abs_path(s.runs_dir))
     agent_tools.current_profile.set(inp.profile.model_dump())
+    # Sub-agents write their nested tool calls into the SAME run ledger (L15)
+    run_context.set({"ledger": led, "run_id": inp.run_id})
 
     start = time.perf_counter()
     try:

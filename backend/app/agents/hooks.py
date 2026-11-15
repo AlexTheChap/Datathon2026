@@ -62,11 +62,16 @@ def _payload(result: Any) -> Any:
 
 
 class EvidenceHook:
-    """Provider to pass to Agent(hooks=[EvidenceHook(ledger, run_id)])."""
+    """Provider to pass to Agent(hooks=[EvidenceHook(ledger, run_id)]).
 
-    def __init__(self, ledger: EvidenceLedger, run_id: str):
+    `agent` tags the record with the calling sub-agent (nested traces), so one
+    run's ledger shows orchestrator calls and per-sub-agent calls distinctly.
+    """
+
+    def __init__(self, ledger: EvidenceLedger, run_id: str, agent: str | None = None):
         self.ledger = ledger
         self.run_id = run_id
+        self.agent = agent
 
     def register_hooks(self, registry, **kwargs) -> None:
         registry.add_callback(AfterToolCallEvent, self._on_tool_call)
@@ -82,6 +87,8 @@ class EvidenceHook:
             "tool": name,
             "tool_input": getattr(tool_use, "input", None),
         }
+        if self.agent:
+            record["agent"] = self.agent
         if getattr(event, "exception", None) is not None:
             record["error"] = f"{type(event.exception).__name__}: {event.exception}"
         payload = _payload(getattr(event, "result", None))

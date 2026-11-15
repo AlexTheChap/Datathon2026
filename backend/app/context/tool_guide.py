@@ -4,49 +4,52 @@ The @tool docstrings tell the model WHAT each tool does; this module tells it
 WHEN and IN WHAT ORDER to call them for a given task (request.task). The
 rendered block is injected into the orchestrator template via {{tools_block}}.
 
-When the Plan resolver exists, `tools_block` will also filter by enabled
-agents (enabled_agents) — same signature, one more source of truth.
+Delegation model: domain questions go to the sub-agents (each runs its own
+toolset and returns a finding with nested evidence_ids); the orchestrator keeps
+governance_check and the calibration/stress tools for synthesis. When the Plan
+resolver exists, `tools_block` will also read the ExecutionPlan's enabled agents.
 """
 from __future__ import annotations
 
+DELEGATION = """### Delegation to sub-agents (each returns a finding + nested evidence_ids)
+- Portfolio risk (stress, concentration, risk contribution, position sizing) → **`risk_subagent`**
+- Macro environment / crisis scenarios → **`macro_subagent`**
+- ESG index membership & controversies → **`esg_subagent`**
+- Documented filing facts (10-K/NBIM extracts) → **`fundamentals_subagent`**
+- Building a hypothetical allocation → **`allocation_subagent`** (self-verifies via governance)
+- News backdrop → **`news_subagent`** — SIMULATED content: always label it as fictional
+Delegate domain questions to them; keep `governance_check` + `max_position`/`stress`
+for your own synthesis, and cite every evidence_id (theirs and yours)."""
+
 TOOL_GUIDES: dict[str, str] = {
-    "risk_review": """### Strategy for "risk_review"
+    "risk_review": f"""### Strategy for "risk_review"
 1. **`governance_check` first** on the proposed (or current) weights: its
    PASS / WARN / BLOCK verdict frames the whole answer.
-2. **`stress`** on the same weights with the profile's fictional capital and the
-   "2022" window: quantifies the crisis-scenario loss.
-3. Depending on the request:
-   - the investor names a specific asset ("what if I put X% in it?") → **`max_position`**
-     with their risk band's loss limit (rules.yaml), then re-run `governance_check`
-     at the calibrated weight;
-   - "where is the risk?" → **`risk_contribution`** (risk share vs weight) and
-     **`concentration`** (true exposures, ETFs decomposed);
-   - comparing assets → **`metrics`** (+ `correlation` for several assets).
-   - qualitative context ("what should I worry about?") → **`risk_subagent`**
-     (SIMULATED briefing: label it as simulated, never mix its numbers with real tools).
+2. Delegate the domain deep-dive to **`risk_subagent`** (brief it with the exact
+   question and weights); optionally **`macro_subagent`** for the rate/crisis context.
+3. Calibration stays with you: when the investor names an asset, call **`max_position`**
+   with their risk band's loss limit, then re-run `governance_check` at the calibrated weight.
 4. A BLOCK verdict is never negotiable: explain the conflict, propose the calibrated
-   alternative (`max_position`), do not endorse the request as-is.""",
-    "allocation_proposal": """### Strategy for "allocation_proposal"
-1. **`metrics`** on plausible candidates (broad universe) to ground the proposal.
-2. Build a hypothetical allocation consistent with the profile (risk band, horizon,
-   declared ESG/crypto exclusions), then **`governance_check`**: iterate to PASS
-   (or a motivated WARN) — never BLOCK.
-3. **`stress`** the retained allocation (fictional capital, "2022") + **`concentration`**
-   to show true exposures (ETFs decomposed).
-4. Present the allocation as a hypothetical scenario with its evidence, not a
-   recommendation: the investor decides.""",
+   alternative, do not endorse the request as-is.
+
+{DELEGATION}""",
+    "allocation_proposal": f"""### Strategy for "allocation_proposal"
+1. Delegate construction to **`allocation_subagent`** with the profile details
+   (risk band, horizon, exclusions) — it proposes weights and self-verifies to PASS.
+2. Verify the returned weights yourself with **`governance_check`**.
+3. **`stress`** the retained allocation with the profile's fictional capital
+   (+ **`concentration`** to show true exposures).
+4. Present the allocation as a hypothetical scenario with evidence, not a recommendation.
+
+{DELEGATION}""",
 }
 
-GENERIC_GUIDE = """### Available tools — general strategy
-- `governance_check(weights)`: PASS / WARN / BLOCK verdict against the profile and rules.yaml.
-- `stress(weights, window, capital)`: crisis-window replay (2022 by default).
-- `max_position(base_weights, asset, limit)`: largest share of an asset that respects
-  the profile's loss tolerance.
-- `metrics(tickers)` / `correlation(tickers)`: returns, volatility, max drawdown / correlations.
-- `concentration(weights)`: true exposures by company, sector, class (ETFs decomposed).
-- `risk_contribution(weights)`: risk share per position.
-- `risk_subagent(subject)`: qualitative risk briefing from the Risk sub-agent —
-  content is SIMULATED (prototype); label it as such.
+GENERIC_GUIDE = f"""### Available tools — general strategy
+{DELEGATION}
+Direct quant tools (use for quick synthesis): `governance_check(weights)`,
+`stress(weights, window, capital)`, `max_position(base_weights, asset, limit)`,
+`metrics(tickers)`, `correlation(tickers)`, `concentration(weights)`,
+`risk_contribution(weights)`.
 Call `governance_check` on any allocation you present; cite every evidence_id."""
 
 

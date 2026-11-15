@@ -87,3 +87,11 @@ def test_hook_failed_tool_is_still_evidence(tmp_path: Path):
     hook._on_tool_call(_FakeAfterToolCallEvent("metrics", None, exception=KeyError("AAA")))
     (r,) = led.records("run-4")
     assert r["error"].startswith("KeyError") and r["payload"] == "None"
+
+
+def test_hook_tags_nested_subagent_calls(tmp_path: Path):
+    led = JsonlLedger(tmp_path)
+    hook = EvidenceHook(led, "run-6", agent="esg_subagent")
+    hook._on_tool_call(_FakeAfterToolCallEvent("esg_screen", {"evidence_id": "ev-nested"}))
+    (r,) = led.records("run-6")
+    assert r["agent"] == "esg_subagent" and r["evidence_id"] == "ev-nested"
