@@ -259,7 +259,7 @@ const QUESTIONS = {
         h("span", { class: "small muted" }, ctx.AGENTS[x].desc)),
       h("input", { class: "switch", type: "checkbox", role: "switch", id: `ob-toggle-${x}`,
         checked: !(a.agent_toggles && a.agent_toggles[x] === false) })));
-    return step(h, "Last one: which analyses should AlphaForge run? Turn off what you don't want. If a question can't be answered without one, it still runs and the answer says why.",
+    return step(h, "Last one: which analyses may AlphaForge use? Each one runs only when a question needs it. Turn off what you don't want; if a question can't be answered without it, it still runs and the answer says why.",
       h("div", { class: "panel panel--plain onboarding__switches" }, rows),
       () => {
         const toggles = Object.fromEntries(ctx.ANALYSES.map((x, i) => [x, rows[i].querySelector("input").checked]));
