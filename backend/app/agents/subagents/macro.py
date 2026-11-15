@@ -31,6 +31,8 @@ macro_subagent = make_subagent_tool(
     Bank of Canada / FRED curated data. Cite its nested evidence_ids.
 
     Args:
-        brief: e.g. "current rate environment for a bond-heavy portfolio", "what happens to XBB.TO/TLT in a 2022-style shock".
+        subject: e.g. "current rate environment and a 2022-style shock for this portfolio".
+        weights: optional portfolio weights to stress (investor context attached automatically).
+        tickers: optional assets of particular interest, e.g. ["XBB.TO", "TLT"].
     """,
 )

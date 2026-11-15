@@ -35,6 +35,7 @@ news_subagent = make_subagent_tool(
     use it, and never mix it with real tool evidence.
 
     Args:
-        brief: e.g. "news backdrop for NVDA and the chip sector".
+        subject: e.g. "news backdrop for NVDA and the chip sector".
+        tickers: optional assets of particular interest.
     """,
 )

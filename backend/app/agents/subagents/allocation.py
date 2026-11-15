@@ -33,6 +33,7 @@ allocation_subagent = make_subagent_tool(
     the weights plus the verdict. Cite its nested evidence_ids.
 
     Args:
-        brief: e.g. "balanced growth/stability for a moderate investor avoiding controversial companies".
+        subject: the goal, e.g. "balanced growth/stability avoiding controversial companies".
+        weights: optional current portfolio to adjust (investor context attached automatically).
     """,
 )

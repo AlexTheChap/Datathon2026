@@ -91,11 +91,13 @@ def build_orchestrator(inp: OrchestratorInput, ledger: JsonlLedger | None = None
         )
 
     led = ledger or JsonlLedger(s.abs_path(s.runs_dir))
-    # Sub-agents enabled by the investor's toggles (plan-resolver behavior, node ④)
+    # Sub-agents enabled by the investor's toggles (plan-resolver behavior, node ④).
+    # Pure delegation: the orchestrator keeps ONLY the deterministic governance
+    # verdict — every number comes from a sub-agent finding (no double compute).
     subagents = subagents_for_toggles(inp.profile.agent_toggles)
     return Agent(
         system_prompt=system_prompt,
-        tools=[*agent_tools.ALL_TOOLS, *subagents],
+        tools=[agent_tools.governance_check, *subagents],
         hooks=[EvidenceHook(led, inp.run_id)],
         session_manager=session_manager,
     )
@@ -126,8 +128,10 @@ def run_orchestrator(inp: OrchestratorInput, settings: Settings | None = None) -
     s = settings or get_settings()
     led = JsonlLedger(s.abs_path(s.runs_dir))
     agent_tools.current_profile.set(inp.profile.model_dump())
-    # Sub-agents write their nested tool calls into the SAME run ledger (L15)
-    run_context.set({"ledger": led, "run_id": inp.run_id})
+    # Sub-agents write their nested tool calls into the SAME run ledger (L15);
+    # as_of feeds the deterministic brief preamble.
+    run_context.set({"ledger": led, "run_id": inp.run_id,
+                     "as_of": inp.as_of or "2026-11-12"})
 
     start = time.perf_counter()
     try:

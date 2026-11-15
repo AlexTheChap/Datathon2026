@@ -6,6 +6,11 @@ toolset, and returns ONE structured finding wrapped in the standard evidence
 envelope. Its internal tool calls are recorded in the same run ledger (tagged
 with the sub-agent name), so a trace shows: orchestrator -> sub-agent -> tools.
 
+Deterministic context: the orchestrator-facing tool takes a STRUCTURED payload
+(subject + optional weights/tickers). The investor profile, portfolio and as_of
+are rendered into the brief by CODE (from the run's ContextVars), so briefs are
+identical across runs for the same request — the LLM only authors the question.
+
 Output contract: the sub-agent returns a JSON object with at least
 {"headline": str, "details": [str], "severity": "info"|"warn"|"block"}.
 The envelope adds the stable evidence_id and the nested evidence_ids it produced.
@@ -16,12 +21,13 @@ import json
 from contextvars import ContextVar
 from typing import Any
 
-from strands import Agent
+from strands import Agent, tool
 from strands.models import BedrockModel
 
 from app.agents.hooks import EvidenceHook
 from app.core.config import get_settings
 from app.store.ledger import EvidenceLedger
+from app.tools import agent_tools
 from app.tools.risk_tools import _eid
 
 # Set by the orchestrator for each run so sub-agents write into the same ledger.
@@ -54,6 +60,32 @@ def build_envelope(tool_name: str, inputs: dict, finding: dict,
     }
 
 
+def render_brief(subject: str, weights: dict[str, float] | None = None,
+                 tickers: list[str] | None = None) -> str:
+    """Deterministic brief: investor context from the run's ContextVars + the question.
+    Identical requests produce identical briefs — variance is limited to `subject`."""
+    parts: list[str] = []
+    profile = agent_tools.current_profile.get()
+    if profile:
+        h = profile.get("horizon_years") or {}
+        if isinstance(h, dict):
+            horizon = f"{h.get('min')}–{h.get('max')}y"
+        else:
+            horizon = str(h)
+        cap = profile.get("capital")
+        parts.append(f"Investor: risk={profile.get('risk_band')}, horizon={horizon}"
+                     + (f", capital={cap:,.0f} CAD (fictional)" if cap else " (fictional)"))
+    if weights:
+        parts.append("Portfolio: " + ", ".join(f"{t} {v:.0%}" for t, v in weights.items()))
+    if tickers:
+        parts.append("Tickers of interest: " + ", ".join(tickers))
+    as_of = (run_context.get() or {}).get("as_of")
+    if as_of:
+        parts.append(f"as_of={as_of} (no data after this date)")
+    parts.append(f"Question: {subject}")
+    return "\n".join(parts)
+
+
 def make_subagent_tool(tool_name: str, system_prompt: str, tools: list,
                        simulated: bool = False, description: str | None = None):
     """Create the Strands @tool that runs one sub-agent.
@@ -74,8 +106,10 @@ def make_subagent_tool(tool_name: str, system_prompt: str, tools: list,
                 seen.append(eid)
         return seen
 
-    def run(brief: str) -> dict:
-        inputs = {"brief": brief}
+    def run(subject: str, weights: dict[str, float] | None = None,
+            tickers: list[str] | None = None) -> dict:
+        inputs = {"subject": subject, "weights": weights, "tickers": tickers}
+        brief = render_brief(subject, weights, tickers)
         ctx = run_context.get()
         try:
             s = get_settings()
@@ -86,7 +120,7 @@ def make_subagent_tool(tool_name: str, system_prompt: str, tools: list,
                 hooks=[EvidenceHook(ctx["ledger"], ctx["run_id"], agent=tool_name)] if ctx else [],
             )
             before = len(ctx["ledger"].records(ctx["run_id"])) if ctx else 0
-            result = agent(f"Brief: {brief}")
+            result = agent(brief)
             finding = extract_json(str(result))
             nested = _nested_ids(ctx["ledger"], ctx["run_id"], before) if ctx else []
             return build_envelope(tool_name, inputs, finding, nested, simulated=simulated)
@@ -97,5 +131,4 @@ def make_subagent_tool(tool_name: str, system_prompt: str, tools: list,
     run.__name__ = tool_name
     run.__doc__ = description or f"Domain analysis by {tool_name}."
     # Wrap with the Strands decorator last so the spec matches name/docstring.
-    from strands import tool
     return tool(run)

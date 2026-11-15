@@ -35,6 +35,8 @@ risk_subagent = make_subagent_tool(
     the underlying tool evidence — cite them, never recompute numbers yourself.
 
     Args:
-        brief: e.g. "NVDA at 20% in Robert's portfolio", "concentration check on tech- heavy allocation".
+        subject: the precise question, e.g. "NVDA at 20%: risk profile and maximum weight respecting a -15% loss limit".
+        weights: optional portfolio weights to analyze (investor context attached automatically).
+        tickers: optional assets of particular interest.
     """,
 )

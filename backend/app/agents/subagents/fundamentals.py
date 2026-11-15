@@ -35,6 +35,7 @@ fundamentals_subagent = make_subagent_tool(
     ticker has no documented data. Cite its nested evidence_ids.
 
     Args:
-        brief: e.g. "documented red flags for TSLA and XOM".
+        subject: e.g. "documented red flags relevant to the investor's constraints".
+        tickers: assets to check, e.g. ["TSLA", "XOM"].
     """,
 )

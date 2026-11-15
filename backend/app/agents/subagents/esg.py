@@ -33,6 +33,7 @@ esg_subagent = make_subagent_tool(
     screens and 10-K/NBIM extracts. Cite its nested evidence_ids.
 
     Args:
-        brief: e.g. "ESG check on ENB.TO, CNQ.TO, XOM for Mateo's constraints".
+        subject: e.g. "ESG/controversy check for the investor's constraints".
+        tickers: assets to screen, e.g. ["ENB.TO", "CNQ.TO", "XOM"].
     """,
 )
