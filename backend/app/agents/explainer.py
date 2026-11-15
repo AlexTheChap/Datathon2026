@@ -18,7 +18,7 @@ import time
 from typing import Any, Optional
 
 from app.agents.claim_check import apply, check, context_numbers, count_claims
-from app.agents.evidence import EvidenceItem, build_catalog, governance_items
+from app.agents.evidence import TOP_LEVEL, EvidenceItem, build_catalog, governance_items
 from app.context.prompt_loader import PromptError, load_prompt
 from app.core.config import Settings, get_settings
 from app.schemas.run_result import ExplainerDraft, RemovedClaim, RunAnswer, Verification
@@ -39,7 +39,7 @@ def _verdict_checks(catalog: dict[str, EvidenceItem]) -> list[dict]:
     """The orchestrator's governance verdicts, straight from the evidence (used when no written check survived)."""
     seen, out = set(), []
     for g in governance_items(catalog):
-        if g.agent != "orchestrator" or g.id in seen:
+        if g.agent not in TOP_LEVEL or g.id in seen:
             continue
         seen.add(g.id)
         mix = ", ".join(f"{t} {w:.0%}" for t, w in sorted((g.weights or {}).items(), key=lambda kv: -kv[1]))
@@ -80,12 +80,12 @@ def declined(run: Any) -> RunAnswer:
 def fallback(run: Any, catalog: dict[str, EvidenceItem], note: str) -> RunAnswer:
     """Evidence sentences only: nothing that the tools did not say themselves."""
     points = [{"text": item.say, "evidence": [item.id]} for item in catalog.values()
-              if item.say and not item.verdict and item.agent == "orchestrator"][:6]
+              if item.say and not item.verdict and item.agent in TOP_LEVEL][:6]
     if not points:
         points = [{"text": item.say, "evidence": [item.id]} for item in catalog.values() if item.say][:6]
     checks = [{"allocation": ", ".join(f"{t} {w:.0%}" for t, w in (g.weights or {}).items()) or "The portfolio checked",
                "verdict": g.verdict, "text": g.say or f"Governance verdict: {g.verdict}.", "evidence": [g.id]}
-              for g in governance_items(catalog) if g.agent == "orchestrator"]
+              for g in governance_items(catalog) if g.agent in TOP_LEVEL]
     return RunAnswer(
         kind="fallback",
         short_answer=("AlphaForge could not write the full explanation this time. Here is what the analysis "
@@ -105,7 +105,7 @@ def _dump(x: Any) -> dict:
 
 
 def _final_verdicts(catalog: dict[str, EvidenceItem]) -> list[EvidenceItem]:
-    own = [g for g in governance_items(catalog) if g.agent == "orchestrator"]
+    own = [g for g in governance_items(catalog) if g.agent in TOP_LEVEL]
     return own or governance_items(catalog)
 
 

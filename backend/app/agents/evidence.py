@@ -18,6 +18,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Optional
 
+# The run's top level: the orchestrator (tools mode) or the graph's synthesis node (graph mode, agents/graph.py).
+# Their governance verdicts are the final ones; sub-agents' checks are intermediate attempts.
+TOP_LEVEL = ("orchestrator", "synthesis")
 NUMBER_IN_TEXT = re.compile(r"-?\d+(?:,\d{3})*(?:\.\d+)?(?P<pct>\s?%)?")
 _MAX_FACTS = 30
 _SKIP_KEYS = {"series", "daily", "returns", "values", "path", "history", "weights_path"}
@@ -172,7 +175,9 @@ def build_catalog(records: list[dict]) -> dict[str, EvidenceItem]:
         for env in _envelopes(rec.get("payload")):
             if isinstance(env.get("evidence_id"), str):
                 item = _item_from_envelope(env, rec)
-                if item.id not in catalog or not catalog[item.id].say:
+                old = catalog.get(item.id)
+                # Same id twice (e.g. a sub-agent and the top level checked the same weights): keep the top level's.
+                if old is None or not old.say or (item.agent in TOP_LEVEL and old.agent not in TOP_LEVEL):
                     catalog[item.id] = item
                 found = True
                 parent = item

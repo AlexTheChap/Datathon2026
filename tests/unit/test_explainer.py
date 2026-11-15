@@ -252,3 +252,13 @@ def test_an_invented_percentage_is_not_backed_by_a_stray_number(catalog):
     assert [i.section for i in issues] == ["key_points"] and "100%" in issues[0].reason
     issues, _ = check(draft(), catalog, ctx)  # the real figures (fractions and "% in text") still pass
     assert issues == []
+
+
+def test_graph_mode_synthesis_verdict_is_the_final_one():
+    """In graph mode (agents/graph.py) the top-level governance check is recorded by the "synthesis" node."""
+    from app.agents.explainer import _final_verdicts
+
+    ledger = [json.loads(line) for line in (Path(__file__).resolve().parents[1] / "fixtures" /
+                                            "ledger_mateo_portfolio.jsonl").read_text().splitlines()]
+    final = _final_verdicts(build_catalog(ledger))
+    assert [g.agent for g in final] == ["synthesis"] and final[0].verdict == "PASS"
