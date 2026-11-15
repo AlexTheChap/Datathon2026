@@ -19,6 +19,7 @@ tagged with the sub-agent name (L15), exactly like the tools mode.
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from typing import Any, Callable
 
@@ -53,12 +54,10 @@ class ToolNode(MultiAgentBase):
         ok = "error" not in envelope
         # The NodeResult carries the envelope inside a real AgentResult: the graph's input
         # aggregation (get_agent_results) walks AgentResult/MultiAgentResult shapes only.
-        import json as _json
-
         agent_result = AgentResult(
             stop_reason="end_turn",
             message={"role": "assistant",
-                     "content": [{"text": _json.dumps(envelope, ensure_ascii=False)}]},
+                     "content": [{"text": json.dumps(envelope, ensure_ascii=False)}]},
             metrics=EventLoopMetrics(), state={},
         )
         return MultiAgentResult(
@@ -74,13 +73,29 @@ def _tool_name(key: str, fn: Callable) -> str:
 
 def synthesis_message(brief: str, findings: list[dict]) -> str:
     """What the synthesis agent reads: the run's brief, then every sub-agent's evidence envelope."""
-    import json as _json
-
     parts = [brief, "Findings of the sub-agents (evidence envelopes):"]
     for f in findings:
         envelope = {k: v for k, v in f.items() if not k.startswith("_")}
-        parts.append(f"From {f['_key']}:\n{_json.dumps(envelope, ensure_ascii=False, default=str)}")
+        parts.append(f"From {f['_key']}:\n{json.dumps(envelope, ensure_ascii=False, default=str)}")
     return "\n\n".join(parts)
+
+
+def envelope_of(node: Any, key: str) -> dict | None:
+    """The ToolNode returns a MultiAgentResult that the graph wraps in another NodeResult: descend until the
+    envelope (a dict, or the JSON text of one). None when there is none, or its text is not a JSON object."""
+    r = getattr(node, "result", None) if node else None
+    for _ in range(3):
+        if isinstance(r, dict):
+            return r
+        if hasattr(r, "message"):                     # AgentResult: text = envelope JSON
+            try:
+                value = json.loads(str(r))
+            except ValueError:                        # JSONDecodeError is a ValueError
+                return None
+            return value if isinstance(value, dict) else None
+        inner = getattr(r, "results", None)
+        r = inner.get(key).result if inner and key in inner else None
+    return None
 
 
 def run(enabled: list[tuple[str, Callable[..., dict]]], subject: str,
@@ -102,26 +117,6 @@ def run(enabled: list[tuple[str, Callable[..., dict]]], subject: str,
     builder.set_execution_timeout(900)   # 15 min, same ceiling as the Bedrock clients
     result = builder.build()(subject)
 
-    def _envelope(key: str) -> dict | None:
-        """The ToolNode returns a MultiAgentResult that the graph wraps in another
-        NodeResult; descend until the envelope (dict, or JSON text of one)."""
-        import json as _json
-
-        node = result.results.get(key)
-        r = getattr(node, "result", None) if node else None
-        for _ in range(3):
-            if isinstance(r, dict):
-                return r
-            if hasattr(r, "message"):                     # AgentResult: text = envelope JSON
-                text = str(r)
-                try:
-                    return _json.loads(text)
-                except (json.JSONDecodeError, ValueError):
-                    return None
-            inner = getattr(r, "results", None)
-            r = inner.get(key).result if inner and key in inner else None
-        return None
-
     def _node_ms(key: str) -> int:
         """Wall time of a fork node, as measured by the graph (outer NodeResult.execution_time)."""
         node = result.results.get(key)
@@ -129,7 +124,7 @@ def run(enabled: list[tuple[str, Callable[..., dict]]], subject: str,
 
     findings = []
     for key, _fn in enabled:
-        envelope = _envelope(key) or {"error": f"{key} produced no result",
+        envelope = envelope_of(result.results.get(key), key) or {"error": f"{key} produced no result",
                                       "note": "The node failed before returning an evidence envelope."}
         findings.append({**envelope, "_duration_ms": _node_ms(key),
                          "_key": key, "_tool_name": _tool_name(key, _fn)})

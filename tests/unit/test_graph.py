@@ -113,3 +113,27 @@ def test_run_records_each_node_wall_time():
     (rec,) = led.records("run-t")
     assert isinstance(rec["duration_ms"], int) and rec["duration_ms"] >= 0
     assert "duration_ms" not in rec["payload"]      # the evidence envelope stays pristine
+
+
+def test_an_unreadable_node_result_becomes_no_envelope_not_a_crash():
+    """A node whose text is not a JSON object yields None (the finding then says "produced no result");
+    it used to raise NameError (`json` was not imported) and fail the whole run."""
+    from app.agents.graph import envelope_of
+
+    class Text:                       # an AgentResult-like result whose text is not JSON
+        message = {}
+
+        def __init__(self, text):
+            self.text = text
+
+        def __str__(self):
+            return self.text
+
+    class Node:
+        def __init__(self, result):
+            self.result = result
+
+    assert envelope_of(Node(Text("Sorry, I could not finish.")), "risk") is None
+    assert envelope_of(Node(Text('["not", "an", "object"]')), "risk") is None
+    assert envelope_of(Node(Text('{"evidence_id": "ev-1"}')), "risk") == {"evidence_id": "ev-1"}
+    assert envelope_of(None, "risk") is None
