@@ -17,6 +17,10 @@ from app.api.service import ApiService  # noqa: E402
 from app.intake import MockBackend  # noqa: E402
 
 
+def NO_CONFIG(route):
+    route.fulfill(status=200, content_type="application/javascript", body="")
+
+
 @pytest.fixture(scope="module")
 def base_url():
     import os
@@ -46,6 +50,7 @@ def page(base_url):
         except Exception as e:  # browser binary not installed
             pytest.skip(f"Chromium for Playwright is not installed: {e}")
         ctx = browser.new_context(viewport={"width": 1280, "height": 860})
+        ctx.route("**/config.js", NO_CONFIG)  # local sign-in config (git-ignored) must not leak into dev-mode tests
         ctx.add_init_script("localStorage.setItem('af.actor', JSON.stringify('e2e-' + Math.random().toString(36).slice(2)))")
         pg = ctx.new_page()
         pg.errors = []
@@ -128,8 +133,89 @@ def test_phone_layout_has_no_horizontal_scroll(base_url):
         except Exception as e:
             pytest.skip(f"Chromium for Playwright is not installed: {e}")
         pg = browser.new_page(viewport={"width": 360, "height": 780})
+        pg.route("**/config.js", NO_CONFIG)
         for route in ("#/ask", "#/profile"):
             pg.goto(f"{base_url}/{route}")
             pg.wait_for_selector("h1")
             assert not pg.evaluate("document.documentElement.scrollWidth > window.innerWidth"), route
         browser.close()
+
+
+# ---------- Cognito mode, offline: a fake Cognito in the browser, real token checks in the API ----------
+
+def test_cognito_demo_sign_in_seeds_the_persona_and_signs_out(base_url, monkeypatch):
+    import json
+    import time as _time
+
+    import jwt
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    from app.api import auth
+
+    key, other = (rsa.generate_private_key(public_exponent=65537, key_size=2048) for _ in range(2))
+    region, pool, client = "us-east-1", "us-east-1_E2E", "e2e-client"
+    issuer = f"https://cognito-idp.{region}.amazonaws.com/{pool}"
+
+    class Keys:
+        class K:
+            key = None
+
+        def get_signing_key_from_jwt(self, token):
+            k = self.K()
+            k.key = key.public_key()
+            return k
+
+    monkeypatch.setenv("AF_AUTH_MODE", "cognito")
+    monkeypatch.setattr(auth, "verifier_from_env", lambda: auth.CognitoVerifier(region, pool, client, jwk_client=Keys()))
+
+    def id_token(signing_key=key):
+        now = int(_time.time())
+        return jwt.encode({"sub": "sub-robert-e2e", "email": "robert.demo@alphaforge.example", "iss": issuer, "aud": client,
+                           "token_use": "id", "iat": now, "exp": now + 3600}, signing_key, algorithm="RS256")
+
+    config = {"auth": "cognito", "region": region, "userPoolId": pool, "clientId": client,
+              "demoAccounts": [{"persona": "robert", "name": "Robert", "email": "robert.demo@alphaforge.example",
+                                "password": "irrelevant", "summary": "Conservative investor, 59."}]}
+    calls = []
+
+    def fake_cognito(route):
+        target = route.request.headers.get("x-amz-target", "").split(".")[-1]
+        calls.append(target)
+        body = {"InitiateAuth": {"AuthenticationResult": {"IdToken": id_token(), "RefreshToken": "refresh", "ExpiresIn": 3600}},
+                "RevokeToken": {}}.get(target, {})
+        route.fulfill(status=200, content_type="application/x-amz-json-1.1", body=json.dumps(body))
+
+    with playwright_api.sync_playwright() as p:
+        try:
+            browser = p.chromium.launch()
+        except Exception as e:
+            pytest.skip(f"Chromium for Playwright is not installed: {e}")
+        pg = browser.new_page()
+        errors = []
+        pg.on("pageerror", lambda e: errors.append(str(e)))
+        pg.route("**/config.js", lambda r: r.fulfill(status=200, content_type="application/javascript",
+                                                     body=f"window.AF_CONFIG = {json.dumps(config)};"))
+        pg.route("https://cognito-idp.us-east-1.amazonaws.com/", fake_cognito)
+
+        pg.goto(f"{base_url}/#/profile")
+        pg.wait_for_selector("text=Sign in to AlphaForge")
+        assert pg.is_hidden(".nav")
+        pg.click("button.demo-account:has-text('Robert')")
+        pg.wait_for_selector("text=Your investor profile")  # back to the page asked for
+        assert pg.is_checked("input[name='risk_band'][value='low_moderate']")  # persona profile seeded by the API
+        assert pg.inner_text("#who") == "robert.demo@alphaforge.example"
+
+        # A token the pool did not sign is refused by the API: the app signs out and says why
+        session = json.loads(pg.evaluate("localStorage.getItem('af.session')"))
+        session["idToken"] = id_token(other)
+        pg.evaluate(f"localStorage.setItem('af.session', {json.dumps(json.dumps(session))})")
+        pg.unroute("https://cognito-idp.us-east-1.amazonaws.com/")
+        pg.route("https://cognito-idp.us-east-1.amazonaws.com/", lambda r: r.fulfill(
+            status=400, content_type="application/x-amz-json-1.1", body=json.dumps({"__type": "NotAuthorizedException"})))
+        pg.click("a.nav__link:has-text('Ask')")
+        pg.fill("#question", "Is my portfolio too risky?")
+        pg.click("form.composer button[type=submit]")  # the API sees the forged token and answers 401
+        pg.wait_for_selector("text=Your session has expired. Sign in again.")
+        assert pg.evaluate("localStorage.getItem('af.session')") is None
+        browser.close()
+    assert "InitiateAuth" in calls and errors == []

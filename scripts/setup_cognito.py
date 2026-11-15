@@ -1,0 +1,215 @@
+"""Create (or reuse) AlphaForge's sign-in on Amazon Cognito (box ① login, link L1), with boto3 only.
+
+    python scripts/setup_cognito.py            # create or update the user pool, the web client, 3 demo accounts
+    python scripts/setup_cognito.py --test     # + sign in as each demo account and show the token's claims
+    python scripts/setup_cognito.py --delete   # delete the user pool and every account in it
+
+What it sets up:
+- user pool "alphaforge-users": email as the username, email verified with a 6-digit code (Cognito's built-in
+  sender), passwords of 10+ characters with upper case, lower case and a digit, recovery by email;
+- app client "alphaforge-web" (public: no secret, the browser calls Cognito directly): USER_PASSWORD_AUTH +
+  refresh, user-existence errors hidden, ID/access tokens valid 1 hour, refresh 7 days;
+- demo accounts amira/mateo/robert.demo@alphaforge.example (a reserved domain, never a real mailbox), with one
+  shared random password. The API gives each one its persona's profile on first sign-in.
+
+Writes two git-ignored files:
+- .env: AF_AUTH_MODE=cognito, AF_COGNITO_REGION, AF_COGNITO_USER_POOL_ID, AF_COGNITO_CLIENT_ID (the API checks
+  tokens with them) and AF_DEMO_PASSWORD (reused on the next run);
+- frontend/config.js: the same ids + the demo accounts for the one-click buttons. The demo password is public to
+  anyone who can open the app, by design: those accounts only hold the brief's fictional profiles.
+Credentials: --profile, otherwise the AWS_* variables, otherwise .env.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import secrets
+import string
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+ENV_FILE = ROOT / ".env"
+CONFIG_JS = ROOT / "frontend" / "config.js"
+PERSONAS = ROOT / "backend" / "app" / "core" / "personas.json"
+POOL = "alphaforge-users"
+CLIENT = "alphaforge-web"
+DEMO_DOMAIN = "alphaforge.example"  # RFC 2606: reserved, can never receive mail
+TAGS = {"project": "alphaforge", "component": "sign-in"}
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from deploy_context_lambda import load_dotenv  # noqa: E402  (same .env reader as the other deploy scripts)
+
+
+def upsert_env(values: dict[str, str | None]) -> None:
+    """Set (or remove, with None) keys in .env without touching the other lines and without printing values."""
+    lines = ENV_FILE.read_text(encoding="utf-8").splitlines() if ENV_FILE.exists() else []
+    out, seen = [], set()
+    for line in lines:
+        key = line.split("=", 1)[0].strip().removeprefix("export ") if "=" in line and not line.lstrip().startswith("#") else None
+        if key in values:
+            seen.add(key)
+            if values[key] is not None:
+                out.append(f"{key}={values[key]}")
+            continue
+        out.append(line)
+    new = [f"{k}={v}" for k, v in values.items() if k not in seen and v is not None]
+    if new:
+        out += ["", "# --- Sign-in (written by scripts/setup_cognito.py) ---", *new]
+    ENV_FILE.write_text("\n".join(out) + "\n", encoding="utf-8")
+    os.chmod(ENV_FILE, 0o600)
+
+
+def demo_password() -> str:
+    """Reuse the one in .env, else a random one that meets the policy (upper, lower, digit, 16 chars)."""
+    existing = os.environ.get("AF_DEMO_PASSWORD")
+    if existing:
+        return existing
+    alphabet = string.ascii_letters + string.digits
+    while True:
+        pw = "".join(secrets.choice(alphabet) for _ in range(16))
+        if any(c.islower() for c in pw) and any(c.isupper() for c in pw) and any(c.isdigit() for c in pw):
+            return pw
+
+
+def find_pool(idp) -> str | None:
+    for page in idp.get_paginator("list_user_pools").paginate(MaxResults=60):
+        for p in page["UserPools"]:
+            if p["Name"] == POOL:
+                return p["Id"]
+    return None
+
+
+def ensure_pool(idp) -> str:
+    pool_id = find_pool(idp)
+    if pool_id:
+        print(f"• Existing user pool: {pool_id}")
+        return pool_id
+    pool_id = idp.create_user_pool(
+        PoolName=POOL,
+        Policies={"PasswordPolicy": {"MinimumLength": 10, "RequireUppercase": True, "RequireLowercase": True,
+                                     "RequireNumbers": True, "RequireSymbols": False,
+                                     "TemporaryPasswordValidityDays": 7}},
+        UsernameAttributes=["email"],
+        AutoVerifiedAttributes=["email"],
+        UsernameConfiguration={"CaseSensitive": False},
+        AccountRecoverySetting={"RecoveryMechanisms": [{"Priority": 1, "Name": "verified_email"}]},
+        AdminCreateUserConfig={"AllowAdminCreateUserOnly": False},
+        EmailConfiguration={"EmailSendingAccount": "COGNITO_DEFAULT"},
+        VerificationMessageTemplate={
+            "DefaultEmailOption": "CONFIRM_WITH_CODE",
+            "EmailSubject": "Your AlphaForge code",
+            "EmailMessage": "Your AlphaForge verification code is {####}. AlphaForge is a simulation; it never asks "
+                            "for bank details.",
+        },
+        UserPoolTags=TAGS,
+    )["UserPool"]["Id"]
+    print(f"• User pool created: {pool_id}")
+    return pool_id
+
+
+def ensure_client(idp, pool_id: str) -> str:
+    settings = dict(
+        ExplicitAuthFlows=["ALLOW_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"],
+        PreventUserExistenceErrors="ENABLED",
+        AccessTokenValidity=60, IdTokenValidity=60, RefreshTokenValidity=7,
+        TokenValidityUnits={"AccessToken": "minutes", "IdToken": "minutes", "RefreshToken": "days"},
+        EnableTokenRevocation=True,
+        ReadAttributes=["email", "email_verified"],
+        WriteAttributes=["email"],
+    )
+    for page in idp.get_paginator("list_user_pool_clients").paginate(UserPoolId=pool_id, MaxResults=60):
+        for c in page["UserPoolClients"]:
+            if c["ClientName"] == CLIENT:
+                idp.update_user_pool_client(UserPoolId=pool_id, ClientId=c["ClientId"], ClientName=CLIENT, **settings)
+                print(f"• Existing app client (settings refreshed): {c['ClientId']}")
+                return c["ClientId"]
+    client_id = idp.create_user_pool_client(UserPoolId=pool_id, ClientName=CLIENT, GenerateSecret=False,
+                                            **settings)["UserPoolClient"]["ClientId"]
+    print(f"• App client created: {client_id}")
+    return client_id
+
+
+def ensure_demo_users(idp, pool_id: str, password: str) -> list[dict]:
+    personas = json.loads(PERSONAS.read_text(encoding="utf-8"))["personas"]
+    accounts = []
+    for p in personas:
+        email = f"{p['id']}.demo@{DEMO_DOMAIN}"
+        try:
+            idp.admin_create_user(UserPoolId=pool_id, Username=email, MessageAction="SUPPRESS",
+                                  UserAttributes=[{"Name": "email", "Value": email},
+                                                  {"Name": "email_verified", "Value": "true"}])
+            state = "created"
+        except idp.exceptions.UsernameExistsException:
+            state = "exists"
+        idp.admin_set_user_password(UserPoolId=pool_id, Username=email, Password=password, Permanent=True)
+        accounts.append({"persona": p["id"], "name": p["id"].capitalize(), "email": email,
+                         "summary": f"{p['profile_type']} investor, {p['age']}, {p['occupation'].lower()}."})
+        print(f"• Demo account {state}: {email}")
+    return accounts
+
+
+def write_config(region: str, pool_id: str, client_id: str, accounts: list[dict], password: str) -> None:
+    config = {"auth": "cognito", "region": region, "userPoolId": pool_id, "clientId": client_id,
+              "demoAccounts": [{**a, "password": password} for a in accounts]}
+    CONFIG_JS.write_text(
+        "// Generated by scripts/setup_cognito.py. Git-ignored. The demo password is public to the app's users by\n"
+        "// design (fictional demo profiles only). Delete this file to fall back to local dev mode.\n"
+        f"window.AF_CONFIG = {json.dumps(config, indent=2)};\n", encoding="utf-8")
+    print(f"• Wrote {CONFIG_JS.relative_to(ROOT)}")
+
+
+def smoke(idp, client_id: str, accounts: list[dict], password: str) -> None:
+    import base64
+
+    for a in accounts:
+        out = idp.initiate_auth(ClientId=client_id, AuthFlow="USER_PASSWORD_AUTH",
+                                AuthParameters={"USERNAME": a["email"], "PASSWORD": password})
+        token = out["AuthenticationResult"]["IdToken"]
+        payload = json.loads(base64.urlsafe_b64decode(token.split(".")[1] + "=="))
+        print(f"✓ {a['email']}: signed in · token_use={payload['token_use']} sub={payload['sub'][:8]}… "
+              f"email_verified={payload.get('email_verified')}")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--profile")
+    ap.add_argument("--region")
+    ap.add_argument("--test", action="store_true")
+    ap.add_argument("--delete", action="store_true")
+    args = ap.parse_args()
+    if not args.profile:
+        load_dotenv()
+    import boto3
+
+    region = args.region or os.environ.get("AWS_REGION") or "us-east-1"
+    session = boto3.Session(profile_name=args.profile, region_name=region)
+    print(f"• Account: {session.client('sts').get_caller_identity()['Account']}  region: {region}")
+    idp = session.client("cognito-idp")
+
+    if args.delete:
+        pool_id = find_pool(idp)
+        if pool_id:
+            idp.delete_user_pool(UserPoolId=pool_id)
+            print(f"• User pool deleted: {pool_id}")
+        CONFIG_JS.unlink(missing_ok=True)
+        upsert_env({"AF_AUTH_MODE": None, "AF_COGNITO_REGION": None, "AF_COGNITO_USER_POOL_ID": None,
+                    "AF_COGNITO_CLIENT_ID": None, "AF_DEMO_PASSWORD": None})
+        print("• Sign-in settings removed from .env and frontend/config.js (local dev mode again)")
+        return
+
+    pool_id = ensure_pool(idp)
+    client_id = ensure_client(idp, pool_id)
+    password = demo_password()
+    accounts = ensure_demo_users(idp, pool_id, password)
+    write_config(region, pool_id, client_id, accounts, password)
+    upsert_env({"AF_AUTH_MODE": "cognito", "AF_COGNITO_REGION": region, "AF_COGNITO_USER_POOL_ID": pool_id,
+                "AF_COGNITO_CLIENT_ID": client_id, "AF_DEMO_PASSWORD": password})
+    print("• .env updated (AF_AUTH_MODE=cognito + pool/client ids + demo password)")
+    if args.test:
+        smoke(idp, client_id, accounts, password)
+
+
+if __name__ == "__main__":
+    main()

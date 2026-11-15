@@ -1,5 +1,6 @@
 // AlphaForge frontend (box ① of docs/architecture.mmd): plain ES module, no framework, no build step.
-// Talks only to the box ② API: POST/GET /v1/runs, GET/PUT /v1/profile, GET /v1/personas.
+// Talks to the box ② API (POST/GET /v1/runs, GET/PUT /v1/profile, GET /v1/personas, GET /v1/me) and, when
+// sign-in is configured (config.js from scripts/setup_cognito.py), to Amazon Cognito for the login.
 // Every piece of user or server text goes into the page as a text node (never as HTML).
 
 const API_BASE = window.AF_API_BASE || ""; // same origin by default (the API serves this folder locally)
@@ -123,15 +124,112 @@ const timeText = (iso) => {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" });
 };
 
-/* ---------------- Identity (development mode until the Cognito login exists) ---------------- */
+/* ---------------- Identity: Amazon Cognito sign-in, or local dev mode without config.js ---------------- */
+
+const CONFIG = window.AF_CONFIG || { auth: "dev" };
+const COGNITO = CONFIG.auth === "cognito";
+const SESSION_KEY = "af.session";
+const DEMO_EMAIL = /^(amira|mateo|robert)\.demo@alphaforge\.example$/i;
+
+function readSession() { return store.get(SESSION_KEY); }
+function claimsOf(jwt) {
+  try {
+    const b64 = jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const bytes = Uint8Array.from(atob(b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), "=")), (c) => c.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch { return {}; }
+}
 
 function actorId() {
+  if (COGNITO) { const s = readSession(); return s ? claimsOf(s.idToken).sub : null; }
   let id = store.get("af.actor");
   if (!id) {
     id = `guest-${Math.random().toString(36).slice(2, 7)}`;
     store.set("af.actor", id);
   }
   return id;
+}
+
+class CognitoError extends Error {
+  constructor(type, message) { super(message); this.type = type; }
+}
+
+async function cognito(action, body) {
+  let res;
+  try {
+    res = await fetch(`https://cognito-idp.${CONFIG.region}.amazonaws.com/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-amz-json-1.1", "X-Amz-Target": `AWSCognitoIdentityProviderService.${action}` },
+      body: JSON.stringify({ ClientId: CONFIG.clientId, ...body }),
+    });
+  } catch {
+    throw new CognitoError("Network", "AlphaForge can't reach the sign-in service. Check your connection, then try again.");
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new CognitoError(String(data.__type || "").split("#").pop(), data.message || "");
+  return data;
+}
+
+const TOO_MANY = "Too many attempts. Wait a few minutes, then try again.";
+function cognitoMessage(err) {
+  if (err.type === "Network") return err.message;
+  if (/attempts exceeded/i.test(err.message)) return TOO_MANY;
+  return {
+    NotAuthorizedException: "Incorrect email or password.",
+    UserNotFoundException: "Incorrect email or password.",
+    UsernameExistsException: "An account already uses this email. Sign in instead.",
+    InvalidPasswordException: "The password needs at least 10 characters, with upper case, lower case and a number.",
+    CodeMismatchException: "That code doesn't match. Check the latest email we sent you.",
+    ExpiredCodeException: "That code has expired. Ask for a new one.",
+    LimitExceededException: TOO_MANY,
+    TooManyRequestsException: TOO_MANY,
+    TooManyFailedAttemptsException: TOO_MANY,
+    InvalidParameterException: "Check the email address, then try again.",
+    CodeDeliveryFailureException: "The email with your code couldn't be sent. Check the address.",
+  }[err.type] || "Sign-in didn't work this time. Try again in a moment.";
+}
+
+function setSession(result, email, { keepRefresh = null, reset = true } = {}) {
+  store.set(SESSION_KEY, {
+    idToken: result.IdToken,
+    refreshToken: result.RefreshToken || keepRefresh,
+    expiresAt: Date.now() + (result.ExpiresIn || 3600) * 1000,
+    email,
+  });
+  if (reset) { state.profile = undefined; state.thread = []; }
+}
+
+async function signIn(email, password) {
+  const out = await cognito("InitiateAuth", { AuthFlow: "USER_PASSWORD_AUTH", AuthParameters: { USERNAME: email, PASSWORD: password } });
+  if (!out.AuthenticationResult) throw new CognitoError("Challenge", "");
+  setSession(out.AuthenticationResult, email);
+}
+
+async function refreshSession() {
+  const s = readSession();
+  if (!s || !s.refreshToken) return false;
+  try {
+    const out = await cognito("InitiateAuth", { AuthFlow: "REFRESH_TOKEN_AUTH", AuthParameters: { REFRESH_TOKEN: s.refreshToken } });
+    setSession(out.AuthenticationResult, s.email, { keepRefresh: s.refreshToken, reset: false });
+    return true;
+  } catch { return false; }
+}
+
+async function idToken() {
+  const s = readSession();
+  if (!s) return null;
+  if (Date.now() > s.expiresAt - 60_000 && !(await refreshSession())) return null;
+  return readSession().idToken;
+}
+
+function signOut(message = "") {
+  const s = readSession();
+  try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
+  if (s && s.refreshToken) cognito("RevokeToken", { Token: s.refreshToken }).catch(() => {}); // best effort
+  state.profile = undefined; state.thread = []; state.dirty = false;
+  try { if (message) sessionStorage.setItem("af.signin.msg", message); } catch { /* ignore */ }
+  setWho();
+  if (window.location.hash === "#/signin") route(); else window.location.hash = "#/signin";
 }
 
 /* ---------------- API client ---------------- */
@@ -144,16 +242,24 @@ class ApiError extends Error {
   }
 }
 
-async function api(method, path, body) {
+async function api(method, path, body, retried = false) {
+  const headers = { "Content-Type": "application/json" };
+  if (COGNITO) {
+    const token = await idToken();
+    if (!token) { signOut("Your session has expired. Sign in again."); throw new ApiError(401, "Sign in to continue."); }
+    headers.Authorization = `Bearer ${token}`;
+  } else {
+    headers["X-Actor-Id"] = actorId();
+  }
   let res;
   try {
-    res = await fetch(API_BASE + path, {
-      method,
-      headers: { "Content-Type": "application/json", "X-Actor-Id": actorId() },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    res = await fetch(API_BASE + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   } catch {
     throw new ApiError(0, "network");
+  }
+  if (res.status === 401 && COGNITO) {
+    if (!retried && (await refreshSession())) return api(method, path, body, true);
+    signOut("Your session has expired. Sign in again.");
   }
   let data = null;
   try { data = await res.json(); } catch { /* empty body */ }
@@ -261,6 +367,7 @@ function settingsOf(agent) {
 /* ---------------- Router ---------------- */
 
 const routes = [
+  { re: /^#\/signin$/, nav: null, title: "Sign in", view: renderSignIn, public: true },
   { re: /^#\/ask$/, nav: "ask", title: "Ask", view: renderAsk },
   { re: /^#\/profile$/, nav: "profile", title: "Your profile", view: renderProfile },
   { re: /^#\/runs\/([\w-]+)$/, nav: "ask", title: "Analysis plan", view: renderRun },
@@ -277,8 +384,19 @@ function route() {
     state.dirty = false;
   }
   window.clearTimeout(state.pollTimer);
-  const match = routes.find((r) => r.re.test(hash)) || routes[0];
-  if (!routes.some((r) => r.re.test(hash))) history.replaceState(null, "", "#/ask");
+  let match = routes.find((r) => r.re.test(hash));
+  if (!match) { match = routes.find((r) => r.nav === "ask"); history.replaceState(null, "", "#/ask"); }
+  const signedIn = !COGNITO || Boolean(readSession());
+  if (COGNITO && !signedIn && !match.public) { // remember where they were going, then sign in
+    try { sessionStorage.setItem("af.next", hash); } catch { /* ignore */ }
+    history.replaceState(null, "", "#/signin");
+    match = routes[0];
+  } else if (match.public && signedIn) {
+    history.replaceState(null, "", "#/ask");
+    match = routes.find((r) => r.nav === "ask");
+  }
+  document.querySelector(".nav").hidden = !signedIn;
+  setWho();
   currentHash = window.location.hash || "#/ask";
   for (const link of document.querySelectorAll(".nav__link")) {
     if (link.dataset.route === match.nav) link.setAttribute("aria-current", "page");
@@ -615,7 +733,17 @@ function profileForm(saved, initialStatus = null) {
   const topError = h("div");
   form.append(topError, h("div", { class: "form-actions" }, saveBtn, resetBtn, status));
 
-  const account = h("section", { class: "stack-sm", "aria-labelledby": "account-title" },
+  const session = COGNITO ? readSession() : null;
+  const account = COGNITO ? h("section", { class: "stack-sm", "aria-labelledby": "account-title" },
+    h("h2", { id: "account-title", class: "section-title" }, "Account"),
+    h("p", { class: "small" }, "Signed in as ", h("strong", null, session ? session.email : "")),
+    session && DEMO_EMAIL.test(session.email)
+      ? h("p", { class: "small muted" }, "This is a shared demo account: anyone trying the demo can see and change this profile.")
+      : null,
+    h("div", null, h("button", { class: "btn btn--secondary", type: "button", onclick: () => {
+      if (state.dirty && !window.confirm("Your profile has unsaved changes. Sign out without saving?")) return;
+      signOut("You're signed out.");
+    } }, "Sign out"))) : h("section", { class: "stack-sm", "aria-labelledby": "account-title" },
     h("h2", { id: "account-title", class: "section-title" }, "Demo user"),
     h("p", { class: "small muted" }, `You are ${actorId()}. Until sign-in is added, this name is kept in this browser only.`),
     h("div", null, h("button", { class: "btn btn--secondary", type: "button", onclick: () => {
@@ -873,6 +1001,223 @@ function renderRun(main, runId) {
   load();
 }
 
+/* ---------------- Sign in (Amazon Cognito) ---------------- */
+
+const PASSWORD_RULE = "At least 10 characters, with upper case, lower case and a number.";
+function passwordProblem(pw) {
+  if (pw.length < 10) return "Use at least 10 characters.";
+  if (!/[a-z]/.test(pw) || !/[A-Z]/.test(pw) || !/\d/.test(pw)) return "Mix upper case, lower case and at least one number.";
+  return null;
+}
+
+function renderSignIn(main) {
+  if (!COGNITO) { window.location.hash = "#/ask"; return; }
+  const flow = { mode: "signin", email: "", password: "" }; // the password stays in memory only, for auto sign-in
+  let notice = "";
+  try { notice = sessionStorage.getItem("af.signin.msg") || ""; sessionStorage.removeItem("af.signin.msg"); } catch { /* ignore */ }
+  const box = h("div", { class: "auth" });
+  main.append(box);
+
+  const fillBox = (...parts) => box.replaceChildren(...parts.filter(Boolean)); // replaceChildren would print "null"
+
+  async function finish() {
+    let next = "#/ask";
+    try { next = sessionStorage.getItem("af.next") || "#/ask"; sessionStorage.removeItem("af.next"); } catch { /* ignore */ }
+    setWho();
+    announce("Signed in.");
+    if (window.location.hash === next) route(); else window.location.hash = next;
+  }
+
+  function field(name, label, attrs, help = "") {
+    const input = h("input", { class: "input", id: `auth-${name}`, name, "aria-describedby": `auth-${name}-help auth-${name}-error`, ...attrs });
+    let control = input;
+    if (attrs.type === "password") {
+      const toggle = h("button", { class: "affix__btn", type: "button", "aria-controls": `auth-${name}`, "aria-pressed": "false" }, "Show");
+      toggle.addEventListener("click", () => {
+        const show = input.type === "password";
+        input.type = show ? "text" : "password";
+        toggle.textContent = show ? "Hide" : "Show";
+        toggle.setAttribute("aria-pressed", String(show));
+      });
+      control = h("div", { class: "affix affix--btn" }, input, toggle);
+    }
+    const error = h("p", { class: "field__error", id: `auth-${name}-error` });
+    input.addEventListener("input", () => { error.replaceChildren(); input.removeAttribute("aria-invalid"); });
+    return { input, error, el: h("div", { class: "field" },
+      h("label", { class: "field__label", for: `auth-${name}` }, label), control,
+      help ? h("p", { class: "field__help", id: `auth-${name}-help` }, help) : null, error) };
+  }
+  function fail(f, msg) {
+    f.error.replaceChildren(icon("alert", 14), h("span", null, msg));
+    f.input.setAttribute("aria-invalid", "true");
+    f.input.focus();
+  }
+  function busy(btn, label) {
+    btn.disabled = true; btn.setAttribute("aria-busy", "true");
+    btn.replaceChildren(h("span", { class: "spinner", "aria-hidden": "true" }), label);
+    return () => { btn.disabled = false; btn.removeAttribute("aria-busy"); btn.replaceChildren(btn.dataset.label); };
+  }
+  function primary(label) { return h("button", { class: "btn btn--primary", type: "submit", "data-label": label }, label); }
+  function go(mode) { flow.mode = mode; notice = ""; draw(); }
+  const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
+  function draw() {
+    const status = notice ? h("p", { class: "notice", role: "status" }, notice) : null;
+    const formError = h("div");
+    const showError = (err) => {
+      const msg = err instanceof CognitoError ? cognitoMessage(err) : "Something went wrong. Try again.";
+      formError.replaceChildren(h("div", { class: "alert", role: "alert" }, icon("alert", 18), h("p", { class: "alert__title" }, msg)));
+    };
+
+    if (flow.mode === "signin") {
+      const email = field("email", "Email", { type: "email", autocomplete: "username", inputmode: "email", value: flow.email });
+      const pw = field("password", "Password", { type: "password", autocomplete: "current-password" });
+      const submit = primary("Sign in");
+      const demos = (CONFIG.demoAccounts || []).map((a) => {
+        const btn = h("button", { class: "demo-account", type: "button" },
+          h("span", { class: "demo-account__name" }, `Sign in as ${a.name}`),
+          h("span", { class: "demo-account__desc" }, a.summary));
+        btn.addEventListener("click", async () => {
+          for (const b of box.querySelectorAll(".demo-account")) b.disabled = true;
+          btn.querySelector(".demo-account__name").prepend(h("span", { class: "spinner", "aria-hidden": "true" }));
+          try { await signIn(a.email, a.password); await finish(); }
+          catch (err) { showError(err); for (const b of box.querySelectorAll(".demo-account")) b.disabled = false; btn.querySelector(".spinner")?.remove(); }
+        });
+        return btn;
+      });
+      fillBox(
+        h("div", { class: "page-head" }, h("h1", null, "Sign in to AlphaForge"),
+          h("p", null, "Explore with a demo investor, or use your own account. Simulation only: nothing here is investment advice.")),
+        status,
+        demos.length ? h("section", { class: "stack-sm", "aria-labelledby": "demo-title" },
+          h("h2", { id: "demo-title", class: "section-title" }, "Try a demo account"),
+          h("p", { class: "small muted" }, "Each one comes with the profile of an investor from the challenge brief. Demo accounts are shared."),
+          h("div", { class: "demo-accounts" }, demos)) : null,
+        demos.length ? h("p", { class: "divider" }, "or with your email") : null,
+        h("form", { class: "auth-form", novalidate: true, onsubmit: async (e) => {
+          e.preventDefault();
+          formError.replaceChildren();
+          flow.email = email.input.value.trim();
+          if (!isEmail(flow.email)) return fail(email, "Enter the email address of your account.");
+          if (!pw.input.value) return fail(pw, "Enter your password.");
+          const done = busy(submit, "Signing in");
+          try { await signIn(flow.email, pw.input.value); await finish(); }
+          catch (err) {
+            done();
+            if (err.type === "UserNotConfirmedException") { flow.password = pw.input.value; notice = "Your email isn't confirmed yet. Enter the code we sent you, or ask for a new one."; flow.mode = "confirm"; draw(); return; }
+            showError(err);
+          }
+        } }, email.el, pw.el, formError, submit),
+        h("div", { class: "auth-links" },
+          h("button", { class: "link-btn", type: "button", onclick: () => go("signup") }, "Create an account"),
+          h("button", { class: "link-btn", type: "button", onclick: () => go("forgot") }, "Forgot password?")));
+    }
+
+    if (flow.mode === "signup") {
+      const email = field("email", "Email", { type: "email", autocomplete: "email", inputmode: "email", value: flow.email }, "We send a 6-digit code to confirm it.");
+      const pw = field("password", "Password", { type: "password", autocomplete: "new-password" }, PASSWORD_RULE);
+      const submit = primary("Create account");
+      fillBox(
+        h("div", { class: "page-head" }, h("h1", null, "Create your account"),
+          h("p", null, "Your profile and questions are kept under this account.")),
+        h("form", { class: "auth-form", novalidate: true, onsubmit: async (e) => {
+          e.preventDefault();
+          formError.replaceChildren();
+          flow.email = email.input.value.trim();
+          if (!isEmail(flow.email)) return fail(email, "Enter a valid email address, like name@example.com.");
+          const problem = passwordProblem(pw.input.value);
+          if (problem) return fail(pw, problem);
+          const done = busy(submit, "Creating");
+          try {
+            await cognito("SignUp", { Username: flow.email, Password: pw.input.value, UserAttributes: [{ Name: "email", Value: flow.email }] });
+            flow.password = pw.input.value;
+            notice = "";
+            flow.mode = "confirm";
+            draw();
+          } catch (err) { done(); showError(err); }
+        } }, email.el, pw.el, formError, submit),
+        h("div", { class: "auth-links" }, h("button", { class: "link-btn", type: "button", onclick: () => go("signin") }, "I already have an account")));
+    }
+
+    if (flow.mode === "confirm") {
+      const code = field("code", "Code", { type: "text", inputmode: "numeric", autocomplete: "one-time-code", maxlength: "6", class: "input code-input" });
+      const submit = primary("Confirm");
+      const resend = h("button", { class: "link-btn", type: "button" }, "Send a new code");
+      resend.addEventListener("click", async () => {
+        resend.disabled = true;
+        try { await cognito("ResendConfirmationCode", { Username: flow.email }); notice = `A new code is on its way to ${flow.email}.`; draw(); }
+        catch (err) { resend.disabled = false; showError(err); }
+      });
+      fillBox(
+        h("div", { class: "page-head" }, h("h1", null, "Check your email"),
+          h("p", null, `We sent a 6-digit code to ${flow.email}. It can take a minute to arrive.`)),
+        status,
+        h("form", { class: "auth-form", novalidate: true, onsubmit: async (e) => {
+          e.preventDefault();
+          formError.replaceChildren();
+          const value = code.input.value.replace(/\s/g, "");
+          if (!/^\d{6}$/.test(value)) return fail(code, "Enter the 6 digits from the email.");
+          const done = busy(submit, "Confirming");
+          try {
+            await cognito("ConfirmSignUp", { Username: flow.email, ConfirmationCode: value });
+            if (flow.password) { await signIn(flow.email, flow.password); flow.password = ""; await finish(); return; }
+            notice = "Your email is confirmed. Sign in to continue."; flow.mode = "signin"; draw();
+          } catch (err) { done(); showError(err); }
+        } }, code.el, formError, submit),
+        h("div", { class: "auth-links" }, resend, h("button", { class: "link-btn", type: "button", onclick: () => go("signup") }, "Use another email")));
+    }
+
+    if (flow.mode === "forgot") {
+      const email = field("email", "Email", { type: "email", autocomplete: "username", inputmode: "email", value: flow.email });
+      const submit = primary("Send a code");
+      fillBox(
+        h("div", { class: "page-head" }, h("h1", null, "Reset your password"),
+          h("p", null, "Enter the email of your account. We send a code to choose a new password.")),
+        h("form", { class: "auth-form", novalidate: true, onsubmit: async (e) => {
+          e.preventDefault();
+          formError.replaceChildren();
+          flow.email = email.input.value.trim();
+          if (!isEmail(flow.email)) return fail(email, "Enter the email address of your account.");
+          const done = busy(submit, "Sending");
+          try {
+            await cognito("ForgotPassword", { Username: flow.email });
+            notice = `If an account uses ${flow.email}, a code is on its way.`; // never reveals whether it exists
+            flow.mode = "reset"; draw();
+          } catch (err) { done(); showError(err); }
+        } }, email.el, formError, submit),
+        h("div", { class: "auth-links" }, h("button", { class: "link-btn", type: "button", onclick: () => go("signin") }, "Back to sign in")));
+    }
+
+    if (flow.mode === "reset") {
+      const code = field("code", "Code", { type: "text", inputmode: "numeric", autocomplete: "one-time-code", maxlength: "6", class: "input code-input" });
+      const pw = field("password", "New password", { type: "password", autocomplete: "new-password" }, PASSWORD_RULE);
+      const submit = primary("Set new password");
+      fillBox(
+        h("div", { class: "page-head" }, h("h1", null, "Choose a new password"), h("p", null, `For ${flow.email}.`)),
+        status,
+        h("form", { class: "auth-form", novalidate: true, onsubmit: async (e) => {
+          e.preventDefault();
+          formError.replaceChildren();
+          const value = code.input.value.replace(/\s/g, "");
+          if (!/^\d{6}$/.test(value)) return fail(code, "Enter the 6 digits from the email.");
+          const problem = passwordProblem(pw.input.value);
+          if (problem) return fail(pw, problem);
+          const done = busy(submit, "Saving");
+          try {
+            await cognito("ConfirmForgotPassword", { Username: flow.email, ConfirmationCode: value, Password: pw.input.value });
+            await signIn(flow.email, pw.input.value);
+            await finish();
+          } catch (err) { done(); showError(err); }
+        } }, code.el, pw.el, formError, submit),
+        h("div", { class: "auth-links" }, h("button", { class: "link-btn", type: "button", onclick: () => go("forgot") }, "Send a new code")));
+    }
+
+    const first = box.querySelector("h1");
+    if (first) { first.setAttribute("tabindex", "-1"); first.focus({ preventScroll: true }); }
+  }
+  draw();
+}
+
 /* ---------------- Shell: mode toggle, user, start ---------------- */
 
 function currentMode() {
@@ -886,7 +1231,22 @@ function drawModeButton() {
   btn.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
   btn.replaceChildren(icon(dark ? "sun" : "moon", 20));
 }
-function setWho() { document.getElementById("who").textContent = `Demo user ${actorId()}`; }
+function setWho() {
+  const who = document.getElementById("who");
+  const out = document.getElementById("sign-out");
+  if (COGNITO) {
+    const s = readSession();
+    who.textContent = s ? s.email : "";
+    out.hidden = !s;
+  } else {
+    who.textContent = `Demo user ${actorId()}`;
+    out.hidden = true;
+  }
+}
+document.getElementById("sign-out").addEventListener("click", () => {
+  if (state.dirty && !window.confirm("Your profile has unsaved changes. Sign out without saving?")) return;
+  signOut("You're signed out.");
+});
 
 document.getElementById("mode-toggle").addEventListener("click", () => {
   const next = currentMode() === "dark" ? "light" : "dark";

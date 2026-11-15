@@ -11,11 +11,30 @@ frontend/
   assets/favicon.svg
 ```
 
+## Sign-in
+
+Amazon Cognito (user pool `alphaforge-users`), set up by `python scripts/setup_cognito.py` (`--delete` removes it).
+That script writes the git-ignored `frontend/config.js` (shape in `config.example.js`) and the `AF_COGNITO_*`
+settings in `.env`.
+
+- **Demo accounts:** "Sign in as Amira / Mateo / Robert" buttons. Each account starts with that persona's
+  profile from the brief (seeded by the API on first sign-in) and is shared by everyone trying the demo.
+- **Your own account:** email + password (10+ characters, upper and lower case, a number), confirmed with a
+  6-digit code sent by email; "Forgot password?" sends a code to set a new one. Your account starts with no
+  profile.
+- The browser talks to Cognito directly and sends the ID token to the API (`Authorization: Bearer`). The API
+  accepts only tokens signed by this user pool for this app, of type ID, not expired; anything else is a 401
+  and the app signs out with a message. Sessions refresh silently for 7 days.
+- Without `config.js` the app runs in local dev mode (a demo user name kept in the browser, no password).
+
 ## Run it
 
 ```bash
 .venv/bin/pip install -e ".[dev,api]"
 cd backend && AF_AUTH_MODE=dev AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app --port 8000
+
+# with the real sign-in (after scripts/setup_cognito.py): load .env, which sets AF_AUTH_MODE=cognito
+(set -a; . ./.env; set +a; cd backend && AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app --port 8000)
 ```
 
 Open <http://127.0.0.1:8000>. The API serves this folder at `/` (same origin, no CORS). With
@@ -28,6 +47,7 @@ On AWS the folder is meant for S3 + CloudFront behind the Cognito login (not dep
 | Screen | What the user does | API |
 | --- | --- | --- |
 | **Ask** (`#/ask`) | Writes a question, or picks an example that fills the box. Gets one of three replies: a missing detail to choose inline (risk level, experience), a message (e.g. create a profile first), or an analysis plan. A toggle said in chat ("I don't care about the news") is confirmed with an Undo. | `POST /v1/runs`, `PUT /v1/profile` (undo), `GET /v1/profile` (side summary) |
+| **Sign in** (`#/signin`) | Signs in with a demo account (one click) or email + password; creates an account (code by email); resets a forgotten password. Returns to the page they were going to. | Amazon Cognito (from the browser), `GET /v1/me` |
 | **Profile** (`#/profile`) | Fills the investor profile, or starts from Amira, Mateo or Robert. Risk level and experience are required. Analyses can be switched off; a switch changed from chat shows the user's words. | `GET /v1/personas`, `GET /v1/profile`, `PUT /v1/profile` |
 | **Analysis plan** (`#/runs/<id>`) | Sees what AlphaForge will look at and why, what was left out and why, the settings (benchmark, scenario), and the answer once box ⑤ writes it. Technical details sit behind a disclosure. | `GET /v1/runs/{id}` (polled while queued) |
 
@@ -79,7 +99,8 @@ the decisions.
 
 ## Not there yet
 
-- **Sign-in:** the Cognito login comes with the AWS deployment of box ②; until then a demo user name is kept
-  in the browser.
+- **Deployment:** sign-in works against the real Cognito today, with the API running locally. On AWS, API
+  Gateway's JWT authorizer will check the same tokens, and `scripts/setup_cognito.py` stays the source of the
+  pool and demo accounts.
 - **Answers:** the plan is shown, but runs stay queued until the dispatcher connects box ② to box ⑤.
 - **Portfolio file upload** (presigned S3 URL) and clickable evidence need API endpoints that do not exist yet.

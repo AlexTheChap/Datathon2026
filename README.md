@@ -45,7 +45,8 @@ cd backend && AF_AUTH_MODE=dev AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicor
 # open http://127.0.0.1:8000  (AF_INTAKE_MODE=bedrock + your .env keys for the real Claude Haiku intake)
 ```
 
-`AF_AUTH_MODE=dev` lets the browser pick a demo user; it is for local use only. Details, design rules and the
+`AF_AUTH_MODE=dev` lets the browser pick a demo user; it is for local use only. Real sign-in (Amazon Cognito,
+demo accounts for Amira, Mateo and Robert): `python scripts/setup_cognito.py`, then start the API with `.env` loaded. Details, design rules and the
 ergonomic checklist: [`frontend/README.md`](frontend/README.md).
 
 ## Run the orchestrator (node ⑤)

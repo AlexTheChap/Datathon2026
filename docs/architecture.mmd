@@ -25,7 +25,7 @@
 %%   orchestrator holds only governance_check, all quant tools live in the sub-agents ·
 %%   tools called in-process (no Gateway/MCP yet) · ledger = JSONL not DynamoDB ·
 %%   news = simulated (no KB feed yet).
-%% ① + ⑦ frontend (frontend/: HTML/CSS/JS, no build step; ask, profile form, analysis plan, light+dark;
+%% ① + ⑦ frontend (frontend/: HTML/CSS/JS, no build step; sign-in, ask, profile form, analysis plan, light+dark;
 %%   served by the API locally, not deployed yet; result view shows the answer once ⑤ writes it).
 %% NOT BUILT: L6 dispatcher (API → AgentCore Runtime) · Explainer agent · file upload ·
 %%   Guardrails (wired in the Intake, needs AF_GUARDRAIL_ID) · Memory (wired, needs AF_MEMORY_ID) ·
@@ -40,7 +40,7 @@ flowchart TB
 
   %% ===== 2. API =====
   %% AWS: API Gateway (HTTP API + Cognito JWT authorizer) · Lambda (FastAPI + Mangum)
-  API["② API Gateway HTTP + Lambda (FastAPI)<br/>POST /v1/runs → 202 run_id (or 200 question) · GET /v1/runs/id · GET/PUT /v1/profile · GET /v1/personas"]
+  API["② API Gateway HTTP + Lambda (FastAPI)<br/>POST /v1/runs → 202 run_id (or 200 question) · GET /v1/runs/id · GET/PUT /v1/profile · GET /v1/personas · GET /v1/me"]
 
   %% ===== 3. Intake =====
   %% AWS: Bedrock (Claude Haiku, Converse API + structured outputs JSON Schema) · Guardrails (input)
@@ -92,6 +92,11 @@ flowchart TB
 
   %% ===== Flow =====
   %% L1  UI → API: Cognito issues the JWT; the API Gateway JWT authorizer validates it before the Lambda.
+  %%      BUILT: user pool alphaforge-users + public web client alphaforge-web (scripts/setup_cognito.py): email +
+  %%      password, sign-up with an emailed code, forgot password, 3 demo accounts (amira/mateo/robert.demo@
+  %%      alphaforge.example) whose profile is seeded from personas.json on first sign-in. The browser calls Cognito
+  %%      directly (USER_PASSWORD_AUTH, refresh); the API sends the ID token as Bearer. Locally (no API Gateway),
+  %%      AF_AUTH_MODE=cognito makes the API verify it itself (backend/app/api/auth.py: JWKS, RS256, iss, aud, exp).
   %%      Files go straight to S3 via presigned URL (never through Lambda, 6 MB limit).
   UI -->|"JWT"| API
   %% L2  API → Intake: the API Lambda (backend/app/api/, FastAPI + Mangum) runs the Intake and the context

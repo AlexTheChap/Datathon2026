@@ -119,6 +119,16 @@ class ApiService:
         return 202, MessageOut(kind="run", run_id=run.run_id, run_status=run.status,
                                enabled_agents=run.execution_plan.enabled_names, **common)
 
+    # ----- Demo accounts -----
+    def ensure_demo_profile(self, actor_id: str, persona: Optional[str]) -> None:
+        """A demo account (amira/mateo/robert) starts with its persona's profile from core/personas.json.
+        Only when it has none yet: changes the user makes afterwards are kept."""
+        if not persona or self.profiles.get(actor_id) is not None:
+            return
+        form = next((p["profile_form"] for p in example_personas() if p["id"] == persona), None)
+        if form is not None:
+            self.profiles.put(Profile(actor_id=actor_id, **form))
+
     # ----- GET /v1/runs/{run_id} -----
     def get_run(self, actor_id: str, run_id: str) -> RunRecord:
         run = self.runs.get(run_id)
