@@ -278,3 +278,23 @@ def test_file_store_keeps_contacts_apart_from_profiles(tmp_path):
     svc = service_from_env({"AF_STORE": "file", "AF_DATA_DIR": str(tmp_path)})
     svc.put_sms("a", SmsPrefsIn(opt_in=True, phone="5145550123"))
     assert (tmp_path / "contacts" / "a.json").exists() and not (tmp_path / "profiles" / "a.json").exists()
+
+
+def test_a_failed_text_does_not_stop_the_others_and_is_retried(world):
+    contacts, profiles, source = world
+    contacts.put(SmsContact(actor_id="zoe", opt_in=True, phone="4165550111"))
+    profiles.put(profile("zoe", {"NVDA": 1.0}))
+
+    class FlakySender(DryRunSender):
+        def send(self, phone, text):
+            if phone == "+15145550123":
+                raise RuntimeError("InvalidParameter: phone")
+            return super().send(phone, text)
+
+    sender = FlakySender()
+    r = run_alerts(contacts, profiles, source, sender, "2026-11-09", "2026-11-12")
+    by_actor = {p["actor_id"]: p for p in r["people"]}
+    assert "InvalidParameter" in by_actor["robert"]["error"] and r["texts_failed"] == 1
+    assert [p for p, _ in sender.sent] == ["+14165550111"] and r["texts_sent"] == 1      # zoe still gets hers
+    assert not contacts.was_sent("robert", "N-NVDA-2026-11-12")                            # retried next run
+    assert contacts.was_sent("zoe", "N-NVDA-2026-11-12")
