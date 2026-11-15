@@ -14,7 +14,7 @@ flowchart TB
 
   %% ===== 2. API =====
   %% AWS: API Gateway (HTTP API + Cognito JWT authorizer) · Lambda (FastAPI + Mangum)
-  API["② API Gateway HTTP + Lambda (FastAPI)<br/>POST /v1/runs → 202 run_id · GET /v1/runs/id"]
+  API["② API Gateway HTTP + Lambda (FastAPI)<br/>POST /v1/runs → 202 run_id (or 200 question) · GET /v1/runs/id · GET/PUT /v1/profile"]
 
   %% ===== 3. Intake =====
   %% AWS: Bedrock (Claude Haiku, Converse API + structured outputs JSON Schema) · Guardrails (input)
@@ -28,7 +28,7 @@ flowchart TB
   %% AWS: Lambda (plain Python code) · S3 or Bedrock Prompt Management (versioned templates)
   subgraph CTX["④ Context resolution — deterministic code, no LLM"]
     PLAN{{"Plan resolver<br/>task × profile × toggles → enabled sub-agents"}}
-    LOAD{{"Prompt loader<br/>base prompts by language · experience · role<br/>(versioned agent.md templates in S3)"}}
+    LOAD{{"Prompt loader<br/>Explainer prompt by experience level<br/>(versioned explainer.level.md templates in S3)"}}
   end
 
   %% ===== 5. Agents =====
@@ -68,20 +68,27 @@ flowchart TB
   %% L1  UI → API: Cognito issues the JWT; the API Gateway JWT authorizer validates it before the Lambda.
   %%      Files go straight to S3 via presigned URL (never through Lambda, 6 MB limit).
   UI -->|"JWT"| API
-  %% L2  API → Intake: Lambda calls Bedrock (Haiku) with structured outputs (JSON schema), via the anthropic
+  %% L2  API → Intake: the API Lambda (backend/app/api/, FastAPI + Mangum) runs the Intake and the context
+  %%      resolution in-process, synchronously (a few s, under API Gateway's 30 s): it answers 200 with the Intake's
+  %%      question or "create your profile first", else saves the run QUEUED and answers 202 {run_id}.
+  %%      Identity = Cognito JWT `sub` (X-Actor-Id header only with AF_AUTH_MODE=dev).
+  %%      The Intake calls Bedrock (Haiku) with structured outputs (JSON schema), via the anthropic
   %%      SDK (AnthropicBedrock client = InvokeModel, messages.parse, inference profile us.anthropic.claude-haiku-5-5);
   %%      code: backend/app/intake/. Guardrails filters the input (prompt attack, personal data): ApplyGuardrail
   %%      when AF_GUARDRAIL_ID is set. Offline mode without an LLM (AF_INTAKE_MODE=mock) for tests and demos.
   API --> ING
   %% L3  Intake → JSON: output validated by schema (Bedrock structured outputs), then Pydantic;
-  %%      the profile is stored in DynamoDB (ACTOR#… / PROFILE#…).
+  %%      the profile is stored in DynamoDB (ACTOR#… / PROFILE#current), including the sub-agent toggles the user
+  %%      switches on/off in chat (with their words: agent_toggle_reasons) and the profile form (PUT /v1/profile).
   ING --> PROF
   ING --> REQ
-  %% L4  JSON → Plan resolver: Lambda, plain Python code; versioned agent/task registry (repo, or AWS AppConfig as an option).
+  %% L4  JSON → Plan resolver: plain Python code; versioned agent/task registry
+  %%      (backend/app/core/plan_registry.yaml, or AWS AppConfig as an option). Output: ExecutionPlan.
   PROF --> PLAN
   REQ --> PLAN
   %% L5  Profile → Prompt loader: Lambda; picks the Explainer template (experience level). Source: Git
-  %%      (agents/prompts/), published to S3 in aws mode (AF_PROMPT_SOURCE); option: Bedrock Prompt Management.
+  %%      (backend/app/prompts/explainer.<level>.md), published to S3 by scripts/deploy_context_lambda.py
+  %%      (AF_PROMPT_SOURCE=s3); option: Bedrock Prompt Management. Output: PromptRef (level, version, sha256).
   PROF --> LOAD
   %% L6  Plan → Orchestrator: DynamoDB (run QUEUED) → "dispatcher" Lambda (asynchronous invocation)
   %%      → AgentCore Runtime (InvokeAgentRuntime). API / agents boundary; IAM for the call.
