@@ -370,6 +370,30 @@ def test_portfolio_dashboard_shows_the_built_portfolio(page, base_url):
     assert page.errors == []
 
 
+def test_portfolio_shows_how_it_reacts_to_rates_when_macro_is_on(page, base_url):
+    _portfolio_for(page)
+    page.goto(f"{base_url}/#/portfolio")
+    page.wait_for_selector("#rates-title")
+    page.wait_for_selector("section[aria-labelledby=rates-title] dl.facts", timeout=8000)
+    text = page.locator("section[aria-labelledby='rates-title']").inner_text()
+    assert "Bank of Canada rate" in text and "2.5%" in text
+    assert "−" in text and "not a forecast" in text                                 # a 1-point rise lowers bond-fund values
+    rows = page.locator("section[aria-labelledby='rates-title'] tbody tr")
+    assert rows.count() == 4                                                         # SPY, XBB.TO, XIU.TO, QQQ
+    assert "Not measured" in page.locator("section[aria-labelledby='rates-title'] tbody tr:has-text('SPY')").inner_text()
+    assert page.errors == []
+
+
+def test_rates_section_is_hidden_when_macro_is_off(page, base_url):
+    run = _portfolio_for(page)
+    SERVICE.put_profile(run.actor_id, {"agent_toggles": {"macro_scenarios": False}})
+    page.goto(f"{base_url}/#/portfolio")
+    page.wait_for_selector(".hero-card")
+    page.wait_for_timeout(500)
+    assert page.locator("#rates-title").count() == 0
+    assert page.errors == []
+
+
 def test_detail_level_follows_experience_and_can_be_changed(page, base_url):
     _portfolio_for(page, experience="beginner")
     page.goto(f"{base_url}/#/portfolio")

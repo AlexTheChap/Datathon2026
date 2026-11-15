@@ -221,6 +221,7 @@ export async function renderPortfolio(main, ctx) {
       allocationSection(view),
       riskSection(view),
       projectionSection(view),
+      analysisOn(profile, "macro_scenarios") ? ratesSection(view) : null,
       level !== "simple" && risk.concentration ? sectorSection(view) : null,
       level === "detailed" && risk.metrics ? metricsSection(view) : null,
       level === "detailed" && risk.correlation ? correlationSection(view) : null,
@@ -526,6 +527,32 @@ function projectionSection(view) {
   return section;
 }
 
+/* ---------- How the portfolio reacts to rates (POST /v1/rate-exposure): shown when "Macro and rates" is on ---------- */
+function ratesSection(view) {
+  const { ctx, h, p, level } = view;
+  const out = h("div", { class: "stack-sm" }, ctx.skeleton(3));
+  const section = h("section", { class: "panel stack", "aria-labelledby": "rates-title" },
+    h("h2", { id: "rates-title", class: "section-title" }, "How your portfolio reacts to rates"), out);
+  (async () => {
+    try {
+      const { data } = await ctx.api("POST", "/v1/rate-exposure", { weights: p.weights });
+      const facts = D.rateFacts(data);
+      out.replaceChildren(
+        h("p", null, D.rateSentence(data)),
+        facts.length ? h("dl", { class: "facts" }, facts.map(([k, v]) => [h("dt", null, k), h("dd", null, v)])) : null,
+        level === "simple" ? null : h("div", { class: "table-wrap" }, h("table", { class: "data-table" },
+          h("caption", { class: "visually-hidden" }, "Sensitivity of each holding to a 1-point rise in yields"),
+          h("thead", null, h("tr", null, ["Holding", "Share", "Sensitivity (years)", "If yields rise 1 point"].map((x) => h("th", { scope: "col" }, x)))),
+          h("tbody", null, D.rateRows(data).map((r) => h("tr", null, h("th", { scope: "row" }, r.ticker),
+            h("td", { class: "num" }, r.weight), h("td", { class: "num" }, r.duration), h("td", { class: "num" }, r.impact)))))),
+        h("p", { class: "small muted" }, `Rates as of ${data.rates_date || data.as_of}. Only bond funds have a measured sensitivity; stocks and equity funds are not measured. `
+          + "It uses the average of 2021–2026 and changes over time."));
+    } catch (err) {
+      out.replaceChildren(h("p", { class: "muted" }, "The rate sensitivity isn't available right now."));
+    }
+  })();
+  return section;
+}
 function assumptionsBlock(view, d) {
   const { h } = view;
   const a = d.assumptions;

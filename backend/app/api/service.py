@@ -107,6 +107,14 @@ class MessageOut(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class RateExposureIn(BaseModel):
+    """POST /v1/rate-exposure: ad-hoc weights; default is the saved portfolio."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    weights: dict[str, float] | None = Field(default=None, description="Default: the saved portfolio.")
+
+
 class ProjectionIn(BaseModel):
     """POST /v1/projection: ad-hoc weights. Missing start_value / horizon_years come from the caller's profile
     (simulated capital; horizon upper bound). n_paths is capped server-side."""
@@ -313,6 +321,23 @@ class ApiService:
         return {"evidence_id": ev["evidence_id"], "say": ev["say"], "as_of": ev["as_of"], "inputs": ev["inputs"],
                 "method": ev["method"], **ev["output"], **({"garch_job": ev["garch_job"]} if "garch_job" in ev else {})}
 
+    def rate_exposure(self, actor_id: str, body: RateExposureIn) -> dict[str, Any]:
+        """How the holdings have reacted to interest rates, with the current rates (deterministic, no LLM)."""
+        from app.core.config import get_settings
+        from app.tools.context import default_as_of
+        from app.tools.rate_exposure_tool import run_rate_exposure
+        profile = self.profiles.get(actor_id)
+        weights = body.weights or (profile.portfolio if profile else None)
+        if not weights:
+            raise ApiError(422, "Give weights, or save a portfolio first.")
+        settings = get_settings()
+        try:
+            ev = run_rate_exposure(weights, default_as_of(), settings.abs_path(settings.curated_dir))
+        except (KeyError, ValueError) as e:
+            raise ApiError(422, str(e).strip("'\"")) from e
+        return {"evidence_id": ev["evidence_id"], "say": ev["say"], "as_of": ev["as_of"], "inputs": ev["inputs"],
+                "method": ev["method"], "assumptions": ev["assumptions"], "data_sources": ev["data_sources"],
+                **ev["output"]}
     def vol_forecast(self, actor_id: str, tickers: list[str]) -> dict[str, Any]:
         from app.tools.context import default_as_of
         from app.tools.vol_forecast_tool import vol_forecast
