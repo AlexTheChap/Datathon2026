@@ -31,3 +31,6 @@ build/
 # News ingestion: kb/ is regenerated from news_index.csv (scripts/ingest_news.py); cache is a local resume file
 data/external/news/kb/
 data/external/news/gdelt_cache.jsonl
+
+# Sign-in config with the demo password (scripts/setup_cognito.py)
+frontend/config.js
