@@ -616,7 +616,7 @@ function reportButton(view, weights, text) {
   btn.addEventListener("click", async () => {
     btn.disabled = true; note.textContent = "Preparing the report…";
     try {
-      const name = await ctx.download("/v1/report", { weights }, "alphaforge-suitability.pdf");
+      const name = await ctx.download("/v1/report", { weights }, "fitfolio-suitability.pdf");
       note.textContent = `Saved: ${name}`;
       if (ctx.announce) ctx.announce("Suitability report downloaded.");
     } catch (err) {

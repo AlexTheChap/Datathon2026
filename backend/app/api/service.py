@@ -440,7 +440,7 @@ class ApiService:
         pdf = suitability_pdf(prof, weights, fit, rt.universe, as_of, charts=charts,
                               run=run.model_dump(mode="json") if run is not None and run.actor_id == actor_id else None,
                               generated_at=now, label="Your portfolio" if is_saved else "A mix tried in the app")
-        return pdf, f"alphaforge-suitability-{now:%Y-%m-%d}.pdf"
+        return pdf, f"fitfolio-suitability-{now:%Y-%m-%d}.pdf"
 
     def correlation(self, actor_id: str, body: FitScoreIn) -> dict[str, Any]:
         """How the holdings move together: correlation of daily returns in CAD (deterministic, no LLM). Used by the

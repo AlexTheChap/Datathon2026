@@ -134,7 +134,7 @@ def test_fit_score_is_measured_on_the_callers_profile(client):
     assert client.post("/v1/fit-score", json={"weights": {"NOPE": 1.0}}, headers=h).status_code == 422
     pdf = client.post("/v1/report", json={"weights": {"QQQ": 1.0}}, headers=h)
     assert pdf.status_code == 200 and pdf.headers["content-type"] == "application/pdf" and pdf.content.startswith(b"%PDF")
-    assert pdf.headers["content-disposition"].startswith('attachment; filename="alphaforge-suitability-')
+    assert pdf.headers["content-disposition"].startswith('attachment; filename="fitfolio-suitability-')
     assert client.post("/v1/report", json={}, headers=h).status_code == 422             # no weights, no saved portfolio
     corr = client.post("/v1/correlation", json={"weights": {"SPY": 0.5, "XBB.TO": 0.5}}, headers=h).json()
     assert corr["matrix"]["SPY"]["SPY"] == 1.0 and -1 <= corr["matrix"]["SPY"]["XBB.TO"] <= 1

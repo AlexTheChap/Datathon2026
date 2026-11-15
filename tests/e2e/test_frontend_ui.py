@@ -517,9 +517,9 @@ def test_the_suitability_report_downloads_as_a_pdf(page, base_url):
     with page.expect_download() as info:
         page.click(".hero-card button:has-text('Download the suitability report')")
     d = info.value
-    assert d.suggested_filename.startswith("alphaforge-suitability-") and d.suggested_filename.endswith(".pdf")
+    assert d.suggested_filename.startswith("fitfolio-suitability-") and d.suggested_filename.endswith(".pdf")
     assert open(d.path(), "rb").read(5) == b"%PDF-"
-    page.wait_for_selector(".hero-card >> text=Saved: alphaforge-suitability-")
+    page.wait_for_selector(".hero-card >> text=Saved: fitfolio-suitability-")
     # The mix being tried has its own report.
     page.wait_for_selector(".whatif__result >> text=Download a report for this mix")
     with page.expect_download() as info2:

@@ -111,14 +111,14 @@ class _Doc(FPDF):
         self.rid, self.stamp = rid, stamp
         self.set_margins(18, 18, 18)
         self.set_auto_page_break(True, margin=18)
-        self.set_title("AlphaForge suitability report")
-        self.set_author("AlphaForge (simulation)")
+        self.set_title("Fitfolio suitability report")
+        self.set_author("Fitfolio (simulation)")
 
     def footer(self):
         self.set_y(-12)
         self.set_font("Helvetica", "", 7.5)
         self.set_text_color(*MUTED)
-        self.cell(0, 4, _t(f"AlphaForge suitability report - {self.stamp} - report {self.rid} - simulation, not advice"),
+        self.cell(0, 4, _t(f"Fitfolio suitability report - {self.stamp} - report {self.rid} - simulation, not advice"),
                   align="L")
         self.cell(0, 4, f"Page {self.page_no()}/{{nb}}", align="R")
 
@@ -292,7 +292,7 @@ def suitability_pdf(profile: dict, weights: dict, fit: dict, universe, as_of: st
 
     # ----- Title and verdict -----
     doc.set_font("Helvetica", "B", 9); doc.set_text_color(*ACCENT)
-    doc.cell(0, 5, "ALPHAFORGE  -  SUITABILITY REPORT", new_x="LMARGIN", new_y="NEXT")
+    doc.cell(0, 5, "FITFOLIO  -  SUITABILITY REPORT", new_x="LMARGIN", new_y="NEXT")
     doc.h1(f"{label}: {fit['score']}% fit with the investor's profile")
     doc.meter(fit["score"], fit["band"])
     doc.para(f"Governance verdict: {fit['verdict']}. Generated {stamp}; market data up to {as_of} "
@@ -399,7 +399,7 @@ def suitability_pdf(profile: dict, weights: dict, fit: dict, universe, as_of: st
                   ("Analyses used", ", ".join(ANALYSES.get(a.get("agent"), a.get("agent")) for a in plan.get("enabled_agents") or []) or "-"),
                   ("Explanation template", f"{pr.get('key')} version {pr.get('version')} (sha256 {str(pr.get('sha256') or '')[:12]})")]
     else:
-        facts.append(("Built by", "a mix tried in the app (not an AlphaForge proposal)"))
+        facts.append(("Built by", "a mix tried in the app (not a Fitfolio proposal)"))
     doc.facts(facts)
     doc.ln(1)
     doc.para("Data: daily total returns (dividends reinvested) converted to CAD - Yahoo Finance via yfinance (prices), "
