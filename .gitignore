@@ -1,8 +1,26 @@
+# Secrets
 .env
-.venv/
+.env.*
+!.env.example
+
+# Python
 __pycache__/
 *.py[cod]
+.venv/
+venv/
 *.egg-info/
 .pytest_cache/
-.zcode/
+.ruff_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Infra
+cdk.out/
+.bedrock_agentcore.yaml
+
+# Local run artifacts / agent session data
 data/runs/
+.zcode/

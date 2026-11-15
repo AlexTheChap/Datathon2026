@@ -1,25 +1,25 @@
 """
-Extrait la composition de FNB américains (SPY, QQQ, ESGV…) depuis les jeux de données
-N-PORT de la SEC (domaine public), et produit :
-    etf_holdings.csv          fund, cusip, issuer_name, weight, report_date, accession
-    esg_index_screen.csv      titres de SPY absents d'ESGV (signal « a_verifier »)
+Extracts the holdings of US ETFs (SPY, QQQ, ESGV...) from the SEC N-PORT data sets
+(public domain) and produces:
+    nport_holdings.csv        fund, cusip, issuer_name, weight, report_date, accession
+    nport_esg_screen.csv      SPY holdings missing from ESGV ("to_verify" signal)
 
-1. Téléchargez manuellement un zip trimestriel sur la page SEC « Form N-PORT Data Sets »
+1. Manually download a quarterly zip from the SEC "Form N-PORT Data Sets" page
    (https://www.sec.gov/data-research/sec-markets-data/form-n-port-data-sets).
-2. Décompressez-le, puis :
-       python scripts/nport_holdings.py --dir chemin/vers/le/zip_decompresse --out data/external
+2. Unzip it, then run:
+       python scripts/nport_holdings.py --dir path/to/unzipped_folder --out data/external
 
-Les noms de fichiers/colonnes ci-dessous suivent la documentation SEC (README du zip).
-S'ils diffèrent, le script affiche les colonnes disponibles : ajustez COLS.
-Pour un « as_of » de simulation, utilisez le trimestre dont la date de DÉPÔT ≤ as_of.
-XIU.TO (FNB canadien) n'est PAS dans N-PORT : utiliser le fichier de positions d'iShares Canada.
+The file and column names below follow the SEC documentation (README in the zip).
+If they differ, the script prints the available columns: adjust COLS.
+For a simulated "as_of", use the quarter whose FILING date is <= as_of.
+XIU.TO (Canadian ETF) is NOT in N-PORT: use the iShares Canada holdings file.
 """
 import argparse
 from pathlib import Path
 
 import pandas as pd
 
-FUNDS = {  # libellé -> motif recherché dans le nom de la série
+FUNDS = {  # label -> pattern searched in the series name
     "SPY": "SPDR S&P 500 ETF",
     "QQQ": "Invesco QQQ",
     "ESGV": "ESG U.S. Stock ETF",
@@ -31,7 +31,7 @@ COLS = {"series_name": "SERIES_NAME", "accession": "ACCESSION_NUMBER", "issuer":
 def read(dirpath: Path, name: str) -> pd.DataFrame:
     p = next(iter(dirpath.glob(f"{name}*.tsv")), None)
     if p is None:
-        raise FileNotFoundError(f"{name}*.tsv introuvable dans {dirpath}")
+        raise FileNotFoundError(f"{name}*.tsv not found in {dirpath}")
     return pd.read_csv(p, sep="\t", dtype=str, low_memory=False)
 
 
@@ -49,13 +49,13 @@ def main():
     for df, need in [(info, ["series_name", "accession"]), (hold, ["accession", "issuer", "cusip", "pct"])]:
         miss = [COLS[c] for c in need if COLS[c] not in df.columns]
         if miss:
-            raise KeyError(f"Colonnes manquantes {miss}. Disponibles : {list(df.columns)}")
+            raise KeyError(f"Missing columns {miss}. Available : {list(df.columns)}")
 
     rows = []
     for fund, pattern in FUNDS.items():
         f = info[info[COLS["series_name"]].str.contains(pattern, case=False, na=False)]
         if f.empty:
-            print(f"[{fund}] série introuvable dans ce trimestre")
+            print(f"[{fund}] series not found in this quarter")
             continue
         acc = f[COLS["accession"]].iloc[-1]
         h = hold[hold[COLS["accession"]] == acc]
@@ -65,22 +65,22 @@ def main():
             "fund": fund, "cusip": h[COLS["cusip"]], "issuer_name": h[COLS["issuer"]],
             "weight": pd.to_numeric(h[COLS["pct"]], errors="coerce") / 100,
             "report_date": rd, "accession": acc}))
-        print(f"[{fund}] {len(h)} positions, somme des poids = {rows[-1]['weight'].sum():.3f}")
+        print(f"[{fund}] {len(h)} positions, sum of weights = {rows[-1]['weight'].sum():.3f}")
 
     hol = pd.concat(rows, ignore_index=True)
-    hol.to_csv(out / "etf_holdings.csv", index=False)
+    hol.to_csv(out / "nport_holdings.csv", index=False)
 
     if {"SPY", "ESGV"} <= set(hol["fund"]):
         spy, esg = hol[hol.fund == "SPY"], hol[hol.fund == "ESGV"]
         m = spy.merge(esg[["cusip"]].assign(in_esgv=True), on="cusip", how="left")
         m["in_esgv"] = m["in_esgv"].fillna(False)
-        m["status"] = m["in_esgv"].map({True: "present_dans_esgv", False: "a_verifier"})
-        m["note"] = ("Absent d'ESGV : retiré par le filtre FTSE Choice (activité, controverse ou critère "
-                     "de diversité) OU écart d'univers/rapprochement CUSIP. Raison non déterminée ici.")
+        m["status"] = m["in_esgv"].map({True: "present_in_esgv", False: "to_verify"})
+        m["note"] = ("Absent from ESGV: removed by the FTSE Choice filter (activity, controversy or diversity "
+                     "criterion) OR universe/CUSIP matching gap. Reason not determined here.")
         m[["cusip", "issuer_name", "weight", "in_esgv", "status", "report_date", "accession", "note"]] \
-            .to_csv(out / "esg_index_screen.csv", index=False)
+            .to_csv(out / "nport_esg_screen.csv", index=False)
         ex = m[~m.in_esgv]
-        print(f"SPY vs ESGV : {len(ex)} titres absents d'ESGV ({ex.weight.sum():.1%} du poids de SPY)")
+        print(f"SPY vs ESGV : {len(ex)} holdings missing from ESGV ({ex.weight.sum():.1%} of SPY weight)")
 
 
 if __name__ == "__main__":

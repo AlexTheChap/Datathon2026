@@ -1,9 +1,9 @@
 """End-to-end orchestrator smoke test: the "Robert" scenario from the brief.
 
-"I'm thinking of putting 20% into Nvidia, everyone's talking about it." —
-Robert, conservative profile, 3-5 year horizon. The orchestrator must call the
-tools (governance, stress), identify the conflict with the profile and
-challenge the request instead of agreeing. Requires AWS credentials (Bedrock).
+"I'm thinking of putting 20% in Nvidia, everyone is talking about it." —
+Robert, conservative profile (low_moderate), 3-5 year horizon. The orchestrator
+must call the tools (governance, stress), identify the conflict with the profile
+and challenge the request instead of agreeing. Requires AWS credentials (Bedrock).
 
 Usage: .venv/bin/python scripts/smoke_orchestrator.py [--persona amira|mateo|robert]
 """
@@ -19,22 +19,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 from app.agents.orchestrator import run_orchestrator  # noqa: E402
 from app.core.config import get_settings  # noqa: E402
-from app.schemas.models import AnalysisRequest, OrchestratorInput, Profile  # noqa: E402
+from app.schemas.models import AnalysisRequest, OrchestratorInput, profile_from_persona  # noqa: E402
 from app.store.ledger import JsonlLedger  # noqa: E402
 
-# Robert's current fictional portfolio (personas.json, demande_demo field).
-# The personas' messages stay in their own language (French for Robert/Mateo):
-# that is input data, and the agent replies in the investor's language.
-ROBERT_PORTFOLIO = {"XIU.TO": 0.30, "XBB.TO": 0.30, "ZST.TO": 0.10, "RY.TO": 0.10,
-                    "FTS.TO": 0.10, "JNJ": 0.10}
 MESSAGES = {
-    "robert": ("Je pense mettre 20 % dans Nvidia, tout le monde en parle.",
-               "risk_review", ROBERT_PORTFOLIO),
+    "robert": ("I'm thinking of putting 20% in Nvidia, everyone is talking about it.",
+               "risk_review"),
     "amira": ("Should I go all-in on tech and crypto? I'm 26 and can take risk.",
-              "risk_review", None),
-    "mateo": ("Propose-moi un équilibre croissance/stabilité en évitant les entreprises controversées.",
-              "allocation_proposal", {"XIU.TO": 0.5, "XBB.TO": 0.3, "ENB.TO": 0.2}),
+              "risk_review"),
+    "mateo": ("Propose a growth/stability balance avoiding companies with major controversies.",
+              "allocation_proposal"),
 }
+
+
+def _portfolio(persona: dict) -> dict[str, float] | None:
+    demo = persona.get("demo_request") or {}
+    pf = demo.get("simulated_current_portfolio")
+    return {k: float(v) for k, v in pf.items()} if pf else None
 
 
 def main() -> int:
@@ -45,19 +46,20 @@ def main() -> int:
     s = get_settings()
     personas = json.loads(s.abs_path(s.personas_path).read_text(encoding="utf-8"))["personas"]
     persona = next(p for p in personas if p["id"] == args.persona)
-    user_message, task, portfolio = MESSAGES[args.persona]
+    user_message, task = MESSAGES[args.persona]
+    profile = profile_from_persona(persona)
 
     inp = OrchestratorInput(
         run_id=f"smoke-{uuid.uuid4().hex[:8]}",
-        actor_id=f"persona-{persona['id']}",
-        language=persona["language"],
+        actor_id=profile.actor_id,
+        language=profile.language,
         as_of="2026-11-12",
-        profile=Profile.model_validate(persona),
+        profile=profile,
         request=AnalysisRequest(
-            request_id=f"req-{uuid.uuid4().hex[:6]}", actor_id=f"persona-{persona['id']}",
-            task=task, user_message=user_message,
+            request_id=f"req-{uuid.uuid4().hex[:6]}", actor_id=profile.actor_id,
+            task=task, user_message=user_message, intake_confidence=0.95,
         ),
-        portfolio_weights=portfolio,
+        portfolio_weights=_portfolio(persona),
     )
 
     out = run_orchestrator(inp)

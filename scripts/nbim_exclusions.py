@@ -1,17 +1,17 @@
 """
-Liste d'exclusion du fonds souverain norvégien (NBIM, recommandations du Conseil d'éthique)
-→ data/external/nbim_exclusions.csv (liste complète, avec ticker quand on le retrouve)
-→ data/curated/controversies.csv (critères de CONDUITE seulement, statut a_verifier)
+Exclusion list of the Norwegian sovereign wealth fund (NBIM, Council on Ethics recommendations)
+→ data/external/nbim_exclusions.csv (full list, with ticker when found)
+→ data/curated/controversies.csv (CONDUCT criteria only, status to_verify)
 
-    python scripts/nbim_exclusions.py        (après scripts/etf_holdings.py pour repérer aussi les titres des FNB)
+    python scripts/nbim_exclusions.py        (run after scripts/etf_holdings.py to also match ETF holdings)
 
 Source : https://www.nbim.no/en/responsible-investment/ethical-exclusions/exclusion-of-companies/
-  - « Product-based » (charbon, armes, tabac…) = ACTIVITÉ, pas une controverse : gardé dans nbim_exclusions.csv
-    seulement (la part des revenus n'est pas publiée, donc rien n'est écrit dans esg_screen.csv).
-  - « Conduct-based » (dommages environnementaux, GES, droits humains, corruption…) = controverse :
-    Exclusion → gravite majeure ; Observation (sous surveillance, pas de conclusion) → moderee.
-Formulation : « exclue (ou mise sous observation) par le fonds souverain norvégien pour <critère> ».
-Rapprochement par NOM normalisé (la liste ne donne ni ticker ni ISIN) : vérifier chaque correspondance.
+  - "Product-based" (coal, weapons, tobacco...) = ACTIVITY, not a controversy: kept in nbim_exclusions.csv
+    only (the revenue share is not published, so nothing is written to esg_screen.csv).
+  - "Conduct-based" (environmental damage, GHG, human rights, corruption...) = controversy:
+    Exclusion → severity major; Observation (under watch, no conclusion) → moderate.
+Wording: "excluded (or placed under observation) by the Norwegian sovereign wealth fund for <criterion>".
+Matching is by normalized NAME (the list gives neither ticker nor ISIN): check every match.
 """
 from __future__ import annotations
 
@@ -29,10 +29,10 @@ from extract_controversies import COLUMNS, merge  # noqa: E402
 
 URL = "https://www.nbim.no/en/responsible-investment/ethical-exclusions/exclusion-of-companies/"
 BROWSER = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-SOURCE_DOC = "NBIM - Exclusion of companies (Conseil d'éthique)"
-CATEGORIE = [  # (motif dans le critère, catégorie du gabarit)
-    (r"environment|greenhouse|climate", "environnement"),
-    (r"corruption|financial crime", "gouvernance"),
+SOURCE_DOC = "NBIM - Exclusion of companies (Council on Ethics)"
+CATEGORY_MAP = [  # (pattern in the criterion, template category)
+    (r"environment|greenhouse|climate", "environment"),
+    (r"corruption|financial crime", "governance"),
     (r"human rights|individuals' rights|war or conflict|ethical norms|labour|child", "social"),
 ]
 SUFFIXES = r"\b(the|inc|incorporated|corp|corporation|co|company|ltd|limited|plc|sa|ag|nv|se|asa|group|holdings?|cl [ab]|class [ab])\b"
@@ -61,7 +61,7 @@ def fetch() -> pd.DataFrame:
 
 
 def name_map(universe: pd.DataFrame, holdings: pd.DataFrame | None) -> dict:
-    """nom normalisé -> ticker (univers d'abord, puis titres détenus par les FNB)."""
+    """normalized name -> ticker (universe first, then ETF holdings)."""
     m = {}
     if holdings is not None:
         for r in holdings[holdings["ticker"] != ""].itertuples():
@@ -89,31 +89,31 @@ def main():
     df["retrieved_on"] = pd.Timestamp.today().date().isoformat()
     Path(a.out_list).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(a.out_list, index=False, encoding="utf-8")
-    print(f"NBIM : {len(df)} sociétés ({(df.category == 'Conduct-based').sum()} pour conduite), "
-          f"{(df.ticker != '').sum()} rapprochées d'un ticker → {a.out_list}")
+    print(f"NBIM: {len(df)} companies ({(df.category == 'Conduct-based').sum()} conduct-based), "
+          f"{(df.ticker != '').sum()} matched to a ticker → {a.out_list}")
 
     rows = []
     for r in df[(df.ticker != "") & (df.category == "Conduct-based")].itertuples():
-        cat = next((c for pat, c in CATEGORIE if re.search(pat, r.criterion, re.I)), "autre")
-        verbe = "exclue" if r.decision == "Exclusion" else "mise sous observation"
+        cat = next((c for pat, c in CATEGORY_MAP if re.search(pat, r.criterion, re.I)), "other")
+        verb = "excluded" if r.decision == "Exclusion" else "placed under observation"
         rows.append({
-            "ticker": r.ticker, "date_publication": r.published, "categorie": cat,
-            "description_fr": (f"{r.company} : {verbe} par le fonds souverain norvégien (NBIM, recommandation du "
-                               f"Conseil d'éthique) le {r.published}, critère « {r.criterion} »."),
-            "citation_en": r.criterion,
-            "gravite": "majeure" if r.decision == "Exclusion" else "moderee",
-            "statut": "a_verifier", "devise_montant": "", "montant": None,
+            "ticker": r.ticker, "publication_date": r.published, "category": cat,
+            "description": (f"{r.company}: {verb} by the Norwegian sovereign wealth fund (NBIM, Council on "
+                            f"Ethics recommendation) on {r.published}, criterion \"{r.criterion}\"."),
+            "quote": r.criterion,
+            "severity": "major" if r.decision == "Exclusion" else "moderate",
+            "status": "to_verify", "amount_currency": "", "amount": None,
             "source_doc": SOURCE_DOC, "section": f"{r.category} / {r.decision}", "source_url": r.link,
-            "reviseur": "", "date_revision": "",
+            "reviewer": "", "review_date": "",
         })
     for r in df[df.ticker != ""].itertuples():
-        flag = "univers" if r.in_universe else "via FNB"
+        flag = "universe" if r.in_universe else "via ETF"
         print(f"  [{flag:<7}] {r.ticker:<8} {r.company} | {r.category} | {r.criterion} | {r.decision} {r.published}")
     if rows:
         out = Path(a.out)
         merged = merge(out, pd.DataFrame(rows)[COLUMNS])
         merged.to_csv(out, index=False, encoding="utf-8")
-        print(f"→ {out} : {len(rows)} ligne(s) NBIM ajoutée(s)/remplacée(s) en a_verifier ({len(merged)} au total)")
+        print(f"→ {out} : {len(rows)} NBIM row(s) added/replaced as to_verify ({len(merged)} total)")
 
 
 if __name__ == "__main__":

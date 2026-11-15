@@ -1,14 +1,37 @@
 {
   "schema_version": "1.0",
-  "id": "amira",
-  "risk_band": "eleve",
-  "horizon_years": [15, null],
-  "experience": "intermediaire",
-  "objectif": "Faire croître son capital à long terme",
-  "preferences": ["intelligence artificielle", "technologies émergentes", "entreprises en forte croissance", "cryptoactifs"],
-  "contraintes": ["maintenir une certaine diversification", "éviter de miser exclusivement sur les technologies"],
-  "exclusions": [],
-  "capacite_perte": null,
-  "capital_fictif": {"valeur": 50000, "hypothese": true},
-  "language": "en"
+  "actor_id": "sub-xyz",
+  "risk_band": "low_moderate",
+  "horizon_years": {
+    "min": 3,
+    "max": 5
+  },
+  "experience": "advanced",
+  "language": "en",
+  "objective": "Preserve capital while keeping some growth potential",
+  "preferences": [
+    "established companies",
+    "understandable business models",
+    "stability and quality",
+    "actively follows the markets"
+  ],
+  "constraints": [
+    "not interested in crypto-assets"
+  ],
+  "exclusions": [
+    {
+      "type": "asset_class",
+      "value": "crypto"
+    }
+  ],
+  "loss_capacity": null,
+  "capital": 400000,
+  "agent_toggles": {
+    "risk": true,
+    "news": false,
+    "esg": true,
+    "fundamentals": true,
+    "macro_scenarios": true,
+    "allocation": true
+  }
 }

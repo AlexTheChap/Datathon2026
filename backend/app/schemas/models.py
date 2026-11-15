@@ -1,59 +1,55 @@
-"""Pydantic schemas — the violet JSON nodes of docs/architecture.mmd.
+"""Orchestrator-layer schemas (node ⑤) — the violet JSON nodes of docs/architecture.mmd.
 
-Fields aligned with the team's examples (app/schemas/examples/*.json) and with
-core/personas.json (the actual profile shape: risk_band, horizon_years,
-exclusions…). `extra="allow"`: the examples carry descriptive fields (test,
-hypothese…) that we preserve without validating.
+Profile and Request are the CANONICAL schemas owned by the Intake/Plan teams
+(app/schemas/profile.py and request.py); this module re-exports them and adds
+what only the orchestrator needs: ExecutionPlan (plan-resolver output shape),
+OrchestratorInput (AgentCore entrypoint payload, L6) and OrchestratorOutput.
+`profile_from_persona` adapts core/personas.json entries to the canonical Profile
+(the Intake agent will do this conversion in production).
 """
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
-RiskBand = Literal["faible", "faible_a_modere", "modere", "eleve"]
-Language = Literal["en", "fr"]
+from app.schemas.profile import AgentToggles, HorizonYears, Language, Profile, RiskBand
+from app.schemas.request import PortfolioRef, Request
 
+# Canonical Intake schemas (re-exported so the orchestrator code imports one module).
+__all__ = [
+    "Profile", "Request", "AnalysisRequest", "PortfolioRef", "RiskBand", "Language",
+    "HorizonYears", "AgentToggles", "ExecutionPlan", "PlanAgent",
+    "OrchestratorInput", "OrchestratorOutput", "profile_from_persona",
+]
 
-class PortfolioRef(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    portfolio_id: str | None = None
-    upload_id: str | None = None
-
-
-class Profile(BaseModel):
-    """Investor profile validated by the Intake (node ③) — shape of personas.json."""
-
-    model_config = ConfigDict(extra="allow")
-
-    id: str
-    risk_band: RiskBand
-    horizon_years: list[float | None] = Field(min_length=2, max_length=2)
-    experience: str | None = None
-    objectif: str | None = None
-    preferences: list[str] = []
-    contraintes: list[str] = []
-    exclusions: list[dict[str, Any]] = []
-    capacite_perte: float | None = None
-    capital_fictif: dict[str, Any] | None = None
-    language: Language = "fr"
+# Historical alias: the orchestrator code was written against "AnalysisRequest".
+AnalysisRequest = Request
 
 
-class AnalysisRequest(BaseModel):
-    """Request validated by the Intake — shape of examples/request.example.json."""
+def profile_from_persona(persona: dict[str, Any]) -> Profile:
+    """Adapt a core/personas.json entry to the canonical Profile.
 
-    model_config = ConfigDict(extra="allow")
-
-    schema_version: str = "1.0"
-    request_id: str
-    actor_id: str
-    task: str
-    portfolio_ref: PortfolioRef | None = None
-    user_message: str = ""
-    parameters: dict[str, Any] = {}
-    toggles: dict[str, bool] = {}
-    intake_confidence: float | None = None
+    personas.json keeps `horizon_years` as a list [min, max] and nests the
+    capital as `simulated_capital.value`; the canonical Profile uses a
+    HorizonYears object and a flat `capital` field. Extra descriptive fields
+    (age, occupation, test_case…) are dropped — Profile is strict (extra=forbid).
+    """
+    h_min, h_max = persona.get("horizon_years", [None, None])
+    cap = persona.get("simulated_capital") or {}
+    return Profile(
+        actor_id=f"persona-{persona['id']}",
+        risk_band=persona["risk_band"],
+        horizon_years=HorizonYears(min=h_min, max=h_max),
+        experience=persona.get("experience", "intermediate"),
+        language=persona.get("language", "en"),
+        objective=persona.get("objective"),
+        preferences=persona.get("preferences", []),
+        constraints=persona.get("constraints", []),
+        exclusions=persona.get("exclusions", []),
+        loss_capacity=persona.get("loss_capacity"),
+        capital=cap.get("value"),
+    )
 
 
 class PlanAgent(BaseModel):
@@ -91,11 +87,11 @@ class OrchestratorInput(BaseModel):
 
     run_id: str
     actor_id: str
-    session_id: str | None = None
-    language: Language = "fr"
-    as_of: str | None = None
+    session_id: Optional[str] = None
+    language: Language = "en"
+    as_of: Optional[str] = None
     profile: Profile
-    request: AnalysisRequest
+    request: Request
     portfolio_weights: dict[str, float] | None = None
 
 
@@ -104,10 +100,10 @@ class OrchestratorOutput(BaseModel):
 
     run_id: str
     status: Literal["DONE", "FAILED"] = "DONE"
-    language: Language = "fr"
+    language: Language = "en"
     summary: str = ""
     evidence_ids: list[str] = []
     model: str = ""
-    session_id: str | None = None
+    session_id: Optional[str] = None
     duration_ms: int | None = None
     error: str | None = None

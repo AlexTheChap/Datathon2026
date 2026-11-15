@@ -1,26 +1,29 @@
 [project]
 name = "alphaforge"
 version = "0.1.0"
-description = "AlphaForge AI — agent orchestrator (node ⑤ of docs/architecture.mmd), Strands + Bedrock"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
-    "strands-agents>=1.0",
-    "bedrock-agentcore[strands-agents]>=0.4",
-    "boto3>=1.34",
+    "boto3",
+    "strands-agents",
+    "bedrock-agentcore[strands-agents]>=0.4",   # orchestrator entrypoint (node ⑤)
     "pydantic>=2.7",
-    "pydantic-settings>=2.3",
-    "pandas>=2.2",
-    "numpy>=1.26",
-    "PyYAML>=6.0",
+    "pydantic-settings>=2.3",                    # AF_* settings
+    "pandas",
+    "numpy",
+    "pyyaml",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "requests>=2.31"]   # requests : scripts/ (nbim_exclusions…) testés par tests/unit
+dev = ["pytest", "ruff", "requests"]   # requests: scripts (nbim_exclusions…) exercised by tests/unit
+# Data-collection scripts in scripts/ (network access to SEC, iShares, NBIM, etc.)
+scripts = ["requests", "beautifulsoup4", "lxml", "openpyxl"]
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
+# The backend `app` package (agents, tools, schemas) is installed editable so
+# tests and the AgentCore entrypoint import `app.*` from anywhere.
 [tool.setuptools.packages.find]
 where = ["backend"]
 include = ["app*"]

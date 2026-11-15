@@ -1,23 +1,23 @@
 """
-Télécharge le dernier rapport annuel déposé sur EDGAR (10-K, ou 40-F pour les émetteurs canadiens
-comme CNQ) et en extrait, en fichiers texte prêts pour la Knowledge Base Bedrock (+ .metadata.json) :
+Downloads the latest annual report filed on EDGAR (10-K, or 40-F for Canadian issuers such as CNQ)
+and extracts the sections below into text files ready for the Bedrock Knowledge Base (+ .metadata.json):
 
-    section        10-K                                       40-F (notice annuelle + rapport de gestion)
-    item1a         Item 1A. Risk Factors                       D. RISK FACTORS (notice annuelle)
-    item3          Item 3. Legal Proceedings                   LEGAL PROCEEDINGS AND REGULATORY ACTIONS (notice)
-    contingencies  Note « Commitments and Contingencies »      Note « Commitments and Contingencies »
-                   ou « Litigation and Other Contingencies »
-    mdna_legal     « Legal and Other Updates » (ENB), si présent  « LEGAL PROCEEDINGS AND OTHER CONTINGENCIES »
+    section        10-K                                       40-F (annual information form + MD&A)
+    item1a         Item 1A. Risk Factors                       D. RISK FACTORS (AIF)
+    item3          Item 3. Legal Proceedings                   LEGAL PROCEEDINGS AND REGULATORY ACTIONS (AIF)
+    contingencies  Note "Commitments and Contingencies"      Note "Commitments and Contingencies"
+                   or "Litigation and Other Contingencies"
+    mdna_legal     "Legal and Other Updates" (ENB), if present  "LEGAL PROCEEDINGS AND OTHER CONTINGENCIES"
 
-À lancer sur VOTRE machine, dans SageMaker ou Lambda (accès réseau à sec.gov requis) :
+Run on YOUR machine, in SageMaker or in Lambda (network access to sec.gov required):
     pip install requests beautifulsoup4 lxml
     python scripts/fetch_10k.py --tickers XOM ENB CNQ TSLA --as-of 2026-11-12 \
-        --email votre.courriel@exemple.com --out data/external/kb_filings
+        --email your.email@example.com --out data/external/kb_filings
 
-Fichiers : {TICKER}_{10K|40F}_{exercice}_{section}.txt
---as-of : seuls les rapports DÉPOSÉS au plus tard à cette date sont pris (point-in-time).
-Vérifiez TOUJOURS le texte extrait à l'œil : les titres varient d'une entreprise à l'autre.
-Pas besoin de SEDAR+ : le 40-F déposé à la SEC contient la notice annuelle (AIF) de l'émetteur.
+Files: {TICKER}_{10K|40F}_{fiscal_year}_{section}.txt
+--as-of: only reports FILED on or before this date are used (point-in-time).
+ALWAYS check the extracted text by eye: headings vary from one company to another.
+SEDAR+ is not needed: the 40-F filed with the SEC contains the issuer's annual information form (AIF).
 """
 import argparse
 import json
@@ -35,9 +35,9 @@ def headers(email):
     return {"User-Agent": f"AlphaForge Datathon {email}"}
 
 
-# Le ticker pointe parfois vers une nouvelle entité qui n'a pas (encore) déposé de rapport annuel.
-# XOM : depuis 2026, company_tickers.json renvoie « ExxonMobil Holdings Corp » (CIK 2115436, aucun 10-K) ;
-# les 10-K sont toujours déposés par Exxon Mobil Corp (CIK 34088). Vérifié le 2026-11-14.
+# A ticker sometimes points to a new entity that has not (yet) filed an annual report.
+# XOM: since 2026, company_tickers.json returns "ExxonMobil Holdings Corp" (CIK 2115436, no 10-K);
+# the 10-Ks are still filed by Exxon Mobil Corp (CIK 34088). Checked on 2026-11-14.
 CIK_OVERRIDES = {"XOM": "0000034088"}
 
 
@@ -47,7 +47,7 @@ def ticker_to_cik(email):
 
 
 def list_annual(cik, email, forms=ANNUAL_FORMS):
-    """Rapports annuels (10-K, 40-F), du plus récent au plus ancien."""
+    """Annual reports (10-K, 40-F), most recent first."""
     f = requests.get(f"https://data.sec.gov/submissions/CIK{cik}.json", headers=headers(email),
                      timeout=30).json()["filings"]["recent"]
     out = []
@@ -59,7 +59,7 @@ def list_annual(cik, email, forms=ANNUAL_FORMS):
     return out
 
 
-def list_10k(cik, email):  # compatibilité
+def list_10k(cik, email):  # backward compatibility
     return list_annual(cik, email, ("10-K",))
 
 
@@ -73,14 +73,14 @@ def html_to_text(html):
 
 
 def section(text, start, end):
-    """Plus longue correspondance start…end (insensible à la casse)."""
+    """Longest match of start...end (case-insensitive)."""
     m = re.findall(rf"{start}(.*?){end}", text, flags=re.I | re.S)
     return max(m, key=len).strip() if m else ""
 
 
 def heading_section(text, start, end, cap=40000):
-    """De la DERNIÈRE occurrence du titre `start` (regex compilée) jusqu'au premier `end` qui suit.
-    La table des matières et les renvois précèdent toujours la vraie section."""
+    """From the LAST occurrence of the `start` heading (compiled regex) to the first `end` that follows.
+    The table of contents and cross-references always precede the real section."""
     starts = list(start.finditer(text))
     if not starts:
         return ""
@@ -89,9 +89,9 @@ def heading_section(text, start, end, cap=40000):
     return text[m.start():e.start() if e else m.end() + cap].strip()
 
 
-# Note des éventualités : « Note 13 – Commitments and Contingencies » (TSLA), « 30. COMMITMENTS AND
-# CONTINGENCIES » (ENB), « Note 7. Litigation and Other Contingencies » (XOM), « 19. Commitments and
-# Contingencies » (CNQ). Fin : le titre de la note suivante (numéro + 1).
+# Contingencies note: "Note 13 – Commitments and Contingencies" (TSLA), "30. COMMITMENTS AND
+# CONTINGENCIES" (ENB), "Note 7. Litigation and Other Contingencies" (XOM), "19. Commitments and
+# Contingencies" (CNQ). Ends at the heading of the next note (number + 1).
 NOTE_START = re.compile(r"(?:Note\s*)?\b(\d{1,2})\s*[\.\-—–:]\s*(?:Commitments\s+and|Litigation\s+and\s+Other)\s+"
                         r"Contingencies", re.I)
 
@@ -107,7 +107,7 @@ def contingencies_note(text):
     return text[m.start():e.start() if e else m.end() + 40000].strip()
 
 
-UPPER_HEADING = re.compile(r"\b[A-Z][A-Z,&\-'’]+(?: [A-Z][A-Z,&\-'’]+){2,}\b")   # ≥ 3 mots en majuscules
+UPPER_HEADING = re.compile(r"\b[A-Z][A-Z,&\-'’]+(?: [A-Z][A-Z,&\-'’]+){2,}\b")   # 3+ uppercase words
 
 EXTRACTORS = {
     "10-K": {
@@ -115,24 +115,24 @@ EXTRACTORS = {
         "item3": lambda t: section(t, r"Item\s*3\.?\s*Legal\s*Proceedings", r"Item\s*4\.?"),
         "contingencies": lambda t: contingencies_note(t)
         or section(t, r"Commitments\s+and\s+Contingencies", r"(?:NOTE|Note)\s*\d+\s*[\.\-—–:]"),
-        # ENB détaille ses litiges dans le rapport de gestion, pas dans la note
+        # ENB details its legal matters in the MD&A, not in the note
         "mdna_legal": lambda t: heading_section(
             t, re.compile(r"LEGAL AND OTHER UPDATES|LEGAL PROCEEDINGS AND OTHER UPDATES"),
             re.compile(r"CRITICAL ACCOUNTING|LIQUIDITY AND CAPITAL|QUANTITATIVE AND QUALITATIVE|ITEM\s*7A"), 30000),
     },
     "40-F": {
-        # notice annuelle : « D. RISK FACTORS », puis « E. … » ou « Form 51-101F1 Statement of Reserves Data » (CNQ)
+        # AIF: "D. RISK FACTORS", then "E. ..." or "Form 51-101F1 Statement of Reserves Data" (CNQ)
         "item1a": lambda t: heading_section(t, re.compile(r"\b[A-H]\.\s+RISK FACTORS"),
                                             re.compile(r"\b[E-L]\.\s+[A-Z][A-Z ]{5,}|Form 51-101F1"), 80000),
         "item3": lambda t: heading_section(t, re.compile(r"LEGAL PROCEEDINGS AND REGULATORY ACTIONS"), UPPER_HEADING),
         "contingencies": contingencies_note,
-        # rapport de gestion : section courte, souvent suivie d'un titre en casse mixte (« Reserves »)
+        # MD&A: short section, often followed by a mixed-case heading ("Reserves")
         "mdna_legal": lambda t: heading_section(
             t, re.compile(r"LEGAL PROCEEDINGS AND OTHER CONTINGENCIES"),
             re.compile(r"Annual Report|\bReserves\b|" + UPPER_HEADING.pattern), 15000),
     },
 }
-OPTIONAL = {"mdna_legal"}   # pas d'avertissement si absente
+OPTIONAL = {"mdna_legal"}   # no warning if missing
 
 
 def main():
@@ -148,16 +148,16 @@ def main():
     for t in a.tickers:
         cik = ciks.get(t)
         if not cik:
-            print(f"[{t}] introuvable dans company_tickers.json (pas inscrit à la SEC : notice annuelle sur SEDAR+)")
+            print(f"[{t}] not found in company_tickers.json (not registered with the SEC: AIF is on SEDAR+)")
             continue
         filings = [f for f in list_annual(cik, a.email) if f["filed"] <= a.as_of]
         if not filings:
-            print(f"[{t}] aucun 10-K ni 40-F déposé avant {a.as_of} (CIK {cik}). Nouvelle société mère ? "
-                  f"Ajouter le bon CIK dans CIK_OVERRIDES.")
+            print(f"[{t}] no 10-K or 40-F filed before {a.as_of} (CIK {cik}). New parent company? "
+                  f"Add the right CIK to CIK_OVERRIDES.")
             continue
         f = filings[0]
         form = f["form"]
-        time.sleep(0.2)  # règle SEC : max 10 requêtes/s
+        time.sleep(0.2)  # SEC rule: max 10 requests/s
         text = html_to_text(requests.get(f["url"], headers=headers(a.email), timeout=120).text)
         for name, extract in EXTRACTORS[form].items():
             body = extract(text)
@@ -170,8 +170,8 @@ def main():
                 "fiscal_period_end": f["period"], "published_date": int(f["filed"].replace("-", "")),
                 "accession": f["accession"], "source_url": f["url"], "language": "en"}}
             (out / f"{stem}.txt.metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
-            warn = "  ⚠ VIDE : vérifier les titres" if not body else ""
-            print(f"[{t}] {form} {name}: {len(body):>7} caractères  (déposé {f['filed']}){warn}")
+            warn = "  ⚠ EMPTY: check the headings" if not body else ""
+            print(f"[{t}] {form} {name}: {len(body):>7} characters  (filed {f['filed']}){warn}")
 
 
 if __name__ == "__main__":

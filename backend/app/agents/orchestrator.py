@@ -25,30 +25,26 @@ from app.store.ledger import JsonlLedger
 from app.agents.subagents.risk import SUBAGENT_TOOLS
 from app.tools import agent_tools
 
-_RISK_BAND_EN = {"faible": "low", "faible_a_modere": "low to moderate",
-                 "modere": "moderate", "eleve": "high"}
-
 
 def persona_block(profile: Profile, language: str) -> str:
-    """Structured profile summary injected into the template (source: personas.json)."""
+    """Structured profile summary injected into the template (canonical Profile schema)."""
     h = profile.horizon_years
-    horizon = f"{h[0]} to {h[1]} years" if h[1] else f"{h[0]}+ years"
-    band = _RISK_BAND_EN.get(profile.risk_band, profile.risk_band)
+    horizon = f"{h.min} to {h.max} years" if h.max else f"{h.min}+ years"
     lines = [
-        f"- id: {profile.id} · risk {band} · horizon {horizon} · experience: {profile.experience or 'n/a'}",
-        f"- objective: {profile.objectif or 'n/a'}",
+        f"- actor: {profile.actor_id} · risk {profile.risk_band} · horizon {horizon} · experience: {profile.experience}",
+        f"- objective: {profile.objective or 'n/a'}",
     ]
     if profile.preferences:
         lines.append("- preferences: " + "; ".join(profile.preferences))
-    if profile.contraintes:
-        lines.append("- constraints: " + "; ".join(profile.contraintes))
+    if profile.constraints:
+        lines.append("- constraints: " + "; ".join(profile.constraints))
     if profile.exclusions:
         lines.append("- exclusions: " + "; ".join(
-            f"{e.get('type')}={e.get('value', e.get('min_severity', ''))}".rstrip("=") for e in profile.exclusions))
-    if profile.capacite_perte is not None:
-        lines.append(f"- stated loss capacity: {profile.capacite_perte:.0%}")
-    elif profile.capital_fictif and "valeur" in (profile.capital_fictif or {}):
-        lines.append(f"- fictional capital (assumption): {profile.capital_fictif['valeur']:,.0f} $ CAD".replace(",", " "))
+            f"{e.type}={e.value or e.min_severity or ''}".rstrip("=") for e in profile.exclusions))
+    if profile.loss_capacity is not None:
+        lines.append(f"- stated loss capacity: {profile.loss_capacity:.0%}")
+    if profile.capital is not None:
+        lines.append(f"- fictional capital (assumption): {profile.capital:,.0f} $ CAD".replace(",", " "))
     return "\n".join(lines)
 
 

@@ -7,10 +7,10 @@
     "portfolio_id": "pf-001",
     "upload_id": "abc123"
   },
-  "user_message": "Est-ce que mon portefeuille est trop risqué ? Montre-moi aussi ce qui arriverait en cas de krach.",
+  "user_message": "Is my portfolio too risky? Also show me what would happen in a crash.",
   "parameters": {
     "scenarios": [
-      "crash_2008"
+      "2022"
     ],
     "benchmark": "SPY"
   },

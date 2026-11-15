@@ -133,6 +133,10 @@ def governance_check(weights: dict[str, float]) -> dict:
     profile = current_profile.get()
     if profile is None:
         return {"error": "No active profile for this run."}
+    # governance_check.check() consumes the personas-style dict: horizon as [min, max].
+    h = profile.get("horizon_years")
+    if isinstance(h, dict):
+        profile = {**profile, "horizon_years": [h.get("min"), h.get("max")]}
     s = get_settings()
     return _guard(_gov.check, weights, profile,
                   s.abs_path(s.rules_path), _tools(),

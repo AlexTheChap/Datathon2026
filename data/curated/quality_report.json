@@ -1,5 +1,5 @@
 {
-  "generated_from": "alphaforge_starter (2021-11-12 → 2026-11-12)",
+  "generated_from": "data/raw (2021-11-12 → 2026-11-12)",
   "calendar_days": 1282,
   "duplicates_date_ticker": 0,
   "zero_volume_rows_non_crypto": [
@@ -54,16 +54,16 @@
     "V39079"
   ],
   "decisions": {
-    "calendar": "Union des jours de cotation TSX et US (jours de semaine). Crypto échantillonnée sur ce calendrier : le rendement de fin de semaine est inclus le lundi.",
-    "price_fill": "Dernier prix connu reporté quand un marché est fermé (férié propre à un pays). Rendement = 0 ce jour-là. Indicateur dans filled_flags.csv.",
-    "fx": "USD/CAD Banque du Canada, reporté les jours fériés canadiens.",
-    "returns": "Rendements simples sur adj_close (rendement total, dividendes réinvestis), en CAD.",
+    "calendar": "Union of TSX and US trading days (weekdays). Crypto sampled on this calendar: the weekend return is included on Monday.",
+    "price_fill": "Last known price carried forward when a market is closed (country-specific holiday). Return = 0 that day. Flag in filled_flags.csv.",
+    "fx": "USD/CAD from the Bank of Canada, carried forward on Canadian holidays.",
+    "returns": "Simple returns on adj_close (total return, dividends reinvested), in CAD.",
     "cnq_2022_08_22": {
       "close_return": 0.006049611826776324,
       "adj_close_return": 0.027793915590933027,
-      "decision": "adj_close conservé : l'écart (~2 %) est cohérent avec une distribution spéciale traitée comme un dividende réinvesti (rendement total). Le facteur 1,021 de corporate_actions.csv n'est PAS réappliqué. À confirmer auprès des relations investisseurs de CNQ."
+      "decision": "adj_close kept: the gap (~2%) is consistent with a special distribution treated as a reinvested dividend (total return). The 1.021 factor in corporate_actions.csv is NOT reapplied. To be confirmed with CNQ investor relations."
     },
-    "macro_pit": "available_from = date de disponibilité estimée. Mensuel : délai hypothétique {'CPIAUCSL': 15, 'UNRATE': 7, 'STATIC_TOTALCPICHANGE': 21}. Quotidien : jour ouvrable suivant. À remplacer par les vraies dates de publication (ALFRED, calendrier StatCan).",
-    "survivorship": "Univers choisi en 2026 : les rendements historiques sont biaisés à la hausse."
+    "macro_pit": "available_from = estimated availability date. Monthly: hypothetical lag {'CPIAUCSL': 15, 'UNRATE': 7, 'STATIC_TOTALCPICHANGE': 21}. Daily: next business day. To be replaced by the real release dates (ALFRED, StatCan calendar).",
+    "survivorship": "Universe chosen in 2026: historical returns are biased upward."
   }
 }

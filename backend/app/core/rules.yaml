@@ -1,50 +1,50 @@
-# Règles de gouvernance AlphaForge — VERSION 1 (à valider par l'équipe)
-# Chaque seuil est une HYPOTHÈSE documentée, ajustable. Ce ne sont pas des normes réglementaires.
-# Repères conceptuels : atelier BNCD « Comprendre l'investisseur » (objectif, horizon,
-# volonté ≠ capacité, contraintes ≠ préférences, diversification = expositions).
+# AlphaForge governance rules, VERSION 1 (to be validated by the team)
+# Every threshold is a documented, adjustable ASSUMPTION. They are not regulatory standards.
+# Conceptual references: BNCD workshop "Understanding the investor" (objective, horizon,
+# willingness ≠ capacity, constraints ≠ preferences, diversification = exposures).
 version: 1
 updated: 2026-11-14
 currency: CAD
 
-stress_window: "2022"          # scénario de référence pour la perte maximale (voir risk_tools.STRESS_WINDOWS)
+stress_window: "2022"          # reference scenario for the maximum loss (see risk_tools.STRESS_WINDOWS)
 
-risk_bands:                    # selon le profil de risque déclaré ET la capacité (la plus prudente l'emporte)
-  faible:
+risk_bands:                    # based on the declared risk profile AND capacity (the more cautious wins)
+  low:
     max_drawdown_stress: 0.10
     max_single_position: 0.10
     max_sector: 0.30
     max_crypto: 0.00
-  faible_a_modere:
+  low_moderate:
     max_drawdown_stress: 0.15
     max_single_position: 0.10
     max_sector: 0.35
     max_crypto: 0.00
-  modere:
+  moderate:
     max_drawdown_stress: 0.25
     max_single_position: 0.10
     max_sector: 0.40
     max_crypto: 0.02
-  eleve:
+  high:
     max_drawdown_stress: 0.40
     max_single_position: 0.15
     max_sector: 0.50
     max_crypto: 0.10
 
 horizon_rules:
-  # « horizon » = borne BASSE de l'horizon déclaré (besoin le plus proche), par prudence.
-  - id: HORIZON_COURT_VOLATILITE
+  # "horizon" = LOWER bound of the declared horizon (nearest need), for prudence.
+  - id: SHORT_HORIZON_VOLATILITY
     when: {horizon_years_max_lt: 5}
-    max_weight_high_vol_assets: 0.05     # actifs dont la volatilité annualisée > high_vol_threshold
+    max_weight_high_vol_assets: 0.05     # assets whose annualized volatility > high_vol_threshold
     high_vol_threshold: 0.40
     severity: BLOCK
-    justification: "Moins de 5 ans pour absorber une baisse avant un retrait important (atelier : horizon court < 3 ans, moyen 3-10 ans)."
-  - id: HORIZON_COURT_DEFENSIF
+    justification: "Less than 5 years to absorb a decline before a major withdrawal (workshop: short horizon < 3 years, medium 3-10 years)."
+  - id: SHORT_HORIZON_DEFENSIVE
     when: {horizon_years_max_lt: 5}
-    min_defensive_weight: 0.30           # etf_bond + liquidités
+    min_defensive_weight: 0.30           # etf_bond + cash
     severity: WARN
-    justification: "Un horizon court justifie une part d'actifs peu volatils ; seuil indicatif."
+    justification: "A short horizon calls for a share of low-volatility assets; indicative threshold."
 
-broad_funds_exempt_from_single_position:  # un FNB large n'est pas une « position unique » au sens du plafond
+broad_funds_exempt_from_single_position:  # a broad ETF is not a "single position" for the cap
   - XIU.TO
   - SPY
   - ESGV
@@ -54,23 +54,23 @@ broad_funds_exempt_from_single_position:  # un FNB large n'est pas une « positi
   - AGG
   - TLT
 
-controversy_indirect:          # société controversée (lignes vérifiées) détenue VIA des FNB décomposés
-  max_weight: 0.01             # au-delà de 1 % du portefeuille, on signale
-  severity: WARN               # WARN et non BLOCK : l'usager choisit un fonds, pas le titre (hypothèse)
+controversy_indirect:          # controversial company (verified rows) held VIA decomposed ETFs
+  max_weight: 0.01             # above 1% of the portfolio, flag it
+  severity: WARN               # WARN, not BLOCK: the user picks a fund, not the stock (assumption)
 
-esg_activity:                  # exclusions par activité (profil : {"type": "esg_activity", "value": "<activite>"})
-  min_revenue_share: 0.10      # exclue si ≥ 10 % des revenus (seuil indicatif, hypothèse ; surchargeable par profil)
-  indirect:                    # société exclue détenue VIA des FNB décomposés
+esg_activity:                  # activity-based exclusions (profile: {"type": "esg_activity", "value": "<activity>"})
+  min_revenue_share: 0.10      # excluded if ≥ 10% of revenue (indicative threshold, assumption; overridable per profile)
+  indirect:                    # excluded company held VIA decomposed ETFs
     max_weight: 0.01
     severity: WARN
 
-esg_index_screen:              # préférence ESG (pas une contrainte) : signal tiré de curated/esg_index_screen.csv
-  applies_if_preference: "ESG" # actif si une préférence du profil contient ce mot (Mateo : « facteurs ESG importants »)
-  severity: WARN               # préférence ≠ contrainte : jamais BLOCK
-  reference_by_currency:       # indice ESG de référence pour une action détenue en direct
+esg_index_screen:              # ESG preference (not a constraint): signal from curated/esg_index_screen.csv
+  applies_if_preference: "ESG" # active if a profile preference contains this word (Mateo: "important ESG factors")
+  severity: WARN               # preference ≠ constraint: never BLOCK
+  reference_by_currency:       # reference ESG index for a directly held stock
     USD: ESGV                  # FTSE US All Cap Choice
-    CAD: XCSR.TO               # MSCI Canada IMI Extended ESG Leaders (retient aussi les meilleures notes : signal plus large)
-  reference_by_parent:         # pour décrire la part des FNB larges absente de l'indice ESG (information seulement)
+    CAD: XCSR.TO               # MSCI Canada IMI Extended ESG Leaders (also keeps the best ratings: broader signal)
+  reference_by_parent:         # to describe the share of broad ETFs missing from the ESG index (information only)
     SPY: ESGV
     XIU.TO: XCSR.TO
 
@@ -82,9 +82,9 @@ severities:
   exclusions: BLOCK
 
 justifications:
-  max_drawdown_stress: "Perte simulée sur 2022 (actions et obligations en baisse ensemble) comparée à la perte tolérée par le profil. Mesure la capacité, pas seulement la volonté."
-  max_single_position: "Pratique courante de diversification : limiter la dépendance à une seule entreprise (atelier : risque de concentration)."
-  max_sector: "Diversifier, c'est varier les expositions : un secteur dominant fait dépendre le portefeuille d'un même moteur."
-  max_crypto: "Volatilité extrême (perte maximale ~-73 % pour BTC sur la période) ; exclue pour les profils faibles."
-  exclusions: "Préférences explicites de l'usager (ESG, catégories d'actifs) : les contraintes établissent les limites."
-  esg_index_screen: "Préférence ESG déclarée (énoncé) : on signale les positions qu'un indice ESG reconnu a écartées. La composition ne dit pas pourquoi ; c'est un signal à discuter, pas une interdiction."
+  max_drawdown_stress: "Simulated loss over 2022 (stocks and bonds falling together) compared with the loss the profile can tolerate. Measures capacity, not just willingness."
+  max_single_position: "Common diversification practice: limit dependence on a single company (workshop: concentration risk)."
+  max_sector: "Diversifying means varying exposures: a dominant sector makes the portfolio depend on a single driver."
+  max_crypto: "Extreme volatility (maximum loss of about -73% for BTC over the period); excluded for low-risk profiles."
+  exclusions: "Explicit user preferences (ESG, asset classes): constraints set the limits."
+  esg_index_screen: "Declared ESG preference (brief): flags positions that a recognized ESG index left out. The index composition does not say why; this is a signal to discuss, not a prohibition."
