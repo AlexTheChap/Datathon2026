@@ -88,7 +88,7 @@ flowchart TB
   %% ===== 6. Tools & data =====
   %% AWS: AgentCore Gateway (MCP) · Lambda · Bedrock Knowledge Bases · S3 Vectors · S3 · DynamoDB
   subgraph DATA["⑥ Tools & data"]
-    GW["AgentCore Gateway (MCP)<br/>Lambda quant tools: metrics · concentration · correlation<br/>risk_contribution · macro · rates · esg_screen · company_fundamentals · optimizer (later)"]
+    GW["AgentCore Gateway (MCP)<br/>Lambda quant tools: metrics · concentration · correlation<br/>risk_contribution · macro · rates · esg_screen · company_fundamentals · optimizer (later)<br/>in-process: projection (Monte Carlo, planning guidelines) · vol_forecast (GARCH trend)"]
     KB["Bedrock Knowledge Base<br/>news & docs · S3 Vectors"]
     S3[("S3 curated Parquet<br/>prices · FX · macro · point-in-time")]
     SM["SageMaker AI Processing (batch, no endpoint)<br/>GARCH(1,1) volatility job → vol_forecast.csv"]
@@ -171,7 +171,10 @@ flowchart TB
   GOV -->|"PASS / WARN"| EXP
   %% L12 Sub-agents → Tools: TARGET: AgentCore Gateway (MCP, SigV4/OAuth auth, optional Cedar
   %%      Policy) → quant tool Lambdas. CURRENT: direct in-process calls — sub-agents own their
-  %%      domain toolsets (risk: metrics/concentration/correlation/risk_contribution/
+  %%      domain toolsets (risk: metrics/concentration/correlation/risk_contribution/projection/vol_forecast
+  %%      — the last two in-process in both modes: Monte Carlo range under the 2026 FP Canada / IPF planning
+  %%      guidelines (app/quant/projection.py, never a return forecast) and the GARCH volatility trend
+  %%      (vol_forecast.csv from L20); also served by POST /v1/projection and GET /v1/vol-forecast /
   %%      macro: macro_snapshot/rate_sensitivity/correlation · esg: esg_screen ·
   %%      fundamentals: company_fundamentals (SEC XBRL, point-in-time) + news_search(8-K) + esg_screen · allocation: optimize/metrics/concentration/governance_check).
   SUB -->|"tool calls (in-process)"| GW

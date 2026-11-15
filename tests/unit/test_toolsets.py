@@ -9,7 +9,8 @@ from app.agents.subagents.risk import risk_subagent
 from app.tools import toolsets
 
 LOCAL_NAMES = ["metrics", "concentration", "correlation", "risk_contribution",
-               "market_screen", "market_related"]
+               "market_screen", "market_related", "projection", "vol_forecast"]
+PROJECTION_NAMES = ["projection", "vol_forecast"]   # in-process in both modes (need the run's profile)
 
 
 @pytest.fixture
@@ -55,7 +56,7 @@ def test_gateway_gives_an_mcp_client_without_connecting(settings):
 
     settings.gateway_url = "https://gw.example/mcp"
     tools = toolsets.quant_toolset()
-    assert len(tools) == 1 and isinstance(tools[0], MCPClient)
+    assert isinstance(tools[0], MCPClient) and [t.tool_name for t in tools[1:]] == PROJECTION_NAMES
 
 
 def test_news_toolset(settings):

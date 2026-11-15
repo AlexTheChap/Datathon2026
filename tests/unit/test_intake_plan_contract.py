@@ -8,7 +8,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from app.context import handler as context_handler
 from app.intake import MockBackend, run_intake
 from app.schemas import Profile, Request
@@ -33,6 +32,8 @@ SCENARIOS = [
     ("robert_crash", "robert", "Is my portfolio too risky compared to SPY? Also show me what would happen in a crash.",
      "risk_review", ["risk"]),
     ("robert_trade", "robert", "Buy 100 Tesla shares for me right now.", "out_of_scope", []),
+    ("robert_projection", "robert", "How much could my portfolio of XIU.TO and XBB.TO be worth in 5 years?",
+     "projection", ["risk"]),
 ]
 
 

@@ -106,6 +106,19 @@ class MessageOut(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class ProjectionIn(BaseModel):
+    """POST /v1/projection: ad-hoc weights. Missing start_value / horizon_years come from the caller's profile
+    (simulated capital; horizon upper bound). n_paths is capped server-side."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    weights: dict[str, float] | None = Field(default=None, description="Default: the saved portfolio.")
+    start_value: float | None = Field(default=None, gt=0, le=1e10)
+    horizon_years: int | None = Field(default=None, ge=1, le=50)
+    monthly_contribution: float = Field(default=0.0, ge=0, le=1e7)
+    n_paths: int | None = Field(default=None, ge=100)
+
+
 class ApiError(Exception):
     def __init__(self, status: int, detail: Any):
         super().__init__(str(detail))
@@ -264,6 +277,53 @@ class ApiService:
         return profile
 
 
+    # ----- POST /v1/projection, GET /v1/vol-forecast (app.quant, box ⑥) -----
+    def projection(self, actor_id: str, body: ProjectionIn) -> dict[str, Any]:
+        """Range of possible values under the planning guidelines. Percentiles only, never raw paths."""
+        from app.quant.projection import MAX_PATHS
+        from app.tools.context import default_as_of
+        from app.tools.projection_tool import (
+            DEFAULT_PATHS,
+            horizon_from_profile,
+            run_projection,
+        )
+
+        profile = self.profiles.get(actor_id)
+        weights = body.weights or (profile.portfolio if profile else None)
+        if not weights:
+            raise ApiError(422, "Give weights, or save a portfolio first.")
+        start = body.start_value or (profile.capital if profile else None)
+        if not start:
+            raise ApiError(422, "Give start_value, or set a simulated capital in the profile.")
+        note = None
+        horizon = body.horizon_years
+        if horizon is None:
+            horizon, note = horizon_from_profile(profile.horizon_years.model_dump() if profile else None)
+            if horizon is None:
+                raise ApiError(422, "Give horizon_years, or set a horizon in the profile.")
+        try:
+            ev = run_projection(weights, float(start), int(horizon), default_as_of(),
+                                monthly_contribution=body.monthly_contribution,
+                                n_paths=min(body.n_paths or DEFAULT_PATHS, MAX_PATHS),
+                                risk_band=profile.risk_band if profile else None, horizon_note=note)
+        except (KeyError, ValueError) as e:
+            raise ApiError(422, str(e).strip("'\"")) from e
+        return {"evidence_id": ev["evidence_id"], "say": ev["say"], "as_of": ev["as_of"], "inputs": ev["inputs"],
+                "method": ev["method"], **ev["output"], **({"garch_job": ev["garch_job"]} if "garch_job" in ev else {})}
+
+    def vol_forecast(self, actor_id: str, tickers: list[str]) -> dict[str, Any]:
+        from app.tools.context import default_as_of
+        from app.tools.vol_forecast_tool import vol_forecast
+
+        tickers = [t.strip() for t in tickers if t and t.strip()]
+        if not tickers or len(tickers) > 50:
+            raise ApiError(422, "Give between 1 and 50 tickers.")
+        try:
+            ev = vol_forecast(tickers, default_as_of())
+        except (KeyError, ValueError) as e:
+            raise ApiError(422, str(e).strip("'\"")) from e
+        return {"evidence_id": ev["evidence_id"], "say": ev["say"], "as_of": ev["as_of"], **ev["output"]}
+
     # ----- GET / PUT /v1/notifications/sms (news alerts by text, app.notify) -----
     def get_sms(self, actor_id: str) -> dict[str, Any]:
         c = self.contacts.get(actor_id)
@@ -389,7 +449,6 @@ def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
                           dispatcher=_dispatcher(runs, dispatch), contacts=JsonFileContactStore(root / "contacts"))
     if kind == "dynamodb":
         import boto3
-
         from app.store.profiles import DynamoDBProfileStore
         from app.store.runs import DynamoDBRunStore
 

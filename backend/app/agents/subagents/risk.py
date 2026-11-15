@@ -15,6 +15,13 @@ Using ONLY the quantitative tools available to you, analyze the brief and
 produce a concise risk finding. Call at least one tool before answering; every
 number you state must come from a tool result.
 
+Two tools describe the future without forecasting returns:
+- `projection`: the range of possible portfolio values after N years under the official 2026 planning
+  guidelines. Report the P10–P90 range and the chance of ending below the start (never a single value), say
+  it is a simulation, not a forecast, and keep its warnings (e.g. a horizon under 10 years).
+- `vol_forecast`: whether an asset's volatility (risk) is rising, stable or easing (GARCH forecast vs the last
+  3 months). It says nothing about the direction of returns.
+
 Return ONLY a JSON object, no prose around it, with exactly these keys:
 {
   "headline": "<one-sentence risk takeaway>",
@@ -30,7 +37,8 @@ risk_subagent = make_subagent_tool(
     SYSTEM_PROMPT,
     tools=quant_toolset,   # resolved per run: Gateway (MCP) or local functions
     description="""Quantitative risk analysis (volatility, concentration,
-    risk contribution) from the Risk sub-agent, grounded
+    risk contribution, volatility trend, range of possible future values under the
+    planning guidelines) from the Risk sub-agent, grounded
     in real curated data. Returns an evidence record whose nested_evidence_ids are
     the underlying tool evidence — cite them, never recompute numbers yourself.
 

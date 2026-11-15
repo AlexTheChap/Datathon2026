@@ -84,6 +84,21 @@ def load_inputs(curated_dir: str | Path | None = None) -> MarketInputs:
     return MarketInputs(uni, rets, m["ann_vol"].astype(float), end, corr.astype(float), vf, manifest)
 
 
+_CACHE: dict[tuple, MarketInputs] = {}
+
+
+def cached_inputs(curated_dir: str | Path | None = None) -> MarketInputs:
+    """load_inputs, reloaded only when vol_forecast.csv / garch_manifest.json change (a new GARCH run)."""
+    d = Path(curated_dir or curated_dir_default())
+    stamp = tuple(p.stat().st_mtime_ns if p.exists() else 0
+                  for p in (d / "vol_forecast.csv", d / "vol_forecast.parquet", d / "garch_manifest.json"))
+    key = (str(d), stamp)
+    if key not in _CACHE:
+        _CACHE.clear()
+        _CACHE[key] = load_inputs(d)
+    return _CACHE[key]
+
+
 # ---------- building blocks ----------
 
 def nearest_psd(c: np.ndarray, eps: float = 0.0) -> tuple[np.ndarray, bool]:
@@ -170,7 +185,7 @@ def _vol_paths(inp, tickers, as_of, hist, months, max_age, vol_source) -> tuple[
             "job_name": inp.manifest.get("job_name") or (str(inp.vol_forecast["job_name"].iloc[0])
                                                         if "job_name" in inp.vol_forecast else None),
             "model_by_ticker": per_ticker,
-            "path": "forecast_vol (21-day GARCH) in year 1, linear to long_run_vol_ann by the end of year 2"}
+            "schedule": "forecast_vol (21-day GARCH) in year 1, linear to long_run_vol_ann by the end of year 2"}
     return vols, info, warns
 
 
@@ -210,7 +225,7 @@ def project(weights: dict[str, float], start_value: float, horizon_years: int, a
     if monthly_contribution < 0 or not 0 <= annual_fee < 0.2:
         raise ValueError("monthly_contribution must be >= 0 and annual_fee in [0, 0.2)")
     cfg = assumptions or load_assumptions()
-    inp = inputs or load_inputs(curated_dir)
+    inp = inputs or cached_inputs(curated_dir)
     w, renormalized = _normalize(weights)
     tickers = sorted(w)
     unknown = [t for t in tickers if t not in inp.universe.index or t not in inp.returns.columns]

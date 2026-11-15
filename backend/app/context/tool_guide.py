@@ -17,7 +17,8 @@ import json
 from typing import Any, Optional
 
 _DELEGATION_LINES: dict[str, str] = {
-    "risk": "- Portfolio risk (concentration, risk contribution, per-asset metrics) → **`risk_subagent`**",
+    "risk": ("- Portfolio risk (concentration, risk contribution, per-asset metrics, volatility trend from the "
+             "GARCH forecast, range of possible future values under the planning guidelines) → **`risk_subagent`**"),
     "macro_scenarios": "- Macro environment / rates → **`macro_subagent`**",
     "esg": "- ESG index membership & controversies → **`esg_subagent`**",
     "fundamentals": "- Reported financials (SEC 10-K/10-Q: revenue, profit, margins, cash flow, leverage), 8-K events and documented controversies → **`fundamentals_subagent`**",
@@ -41,6 +42,14 @@ _STRATEGIES: dict[str, str] = {
    smallest change that satisfies the rules, then run `governance_check` yourself on its weights.
 4. A BLOCK verdict is never negotiable: explain the conflict and do not endorse the request
    as-is; present an alternative only when one was found and verified.""",
+    "projection": """### Strategy for "projection"
+1. Delegate to **`risk_subagent`** with the portfolio weights and a subject asking for the `projection` tool
+   (the investor's horizon and simulated capital are used by default; a horizon range uses its upper bound).
+   Add `vol_forecast` on the holdings when the question is about risk changing.
+2. Run `governance_check` on the same weights so the answer keeps the profile's verdict.
+3. Report the P10–P90 range and the chance of ending below the start, never a single expected value. It is a
+   simulation under the 2026 planning guidelines (FP Canada / Institute of Financial Planning), not a
+   forecast; repeat its warnings (e.g. a horizon under 10 years) and its main assumptions.""",
     "allocation_proposal": """### Strategy for "allocation_proposal"
 1. Delegate construction: **`allocation_subagent`** with the goal in the subject (risk band,
    horizon and exclusions are attached automatically) — its weights come from the

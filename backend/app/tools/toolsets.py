@@ -44,23 +44,32 @@ def news_mode() -> str:
     return "local" if local_news_available() else "simulated"
 
 
+def projection_tools() -> list:
+    """Projection + volatility-trend tools: in-process in both modes (they read the run's profile for the horizon
+    and the capital, which the Gateway Lambda does not see; not deployed as a Gateway target yet)."""
+    from app.tools import agent_tools
+
+    return [agent_tools.projection, agent_tools.vol_forecast]
+
+
 def local_quant_tools() -> list:
     from app.tools import agent_tools
 
     return [agent_tools.metrics, agent_tools.concentration,
             agent_tools.correlation, agent_tools.risk_contribution,
-            agent_tools.market_screen, agent_tools.market_related]
+            agent_tools.market_screen, agent_tools.market_related, *projection_tools()]
 
 
 def quant_toolset() -> list:
-    """Risk sub-agent toolset: the AgentCore Gateway (one MCP client per sub-agent run) or local functions."""
+    """Risk sub-agent toolset: the AgentCore Gateway (one MCP client per sub-agent run) or local functions,
+    plus the in-process projection tools either way."""
     s = get_settings()
     if not s.gateway_url:
         return local_quant_tools()
     from app.tools.gateway_client import strands_mcp_client
 
     log.info("risk tools via AgentCore Gateway %s", s.gateway_url)
-    return [strands_mcp_client(s.gateway_url, s.aws_region)]
+    return [strands_mcp_client(s.gateway_url, s.aws_region), *projection_tools()]
 
 
 def news_toolset() -> list:

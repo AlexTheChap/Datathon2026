@@ -17,6 +17,10 @@
                             the sign-in account itself (Cognito DeleteUser)
     GET  /v1/notifications/sms → the caller's text-alert choice (opt_in, phone)
     PUT  /v1/notifications/sms {opt_in, phone?} → save it (opting out deletes the phone number)
+    POST /v1/projection {weights?, start_value?, horizon_years?, monthly_contribution?, n_paths?} → range of
+                            possible values under the 2026 planning guidelines (percentiles only, n_paths ≤ 20000;
+                            defaults: saved portfolio, simulated capital, profile horizon)
+    GET  /v1/vol-forecast?tickers=A,B → GARCH volatility forecast vs last 3 months: rising | stable | easing
     GET  /v1/me             → who is signed in (actor_id, email, demo persona)
     GET  /health
     /                       → the frontend (box ①, frontend/), served locally when that folder exists
@@ -46,7 +50,16 @@ from app.store.runs import RunRecord
 
 from .auth import AuthError, Identity, identify
 
-from .service import ApiError, ApiService, MessageIn, MessageOut, RunSummary, example_personas, service_from_env
+from .service import (
+    ApiError,
+    ApiService,
+    MessageIn,
+    MessageOut,
+    ProjectionIn,
+    RunSummary,
+    example_personas,
+    service_from_env,
+)
 
 FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
 
@@ -186,6 +199,15 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
     @api.post("/v1/profile/draft/file")
     async def profile_draft_file(file: UploadFile = File(...), actor_id: str = Depends(current_actor)) -> dict[str, Any]:
         return svc.draft_profile_file(actor_id, file.filename or "", await file.read())
+
+    # Box ⑥ quant models (app.quant): a range of outcomes under the planning guidelines, the volatility trend.
+    @api.post("/v1/projection")
+    def projection(body: ProjectionIn, actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.projection(actor_id, body)
+
+    @api.get("/v1/vol-forecast")
+    def vol_forecast(tickers: str, actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.vol_forecast(actor_id, tickers.split(","))
 
     @api.get("/v1/personas")
     def personas() -> list[dict[str, Any]]:

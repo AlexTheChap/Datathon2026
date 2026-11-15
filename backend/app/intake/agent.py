@@ -37,7 +37,7 @@ QUESTIONS = {
     "experience": "How would you describe your investing experience: beginner, intermediate or advanced?",
     "language": "Which language would you like the answers in?",
     "task": "What would you like me to analyse: portfolio risk, a rate or market scenario, an allocation, an ESG screen, "
-            "fundamentals or news?",
+            "fundamentals, news, or the range of what your portfolio could be worth later?",
 }
 
 
@@ -142,9 +142,11 @@ _OWN_PORTFOLIO = re.compile(r"\bmy\s+(?:current\s+|whole\s+|own\s+)?(?:portfolio
 
 
 def _about_own_portfolio(text: str, task: str) -> bool:
-    """The question is about the user's own portfolio: it says so, or it is a risk / scenario question naming no asset.
+    """The question is about the user's own portfolio: it says so, or it is a risk / scenario / projection question
+    naming no asset.
     Building a new portfolio ("a portfolio that fits my profile") is not: it starts from the profile, not the old mix."""
-    return task != "out_of_scope" and (bool(_OWN_PORTFOLIO.search(text)) or task in ("risk_review", "scenario_analysis"))
+    return task != "out_of_scope" and (bool(_OWN_PORTFOLIO.search(text))
+                                       or task in ("risk_review", "scenario_analysis", "projection"))
 
 
 def _clean_positions(positions: list[Position], warnings: list[str]) -> list[Position]:

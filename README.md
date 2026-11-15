@@ -123,6 +123,22 @@ python -m app.market.refresh --mode midday --system-certs       # Windows behind
 - **Source**: Yahoo Finance via yfinance, an unofficial and unlicensed feed (prototype only); it is isolated in
   `app.market.refresh.download`, to be swapped for a licensed feed in production.
 
+## Projections and volatility forecasts (box ⑥)
+
+- **Range of outcomes, not a forecast**: `app/quant/projection.py` simulates monthly paths of a portfolio with the
+  expected returns of the FP Canada / Institute of Financial Planning **2026 Projection Assumption Guidelines**
+  (`backend/app/core/projection_assumptions.yaml`; gold and crypto use labelled team assumptions) and reports the
+  P10–P90 range, nominal and after inflation, the chance of ending below the start and the drawdowns. Questions like
+  "how much could my portfolio be worth in 5 years?" route to the `projection` task (risk sub-agent).
+- **Risk forecast**: a GARCH(1,1) batch job on SageMaker AI Processing (`docs/garch_job.md`) forecasts each asset's
+  volatility; the projection uses it for year 1 and `vol_forecast` says whether risk is rising, stable or easing.
+
+```bash
+.venv/bin/python scripts/run_garch_sagemaker.py --local --run-backtest     # data/curated/vol_forecast.csv
+curl -X POST localhost:8000/v1/projection -H 'X-Actor-Id: robert' -H 'content-type: application/json' \
+     -d '{"weights": {"XIU.TO": 0.6, "XBB.TO": 0.4}, "start_value": 100000, "horizon_years": 10}'   # AF_AUTH_MODE=dev
+```
+
 ## News alerts by text message (Amazon SNS)
 
 At sign-up, "Inform me when…" (optional) asks which alerts a person wants (a stock they hold goes up, goes down,

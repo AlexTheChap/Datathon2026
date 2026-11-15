@@ -183,6 +183,8 @@ _EXPERIENCE = [
 _TASKS = [  # priority: the first match wins
     ("allocation_proposal", r"allocation|rebalanc|(?:put\w*|invest\w*|allocat\w*|mov\w*|add\w*)\s+(?:\w+\s+){0,2}\d+(?:\.\d+)?\s*%|"
                             r"build\s+(?:me\s+)?a\s+(?:\w+\s+)?portfolio|how\s+should\s+i\s+split"),
+    ("projection", (r"\bbe\s+worth\b|\bworth\s+in\s+\d+|\bproject(?:ion|ions|ed)\b|monte\s*carlo|future\s+value|"
+                    r"\bgrow\s+to\b|end\s+up\s+with|range\s+(?:of\s+(?:possible\s+)?outcomes|for\s+(?:my|the)\s+portfolio)")),
     ("esg_screen", r"\besg\b|controvers|ethical|sustainab"),
     ("risk_review", r"\brisk|volatil|drawdown|diversif|concentrat"),
     ("scenario_analysis", r"crash|stress|scenario|recession|rate\s+hike"),
