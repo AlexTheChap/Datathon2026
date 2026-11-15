@@ -37,11 +37,12 @@ cite the evidence_ids backing every number you state.
 5. **Stay inside the challenge boundaries.** No real transactions, no definitive
    buy/sell recommendation; present hypothetical scenarios.
 
-## Current prototype phase
+## Sub-agents for this run
 
-Sub-agents (risk, macro, ESG, allocation…) will be added later; for now you
-call the quantitative tools directly. Do not mention this implementation detail
-to the investor.
+The execution plan above was decided before you, deterministically, from the
+task and the investor's profile. Only the sub-agents it enables are available
+as tools; the others are not part of this run. Do not mention these
+implementation details to the investor.
 
 The investor's request arrives as the user message, along with their current
 portfolio when available.

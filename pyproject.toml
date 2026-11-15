@@ -17,16 +17,20 @@ dependencies = [
 dev = ["pytest", "ruff", "requests"]   # requests: scripts (nbim_exclusions…) exercised by tests/unit
 # Data-collection scripts in scripts/ (network access to SEC, iShares, NBIM, etc.)
 scripts = ["requests", "beautifulsoup4", "lxml", "openpyxl"]
+# Intake agent (box 3) on Bedrock: Claude Haiku with structured outputs via the anthropic SDK (AnthropicBedrock).
+# truststore: on Windows, lets botocore see the system certificates (otherwise CERTIFICATE_VERIFY_FAILED).
+bedrock = ["anthropic>=2.0", "truststore>=0.9"]
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
-# The backend `app` package (agents, tools, schemas) is installed editable so
-# tests and the AgentCore entrypoint import `app.*` from anywhere.
+# The backend `app` package (agents, tools, schemas, context) is installed editable so
+# the AgentCore entrypoint and scripts import `app.*` from anywhere.
 [tool.setuptools.packages.find]
 where = ["backend"]
 include = ["app*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+pythonpath = ["backend"]   # tests also work without `pip install -e .`
+testpaths = ["tests"]      # unit + e2e (all offline: no AWS account, no LLM call)

@@ -1,6 +1,6 @@
 from .enums import BENCHMARKS, SCENARIOS, TASKS, Benchmark, Scenario, Task
 from .profile import AgentToggles, Exclusion, HorizonYears, Profile
-from .request import Parameters, PortfolioRef, Request, Toggles
+from .request import Parameters, PortfolioRef, Position, Request, Toggles
 
 __all__ = [
     "BENCHMARKS",
@@ -14,6 +14,7 @@ __all__ = [
     "HorizonYears",
     "Parameters",
     "PortfolioRef",
+    "Position",
     "Profile",
     "Request",
     "Toggles",

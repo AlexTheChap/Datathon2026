@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 
 from app.agents.subagents import ALL_SUBAGENTS, REGISTRY, subagents_for_toggles
-from app.agents.subagents.base import build_envelope, extract_json, render_brief
+from app.agents.subagents.base import build_envelope, extract_json, render_brief, run_context
 from app.schemas.profile import AgentToggles
 from app.tools import agent_tools
 
@@ -36,6 +36,7 @@ def test_structured_signature_subject_required():
 
 
 def test_render_brief_deterministic_context():
+    run_context.set(None)                     # isolate from other tests' run state
     agent_tools.current_profile.set({"risk_band": "low_moderate",
                                      "horizon_years": {"min": 3, "max": 5},
                                      "capital": 400000.0})
@@ -54,6 +55,8 @@ def test_render_brief_deterministic_context():
 
 
 def test_render_brief_minimal():
+    agent_tools.current_profile.set(None)
+    run_context.set(None)                     # isolate from other tests' run state
     out = render_brief("just a question")
     assert out == "Question: just a question"
 

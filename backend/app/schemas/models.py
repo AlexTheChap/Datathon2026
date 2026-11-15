@@ -2,8 +2,9 @@
 
 Profile and Request are the CANONICAL schemas owned by the Intake/Plan teams
 (app/schemas/profile.py and request.py); this module re-exports them and adds
-what only the orchestrator needs: ExecutionPlan (plan-resolver output shape),
-OrchestratorInput (AgentCore entrypoint payload, L6) and OrchestratorOutput.
+what only the orchestrator needs: OrchestratorInput (AgentCore entrypoint payload, L6) and
+OrchestratorOutput. ExecutionPlan and PromptRef are box 4's canonical schemas (app/schemas/execution_plan.py,
+prompt_ref.py), re-exported here.
 `profile_from_persona` adapts core/personas.json entries to the canonical Profile
 (the Intake agent will do this conversion in production).
 """
@@ -14,12 +15,14 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, ConfigDict
 
 from app.schemas.profile import AgentToggles, HorizonYears, Language, Profile, RiskBand
+from app.schemas.execution_plan import ExecutionPlan
+from app.schemas.prompt_ref import PromptRef
 from app.schemas.request import PortfolioRef, Request
 
 # Canonical Intake schemas (re-exported so the orchestrator code imports one module).
 __all__ = [
     "Profile", "Request", "AnalysisRequest", "PortfolioRef", "RiskBand", "Language",
-    "HorizonYears", "AgentToggles", "ExecutionPlan", "PlanAgent",
+    "HorizonYears", "AgentToggles", "ExecutionPlan", "PromptRef",
     "OrchestratorInput", "OrchestratorOutput", "profile_from_persona",
 ]
 
@@ -52,33 +55,6 @@ def profile_from_persona(persona: dict[str, Any]) -> Profile:
     )
 
 
-class PlanAgent(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    agent: str
-    reason: str = ""
-    parameters: dict[str, Any] = {}
-
-
-class ExecutionPlan(BaseModel):
-    """Output of the Plan resolver (node ④) — shape of examples/execution_plan.example.json.
-    Current phase (orchestrator only): carried as-is in the payload, not yet resolved."""
-
-    model_config = ConfigDict(extra="allow")
-
-    schema_version: str = "1.0"
-    request_id: str
-    actor_id: str
-    task: str
-    portfolio_ref: PortfolioRef | None = None
-    as_of: str | None = None
-    enabled_agents: list[PlanAgent] = []
-    disabled_agents: list[PlanAgent] = []
-    run_governance: bool = True
-    run_explainer: bool = True
-    intake_confidence: float | None = None
-
-
 class OrchestratorInput(BaseModel):
     """Payload received by the AgentCore entrypoint (L6): profile + request + portfolio.
     `portfolio_weights`: current weights inline (Intake/upload phase comes later)."""
@@ -93,6 +69,11 @@ class OrchestratorInput(BaseModel):
     profile: Profile
     request: Request
     portfolio_weights: dict[str, float] | None = None
+    # L6: box 4 plan (which sub-agents run, with their parameters). When absent (local smoke runs),
+    # the orchestrator resolves it with the same deterministic code (app.context.resolve_plan).
+    execution_plan: Optional[ExecutionPlan] = None
+    # L7: Explainer template reference, passed through untouched for the Explainer.
+    prompt_ref: Optional[PromptRef] = None
 
 
 class OrchestratorOutput(BaseModel):

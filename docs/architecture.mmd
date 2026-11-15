@@ -85,8 +85,10 @@ flowchart TB
   %% L1  UI → API: Cognito issues the JWT; the API Gateway JWT authorizer validates it before the Lambda.
   %%      Files go straight to S3 via presigned URL (never through Lambda, 6 MB limit).
   UI -->|"JWT"| API
-  %% L2  API → Intake: Lambda calls Bedrock (Haiku) via Converse with structured outputs (JSON schema).
-  %%      Guardrails filters the input (prompt attack, personal data).
+  %% L2  API → Intake: Lambda calls Bedrock (Haiku) with structured outputs (JSON schema), via the anthropic
+  %%      SDK (AnthropicBedrock client = InvokeModel, messages.parse, inference profile us.anthropic.claude-haiku-5-5);
+  %%      code: backend/app/intake/. Guardrails filters the input (prompt attack, personal data): ApplyGuardrail
+  %%      when AF_GUARDRAIL_ID is set. Offline mode without an LLM (AF_INTAKE_MODE=mock) for tests and demos.
   API --> ING
   %% L3  Intake → JSON: output validated by schema (Bedrock structured outputs), then Pydantic;
   %%      the profile is stored in DynamoDB (ACTOR#… / PROFILE#…).

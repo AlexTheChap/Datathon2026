@@ -1,63 +1,86 @@
-"""Per-task tool-calling guide (spirit of the Plan resolver, node ④).
+"""Per-task tool-calling guide, rendered into the orchestrator template via {{tools_block}}.
 
-PURE DELEGATION: the orchestrator holds NO quantitative tools — only the
-deterministic governance verdict. Every number comes from a sub-agent finding
-(each sub-agent owns its domain tools; its internal calls are traced in the
-ledger tagged with its name). The orchestrator decides WHICH sub-agents to
-call, passes a precise `subject` (+ optional weights/tickers — the investor
-context is attached automatically), and synthesizes the cited answer.
+PURE DELEGATION: the orchestrator holds NO quantitative tools — only the deterministic
+governance verdict. Every number comes from a sub-agent finding (each sub-agent owns its
+domain toolset; its internal calls are traced in the ledger tagged with its name).
+
+The @tool docstrings tell the model WHAT each tool does; this module tells it WHEN and IN
+WHAT ORDER to call them for a given task (request.task). With an ExecutionPlan (box 4, L6),
+only the sub-agents the plan enables are listed, followed by the plan itself (reasons +
+parameters), so the model is never told about a sub-agent that is not registered for this
+run. The orchestrator passes a structured payload to each sub-agent (subject + optional
+weights/tickers — the investor context is attached automatically by render_brief).
 """
 from __future__ import annotations
 
-DELEGATION = """### Delegation to sub-agents (your only source of numbers)
-Each sub-agent owns the quantitative tools in its domain and returns ONE finding
-with nested evidence_ids. Give it a precise `subject` (the question) and, when
-relevant, `weights` / `tickers` — the investor profile and portfolio context are
-attached automatically; do NOT repeat them in the subject.
-- `risk_subagent(subject, weights, tickers)`: stress replay, concentration, risk
-  contribution, per-asset metrics, calibrated position limits (max sizing)
-- `macro_subagent(subject, weights, tickers)`: macro snapshot, rate sensitivity,
-  crisis scenarios (2022 replay)
-- `esg_subagent(subject, tickers)`: ESG index membership + documented controversies
-- `fundamentals_subagent(subject, tickers)`: documented filing facts (says no_data
-  when none — never invents)
-- `allocation_subagent(subject, weights)`: builds a hypothetical allocation and
-  self-verifies it against the rules until PASS
-- `news_subagent(subject, tickers)`: SIMULATED digest — always label it fictional
-You keep only `governance_check(weights)` (deterministic PASS/WARN/BLOCK).
+import json
+from typing import Any, Optional
+
+_DELEGATION_LINES: dict[str, str] = {
+    "risk": "- Portfolio risk (stress, concentration, risk contribution, position sizing) → **`risk_subagent`**",
+    "macro_scenarios": "- Macro environment / crisis scenarios → **`macro_subagent`**",
+    "esg": "- ESG index membership & controversies → **`esg_subagent`**",
+    "fundamentals": "- Documented filing facts (10-K/NBIM extracts) → **`fundamentals_subagent`**",
+    "allocation": "- Building a hypothetical allocation → **`allocation_subagent`** (self-verifies via governance)",
+    "news": "- News backdrop → **`news_subagent`** — SIMULATED content: always label it as fictional",
+}
+_DELEGATION_FOOTER = """Give each sub-agent a precise `subject` (+ `weights` / `tickers` when relevant); calibration
+questions belong in the subject (e.g. "...and the maximum NVDA weight respecting a -15% loss
+limit"). You keep only `governance_check(weights)` (deterministic PASS/WARN/BLOCK).
 Cite every evidence_id (the sub-agents' and your own governance check)."""
 
-TOOL_GUIDES: dict[str, str] = {
-    "risk_review": f"""### Strategy for "risk_review"
+_STRATEGIES: dict[str, str] = {
+    "risk_review": """### Strategy for "risk_review"
 1. **`governance_check` first** on the proposed (or current) weights: its
    PASS / WARN / BLOCK verdict frames the whole answer.
-2. Delegate the deep-dive: **`risk_subagent`** with a question-focused subject and
-   the proposed weights; add **`macro_subagent`** when rates/crisis context matters.
-3. Calibration: position sizing lives inside `risk_subagent` — ask for it in the
-   subject (e.g. "...and the maximum NVDA weight respecting a -15% loss limit"),
-   then run `governance_check` yourself on the calibrated weights.
+2. Delegate the deep-dive: **`risk_subagent`** with a question-focused subject and the
+   proposed weights; add **`macro_subagent`** when rates/crisis context matters.
+3. Calibration: position sizing lives inside `risk_subagent` — ask for it in the subject
+   (e.g. "...and the maximum NVDA weight respecting a -15% loss limit"), then run
+   `governance_check` yourself on the calibrated weights.
 4. A BLOCK verdict is never negotiable: explain the conflict, propose the calibrated
-   alternative, do not endorse the request as-is.
-
-{DELEGATION}""",
-    "allocation_proposal": f"""### Strategy for "allocation_proposal"
-1. Delegate construction: **`allocation_subagent`** with the goal in the subject
-   (risk band, horizon and exclusions are attached automatically) — it returns
-   weights already self-verified to PASS.
+   alternative, do not endorse the request as-is.""",
+    "allocation_proposal": """### Strategy for "allocation_proposal"
+1. Delegate construction: **`allocation_subagent`** with the goal in the subject (risk band,
+   horizon and exclusions are attached automatically) — it returns weights already
+   self-verified to PASS.
 2. Verify the returned weights yourself with **`governance_check`**.
-3. Add **`risk_subagent`** / **`macro_subagent`** on the retained weights for the
-   crisis context when useful.
-4. Present the allocation as a hypothetical scenario with evidence, not a recommendation.
-
-{DELEGATION}""",
+3. Add **`risk_subagent`** / **`macro_subagent`** on the retained weights for the crisis
+   context when useful.
+4. Present the allocation as a hypothetical scenario with evidence, not a recommendation.""",
 }
 
-GENERIC_GUIDE = f"""### Available tools — general strategy
-{DELEGATION}
-Workflow for any task: `governance_check` the relevant weights, delegate the
-domain questions, synthesize with citations, and state limitations."""
+_GENERIC_HEAD = "### Available tools — general strategy"
+_GENERIC_TAIL = """Workflow for any task: `governance_check` the relevant weights, delegate the domain
+questions, synthesize with citations, and state limitations."""
 
 
-def tools_block(task: str) -> str:
-    """Calling guide for the task; falls back to the generic guide for unknown tasks."""
-    return TOOL_GUIDES.get(task, GENERIC_GUIDE)
+def _delegation(enabled: Optional[list[str]]) -> str:
+    agents = list(_DELEGATION_LINES) if enabled is None else enabled
+    if not agents:
+        return "### Sub-agents\nNone in this run: no analysis is possible (task out of scope)."
+    lines = "\n".join(_DELEGATION_LINES[a] for a in agents)
+    return f"### Delegation to sub-agents (each returns a finding + nested evidence_ids)\n{lines}\n{_DELEGATION_FOOTER}"
+
+
+def _plan_block(plan: Any) -> str:
+    lines = ["### Execution plan for this run (deterministic, decided before you)"]
+    for a in plan.enabled_agents:
+        params = f" — parameters: {json.dumps(a.parameters)}" if a.parameters else ""
+        lines.append(f"- `{a.agent}`: {a.reason}{params}")
+    if plan.disabled_agents:
+        lines.append("- Not available in this run (not registered as tools, do not simulate them): "
+                     + ", ".join(f"`{d.agent}`" for d in plan.disabled_agents))
+    if plan.needs_clarification:
+        lines.append("- The request was unclear: state the assumptions you make.")
+    return "\n".join(lines)
+
+
+def tools_block(task: str, plan: Any = None) -> str:
+    """Calling guide for the task (generic guide for unknown tasks), restricted to the plan when given."""
+    deleg = _delegation(plan.enabled_names if plan is not None else None)
+    if task in _STRATEGIES:
+        body = f"{_STRATEGIES[task]}\n\n{deleg}"
+    else:
+        body = f"{_GENERIC_HEAD}\n{deleg}\n{_GENERIC_TAIL}"
+    return body if plan is None else f"{body}\n\n{_plan_block(plan)}"

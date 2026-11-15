@@ -35,6 +35,9 @@ def test_esg_screen_membership_and_controversies():
     ev = esg_screen(["XOM", "CNQ.TO"])
     out = ev["output"]
     assert out["membership"]["XOM"]["in_esg_index"] is False   # absent from the ESGV/FTSE screen
-    assert any(c["ticker"] == "CNQ.TO" for c in out["controversies"])
-    assert "CNQ.TO" in out["unverified_only"]                  # NBIM rows are unreviewed extracts
+    cnq = [c for c in out["controversies"] if c["ticker"] == "CNQ.TO"]
+    assert cnq
+    # unverified_only = tickers with no reviewed row. Data-independent on purpose: the NBIM rows started as
+    # unreviewed extracts ("to_verify") and were reviewed later on main (commit 3a981d6, status "verified").
+    assert ("CNQ.TO" in out["unverified_only"]) == all(c["status"] != "verified" for c in cnq)
     assert any("SIMULATED" not in a for a in ev["assumptions"])
