@@ -1,0 +1,113 @@
+[
+ {
+  "tag": "speed",
+  "run": 1,
+  "run_id": "bench-speed-1-8993ff",
+  "enabled_agents": [
+   "risk",
+   "esg",
+   "allocation"
+  ],
+  "model_calls_total": 8,
+  "haiku_calls": 8,
+  "sonnet_calls": 0,
+  "model_ms_total": 33970,
+  "model_ms_max": 9308,
+  "wall_ms": {
+   "intake": 3166,
+   "orchestrator": 24206,
+   "explainer": 20569,
+   "total": 47946
+  },
+  "agents_tool_calls": {
+   "esg_subagent": {
+    "tool_calls": 3,
+    "tool_ms": 5957
+   },
+   "allocation_subagent": {
+    "tool_calls": 3,
+    "tool_ms": 7213
+   },
+   "risk_subagent": {
+    "tool_calls": 8,
+    "tool_ms": 11540
+   },
+   "synthesis": {
+    "tool_calls": 2,
+    "tool_ms": 133
+   }
+  },
+  "answer_kind": "explained",
+  "outputs": {
+   "orchestrator_summary": "**Working draft: growth/stability balance for persona-mateo (simulation only, not advice)**\n\n**Short answer**\n\nThe governance verdict is WARN for both the current mix and the optimizer's proposed mix, so neither can be confirmed as compliant. The main issue is that the controversy exclusion (major) could not be verified for FTS.TO or RY.TO. \"No controversies found\" is not the same as \"verified clean,\" so the \"avoid major controversies\" requirement is still open.\n\nThe optimizer's alternative (about 80% XBB.TO, 10% RY.TO, 10% FTS.TO) is the only option that clears the single-position limit, but it moves the portfolio almost entirely into one bond ETF and away from the equity growth sleeve. It is a rules-driven trade-off, not a return forecast. The current 50/30/20 mix breaches the single-position limit on RY.TO (30% against a 10% limit). Any balance should be discussed with the investor before adoption, and the controversy screen should be completed first.\n\n**Key figures**\n\n- Current mix (FTS.TO 20%, XBB.TO 50%, RY.TO 30%): governance WARN, with the single-position check failing on RY.TO at 30% against a 10% limit [ev-02ab1af65d].\n- Proposed mix (XBB.TO 80.04%, RY.TO 9.98%, FTS.TO 9.98%): governance WARN. Single-position and sector checks pass, but the controversy exclusion is UNVERIFIED for FTS.TO and RY.TO, and FTS.TO is flagged as absent from the ESG index [ev-e54e6b5a19]. Optimizer output: [ev-d5d44f549b], with governance reference [ev-37b93ab0b3].\n- Risk on the current mix: about 7.33% annual volatility [ev-f646a0844d]. RY.TO supplies 46.6% of total risk from a 30% weight [ev-f646a0844d]. Effective number of positions is 2.63 [ev-3ef8977498].\n- Historical maximum drawdowns (2021\u20132026): RY.TO \u221221.2%, FTS.TO \u221224.0%, XBB.TO \u221215.5% [ev-ad8da1513c].\n- Guideline simulation of the current mix over 12 years (not a forecast): P10 $198,109, median $273,739 [ev-1b2a39a101]. Probability of ending below the starting amount: 0.72% [ev-1b2a39a101]. Risk-subagent summary: [ev-0fc174e039].\n- ESG: no controversy lines were returned for FTS.TO or RY.TO. XBB.TO's ESG status was not assessed. FTS.TO is absent from the MSCI Canada IMI Extended ESG Leaders index (a preference signal, not a ban). RY.TO is in the MSCI Canada IMI Extended ESG Focus index [ev-efb349d3f0; summary ev-5d02a7b847].\n- Simulation figures for the proposed 80/10/10 mix were not produced, so no risk or return figures are given for it.\n\n**Points to resolve before adopting any mix**\n\n- The allocation finding says the controversy exclusion was \"applied\" and no major controversy was found. The governance check reports the same exclusion as UNVERIFIED, so the governance result takes precedence.\n- Controversies held inside ETFs are not checked by the optimizer, so the WARN may come from there.\n- The ESG tool's as_of date (2026-11-13) and load date (2026-11-15) fall after the reference date (2026-11-12). Point-in-time filtering was applied, but this should be checked [ev-efb349d3f0].\n- Loss capacity is missing from the profile, so one of the governance inputs is incomplete.\n\n**Limitations:** past performance does not predict future results; this is a simulation only, not personalized financial advice.\n",
+   "short_answer": "The only mix the rules allow is mostly bonds: about 80% iShares Core Canadian Universe Bond Index ETF, 10% Royal Bank of Canada and 10% Fortis, and it leans heavily toward stability over growth. No controversies turned up for Fortis or Royal Bank of Canada, but your exclusion of major controversies could not be fully checked, so it is not confirmed. This is a simulation, not advice.",
+   "key_points": [
+    "Your first idea (50% bond ETF, 30% Royal Bank of Canada, 20% Fortis) exceeds your 10% limit for a single company. The smallest fix found is 80% bond ETF, 10% Royal Bank of Canada and 10% Fortis.",
+    "In the 50/30/20 mix, Royal Bank of Canada is 30% of the money but about 47% of the risk. Portfolio volatility is about 7.3% a year.",
+    "No controversy lines were returned for Fortis or Royal Bank of Canada. Fortis is outside the reference ESG index, which is a preference signal only. The bond ETF's ESG status was not assessed.",
+    "Over 2021-2026 the worst drops were about -24% for Fortis, about -21% for Royal Bank of Canada and about -15% for the bond ETF.",
+    "Simulation of the original 50/30/20 mix over 12 years: in 8 of 10 scenarios it ended between $198,109 and $378,534, and 1% of scenarios ended below the $150,000 start. This is a simulation, not a forecast."
+   ],
+   "claims_checked": 11,
+   "removed_claims": [],
+   "retried": true,
+   "limitations": "The simulation covers only the original mix; no simulated risk or return figures were produced for the alternative mix."
+  }
+ },
+ {
+  "tag": "speed",
+  "run": 2,
+  "run_id": "bench-speed-2-9c3386",
+  "enabled_agents": [
+   "risk",
+   "esg",
+   "allocation"
+  ],
+  "model_calls_total": 9,
+  "haiku_calls": 9,
+  "sonnet_calls": 0,
+  "model_ms_total": 37604,
+  "model_ms_max": 10035,
+  "wall_ms": {
+   "intake": 2033,
+   "orchestrator": 25604,
+   "explainer": 21398,
+   "total": 49040
+  },
+  "agents_tool_calls": {
+   "esg_subagent": {
+    "tool_calls": 3,
+    "tool_ms": 5280
+   },
+   "allocation_subagent": {
+    "tool_calls": 3,
+    "tool_ms": 9796
+   },
+   "risk_subagent": {
+    "tool_calls": 8,
+    "tool_ms": 11980
+   },
+   "synthesis": {
+    "tool_calls": 2,
+    "tool_ms": 199
+   }
+  },
+  "answer_kind": "explained",
+  "outputs": {
+   "orchestrator_summary": "**Working draft: growth/stability balance, avoiding major controversies (as of 2026-11-12, fictional CAD 150,000)**\n\n**Short answer**\n\nNeither mix passes governance cleanly, so this is not a recommendation yet.\n\n- The current 20/50/30 mix (FTS.TO / XBB.TO / RY.TO) returns WARN. Royal Bank (RY.TO) at 30% breaches the 10% single-company limit (ev-02ab1af65d).\n- The allocation sub-agent's adjusted mix (about 10% FTS.TO, 80% XBB.TO, 10% RY.TO) also returns WARN, not PASS (ev-e54e6b5a19). It clears the single-company, sector and crypto checks, but FTS.TO is left out of a reference ESG index (ev-e54e6b5a19).\n- The controversy exclusion (major severity) is UNVERIFIED for FTS.TO and RY.TO in both runs (ev-e54e6b5a19, ev-02ab1af65d). The ESG screen found no controversy lines for any of the three tickers (ev-efb349d3f0), but the rule check has no verified row to confirm the exclusion. \"No controversy found\" and \"exclusion confirmed\" are not the same thing here.\n- The 80% bond tilt leans toward stability more than a growth/stability balance (ev-d5d44f549b). It also adds no growth candidates, so the equity exposure is only the two single stocks at about 10% each (ev-d5d44f549b).\n\n**Key figures**\n\n- Current mix: portfolio volatility 7.3% a year; diversification ratio 1.47 (ev-f646a0844d).\n- Current mix: RY.TO contributes 46.6% of portfolio risk on 30% of capital; effective positions about 2.6 (ev-f646a0844d, ev-3ef8977498).\n- Current mix: worst drawdowns 2021-11-15 to 2026-11-12: RY.TO \u221221.2%, FTS.TO \u221224.0%, XBB.TO \u221215.5% (ev-ad8da1513c).\n- Current mix, simulation only, 12 years: P10 $198,109, median $273,739, P90 $378,534; 0.72% of paths end below the $150,000 start (ev-1b2a39a101). These figures are for the current mix, not the proposed one.\n- Proposed mix: single-position check 9.98% against a 10% limit, PASS (ev-e54e6b5a19).\n- Proposed mix: XBB.TO 80.04%, RY.TO 9.98%, FTS.TO 9.98% (ev-d5d44f549b).\n- ESG: RY.TO is in the MSCI Canada IMI Extended ESG Focus (iShares XESG); FTS.TO is excluded from the ESG Leaders index with no published reason; XBB.TO was not assessed for index membership (ev-efb349d3f0).\n\n**Open points before any recommendation**\n\n- Verify the controversy exclusion for FTS.TO and RY.TO, since the rule check cannot currently confirm it.\n- Ask why FTS.TO is excluded from the ESG Leaders index; the reason is not published in the holdings data (ev-e54e6b5a19).\n- Decide how much bond weight fits a balanced profile, given the 80/20 tilt (ev-d5d44f549b).\n- Loss capacity is missing from the profile, so that check is incomplete (ev-e54e6b5a19).\n- The risk sub-agent notes the 8\u201312 year horizon is at the short end of the projection guidelines' intended use (ev-1b2a39a101).\n\n**Limitations:** This is a fictional educational simulation, not personalized financial advice. Past performance does not predict future results, and the projections are simulations only.\n",
+   "short_answer": "No mix has been fully confirmed yet as a balanced fit that avoids major controversies. The closest option, about 80% iShares Core Canadian Universe Bond Index ETF, 10% Royal Bank of Canada and 10% Fortis, respects your 10% single-company limit, but it leans heavily toward stability. No controversy lines were found for any of the three holdings, but your exclusion could not be confirmed, so it is not a pass.",
+   "key_points": [
+    "The mix you started from (Fortis 20%, the bond ETF 50%, Royal Bank of Canada 30%) puts one company at 30%, above your 10% limit for a single company.",
+    "The smallest adjustment that respects your limits is the bond ETF 80%, Royal Bank of Canada about 10%, Fortis about 10%. That is a much heavier bond tilt than a growth/stability balance suggests.",
+    "In the original mix, Royal Bank of Canada is 30% of the money but about 47% of the risk, and the portfolio behaves like about 2.6 equal-sized positions.",
+    "The ESG screen found no controversy lines for Fortis, Royal Bank of Canada or the bond ETF. Fortis is absent from a reference ESG index, though the reason is not published.",
+    "Over the past five years, worst drops were about -24% for Fortis, about -21% for Royal Bank of Canada and about -15% for the bond ETF. Expected volatility is stable for all three.",
+    "In a simulation of your original starting mix over 12 years, the portfolio ended between $198,109 and $378,534 from $150,000 in 8 of 10 scenarios, and about 1% of scenarios ended below the start. This simulation does not cover the adjusted mix."
+   ],
+   "claims_checked": 12,
+   "removed_claims": [],
+   "retried": true,
+   "limitations": "The controversy screen found no lines, but unreviewed data cannot prove absence, so your exclusion is not confirmed."
+  }
+ }
+]
