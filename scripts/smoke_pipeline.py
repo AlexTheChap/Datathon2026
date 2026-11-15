@@ -104,9 +104,7 @@ def main() -> int:
     from types import SimpleNamespace
 
     from app.agents.explainer import explain
-    from app.core.config import get_settings
     from app.schemas.prompt_ref import PromptRef
-    from app.store.ledger import make_ledger
 
     run = SimpleNamespace(profile=intake.profile, request=intake.request, execution_plan=plan,
                           prompt_ref=PromptRef(**ctx["prompt_ref"]))
