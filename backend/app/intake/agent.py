@@ -14,6 +14,7 @@ The Intake analyses nothing and blocks nothing: governance (box 5) decides. It o
 """
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from datetime import date
@@ -24,10 +25,11 @@ from pydantic import ValidationError
 from app.schemas import Parameters, PortfolioRef, Position, Profile, Request, Toggles
 from app.store.profiles import ProfileStore
 
-from .backends import IntakeBackend, IntakeRefused, IntakeUnavailable, get_backend
+from .backends import IntakeBackend, IntakeRefused, IntakeUnavailable, get_backend, split_preferences_by_rules
 from .schemas import AgentToggleChange, IntakeDraft, IntakeResult
 from .universe import load_universe, normalize_ticker
 
+log = logging.getLogger(__name__)
 DATA_END = date(2026, 11, 12)  # last date of the dataset (see schemas/enums.py)
 MIN_CONFIDENCE = 0.6
 REQUIRED_PROFILE_FIELDS = ("risk_band", "experience", "language")
@@ -62,6 +64,22 @@ def _extract_with_retry(backend: IntakeBackend, text: str, known: dict) -> Intak
         raise IntakeError(f"The language model could not be reached: {type(e).__name__}: {str(e)[:300]}") from e
 
 
+def derive_preferences(text: str, backend: IntakeBackend) -> tuple[list[str], list[str]]:
+    """The profile form's free text -> (preferences, constraints), with the same backend as the chat intake
+    (AF_INTAKE_MODE): the model's extraction in bedrock / lambda mode, simple rules in mock mode.
+    Raises IntakeRefused when the model or guardrail refuses the text. When the backend is unreachable the rules
+    are used instead, so saving the profile never fails because of the language model."""
+    if not text.strip():
+        return [], []
+    splitter = getattr(backend, "split_preferences", None)
+    if splitter is not None:
+        return splitter(text)
+    try:
+        draft = _extract_with_retry(backend, text, {})
+    except IntakeError as e:
+        log.warning("Preferences split by rules, the intake backend failed: %s", e)
+        return split_preferences_by_rules(text)
+    return list(draft.profile.preferences), list(draft.profile.constraints)
 def _dedupe(items: list) -> list:
     out = []
     for item in items:

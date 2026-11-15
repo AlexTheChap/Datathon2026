@@ -19,7 +19,7 @@ from typing import Any, Literal, Optional, Protocol
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.context import handler as context_handler
-from app.intake import IntakeError, get_backend, run_intake
+from app.intake import IntakeError, IntakeRefused, derive_preferences, get_backend, run_intake
 from app.intake.backends import IntakeBackend
 from app.intake.schemas import AgentToggleChange
 from app.notify.contacts import (
@@ -40,6 +40,7 @@ from app.store.profiles import InMemoryProfileStore, ProfileStore
 from app.store.runs import InMemoryRunStore, RunRecord, RunStore, new_run_id, new_session_id
 
 MAX_TEXT_CHARS = 4000
+MAX_PREFERENCES_TEXT = 2000   # = Profile.preferences_text max_length (checked in tests)
 PERSONAS_PATH = Path(__file__).resolve().parents[1] / "core" / "personas.json"
 
 
@@ -255,6 +256,7 @@ class ApiService:
             reasons = {a: q for a, q in data.get("agent_toggle_reasons", {}).items() if a not in form_toggles}
             data.update(agent_toggles=toggles, agent_toggle_reasons=reasons)
         data.update({k: v for k, v in form.items() if v is not None})
+        self._derive_preferences(stored, form, data)
         try:
             profile = Profile(actor_id=actor_id, **data)
         except (ValidationError, TypeError) as e:
@@ -264,6 +266,27 @@ class ApiService:
         return profile
 
 
+    def _derive_preferences(self, stored: Optional[Profile], form: dict[str, Any], data: dict[str, Any]) -> None:
+        """"Preferences and constraints" free text: when it changed, `preferences` and `constraints` are derived
+        from it with the intake backend (what the form sends for those two lists is ignored). The text itself
+        is kept unchanged. Empty text clears all three. Text over the limit is left to the Profile validation (422)."""
+        if "preferences_text" not in form:
+            return
+        text = form["preferences_text"]
+        if text is None or not isinstance(text, str):
+            return
+        if text == ((stored.preferences_text if stored else None) or ""):
+            return   # unchanged: keep what was derived before (no model call on every partial save)
+        if not text.strip():
+            data.update(preferences_text=None, preferences=[], constraints=[])
+            return
+        data["preferences_text"] = text
+        if len(text) > MAX_PREFERENCES_TEXT:
+            return
+        try:
+            data["preferences"], data["constraints"] = derive_preferences(text, self._backend())
+        except IntakeRefused as e:
+            raise ApiError(422, [{"loc": ["preferences_text"], "msg": "This text cannot be used. Please rephrase it."}]) from e
     # ----- GET / PUT /v1/notifications/sms (news alerts by text, app.notify) -----
     def get_sms(self, actor_id: str) -> dict[str, Any]:
         c = self.contacts.get(actor_id)

@@ -5,9 +5,13 @@ import json
 from pathlib import Path
 
 import pytest
-
-from app.schemas.models import (AnalysisRequest, ExecutionPlan, OrchestratorInput, Profile,
-                                profile_from_persona)
+from app.schemas.models import (
+    AnalysisRequest,
+    ExecutionPlan,
+    OrchestratorInput,
+    Profile,
+    profile_from_persona,
+)
 from app.schemas.request import Request
 
 REPO = Path(__file__).resolve().parents[2]
@@ -65,7 +69,7 @@ def test_minimal_orchestrator_payload():
     assert inp.profile.risk_band == "low_moderate"
     assert inp.portfolio_weights["NVDA"] == 0.5
 # ---------- Profile: age and preferences_text (contract change) ----------
-from pydantic import ValidationError  # noqa: E402
+from pydantic import ValidationError
 
 _BASE = {"actor_id": "u1", "risk_band": "moderate", "experience": "beginner", "language": "en"}
 
