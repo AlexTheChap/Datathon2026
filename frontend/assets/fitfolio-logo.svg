@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <title>Fitfolio</title>
+  <path d="M27 55V24a13 13 0 0 1 13-13h7" stroke="#172A44" stroke-width="8"/>
+  <path d="M11 39l10-6 8 4 20-13" stroke="#E41C23" stroke-width="6"/>
+  <path d="M41 22.5l8.5 1.5-1.5 8.5" stroke="#E41C23" stroke-width="6"/>
+</svg>
