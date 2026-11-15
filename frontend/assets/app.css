@@ -1025,3 +1025,40 @@ summary { cursor: pointer; font-weight: var(--weight-mid); min-height: 44px; dis
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
   .spinner { border-inline-end-color: currentColor; opacity: 0.6; }
 }
+
+/* ---------- Range of possible values (projection) and risk trend (portfolio.js, charts.js fanChart) ---------- */
+.disclaimer-line { font-size: var(--text-sm); font-weight: var(--weight-mid); color: var(--color-ink-2); background: var(--color-surface-2);
+  border-radius: var(--radius-field); padding: var(--space-xs) var(--space-sm); justify-self: start; }
+.proj-controls { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-md) var(--space-xl); }
+.proj-controls .field { display: grid; gap: var(--space-2xs); }
+.proj-inline { display: flex; gap: var(--space-xs); align-items: center; }
+.input--inline { width: auto; min-width: 9rem; }
+.seg-control__options.is-plain .seg-control__option input:checked + span { background: var(--color-slate); color: var(--color-surface); }
+.proj-summary { font-size: var(--text-lg); line-height: 1.5; max-width: 68ch; color: var(--color-ink); }
+.fan-wrap { position: relative; width: 100%; max-width: 760px; }
+.fan { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.fan__grid { stroke: var(--viz-track); stroke-width: 1; }
+.fan__axis { font-size: 12px; fill: var(--color-muted); font-variant-numeric: tabular-nums; }
+.fan__outer { fill: color-mix(in oklab, var(--viz-1) 18%, transparent); }
+.fan__inner { fill: color-mix(in oklab, var(--viz-1) 42%, transparent); }
+.fan__median { fill: none; stroke: var(--viz-1); stroke-width: 2.5; stroke-linejoin: round; }
+.fan__start { stroke: var(--color-ink-2); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.fan__dots { position: absolute; inset: 0; }
+.fan__dot { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--viz-1);
+  border: 2px solid var(--color-surface); opacity: 0; transition: opacity var(--dur-micro) var(--ease); }
+.fan__dot:focus-visible, .fan__dot:hover { opacity: 1; }
+.fan-swatch--outer { background: color-mix(in oklab, var(--viz-1) 18%, transparent); border: 1px solid var(--viz-1); }
+.fan-swatch--inner { background: color-mix(in oklab, var(--viz-1) 42%, transparent); }
+.fan-swatch--median { height: 3px; background: var(--viz-1); }
+.fan-swatch--start { height: 0; border-top: 2px dashed var(--color-ink-2); background: transparent; }
+.proj-assumptions table { margin-block-end: var(--space-sm); }
+
+.trend-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.trend-chip { display: inline-flex; align-items: center; gap: var(--space-2xs); min-height: 28px; padding: 0 var(--space-sm);
+  border-radius: var(--radius-pill); border: 1px solid var(--color-rule); font-size: var(--text-sm); color: var(--color-ink); background: var(--color-surface); }
+.trend-chip:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.trend-chip__ticker { font-weight: var(--weight-mid); }
+.trend-chip__arrow { font-weight: var(--weight-strong); }
+.trend-chip--rising { border-color: var(--color-warn-ink); color: var(--color-warn-ink); background: var(--color-warn-bg); }
+.trend-chip--easing { border-color: var(--color-pass-ink); color: var(--color-pass-ink); background: var(--color-pass-bg); }
+.trend-chip--none { color: var(--color-muted); }
