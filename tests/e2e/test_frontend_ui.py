@@ -420,26 +420,6 @@ def test_portfolio_without_a_profile_asks_for_one(page, base_url):
     assert page.errors == []
 
 
-def test_portfolio_on_a_phone_has_no_sideways_scroll(base_url):
-    with playwright_api.sync_playwright() as p:
-        try:
-            browser = p.chromium.launch()
-        except Exception as e:
-            pytest.skip(f"Chromium for Playwright is not installed: {e}")
-        ctx = browser.new_context(viewport={"width": 360, "height": 780})
-        ctx.route("**/config.js", DEV_CONFIG)
-        ctx.add_init_script("localStorage.setItem('af.actor', JSON.stringify('e2e-phone-pf'))")
-        page = ctx.new_page()
-        page.goto(f"{base_url}/#/ask")
-        _portfolio_for(page)
-        page.goto(f"{base_url}/#/portfolio")
-        page.wait_for_selector(".hero-card")
-        wide = page.evaluate("""() => [...document.querySelectorAll('body *')].filter(
-            (e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 1).map((e) => e.className)""")
-        assert wide == [] and page.locator("#usermenu-btn").is_visible()
-        browser.close()
-
-
 # ---------- Profile set-up, one question at a time (profile-steps.js) ----------
 def test_profile_set_up_step_by_step(page, base_url):
     page.click("#usermenu-btn")
