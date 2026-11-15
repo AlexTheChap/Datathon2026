@@ -47,11 +47,13 @@ def news_mode() -> str:
 
 
 def local_quant_tools() -> list:
+    """The four quant measures ONLY. Candidate discovery (market_screen / market_related) belongs to
+    the Allocation sub-agent — risk analyses the portfolio given in its brief, and the observed
+    failure mode was risk re-screening the whole universe on every turn."""
     from app.tools import agent_tools
 
     return [agent_tools.metrics, agent_tools.concentration,
-            agent_tools.correlation, agent_tools.risk_contribution,
-            agent_tools.market_screen, agent_tools.market_related]
+            agent_tools.correlation, agent_tools.risk_contribution]
 
 
 _mcp_clients: dict[str, object] = {}
