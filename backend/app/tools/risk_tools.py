@@ -9,8 +9,8 @@ Each tool returns an EVIDENCE record (dict) in a common format:
       "output": {...},            # figures
       "say": "short sentence…",    # for the agent (text or voice)
       "currency": "CAD",
-      "as_of": "2022-12-30",      # no later data is used
-      "period": "2022-01-03/2022-12-30",
+      "as_of": "2025-12-30",      # no later data is used
+      "period": "2025-01-02/2025-12-30",
       "method": "...", "assumptions": [...], "data_sources": [...]
     }
 
@@ -19,7 +19,7 @@ The LLM never computes: it calls these functions and cites their evidence.
 Minimal usage:
     from risk_tools import RiskTools
     rt = RiskTools("data/curated")
-    rt.metrics(["NVDA", "XBB.TO"], start="2022-01-01", end="2022-12-31")
+    rt.metrics(["NVDA", "XBB.TO"], start="2025-01-01", end="2025-12-31")
 """
 from __future__ import annotations
 
@@ -246,7 +246,7 @@ class RiskTools:
         say = f"Strongest correlation: {hi[0]} and {hi[1]} ({hi[2]:.2f})." if hi else ""
         return self._evidence("correlation", {"tickers": tickers, "start": start, "end": end, "as_of": as_of},
                               out, say, r.index, "Pearson correlation of daily returns in CAD.",
-                              ["Correlations often rise during crises: compare with 2022."])
+                              ["Correlations are not stable: they often rise when markets fall."])
 
     def risk_contribution(self, weights: dict, start=None, end=None, as_of=None) -> dict:
         w = self._normalize(weights)

@@ -81,7 +81,7 @@ def correlation(tickers: list[str], start: str | None = None, end: str | None = 
     """Correlation matrix of daily returns in CAD between assets.
     Args:
         tickers: At least two assets from the universe.
-        start/end: Optional window (comparing with 2022 is instructive).
+        start/end: Optional "YYYY-MM-DD" window.
         as_of: Optional earlier date; the run's reference date is the upper bound.
     """
     return _guard(_tools().correlation, tickers, start=start, end=end, as_of=effective_as_of(as_of))
