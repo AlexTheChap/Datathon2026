@@ -350,6 +350,10 @@ def _dispatcher(runs: RunStore, dispatch: str) -> Dispatcher:
         from .dispatcher import LocalDispatcher
 
         return LocalDispatcher(runs)
+    if dispatch == "lambda":
+        from .dispatcher import LambdaDispatcher
+
+        return LambdaDispatcher(runs)
     if dispatch == "inline":
         from .dispatch import InlineDispatcher
 
@@ -370,8 +374,8 @@ def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
     env = os.environ if env is None else env
     kind = (env.get("AF_STORE") or ("dynamodb" if env.get("AWS_LAMBDA_FUNCTION_NAME") else "file")).lower()
     dispatch = env.get("AF_DISPATCH", "inline").lower()
-    if dispatch not in ("local", "none", "inline"):
-        raise ValueError(f"Unknown AF_DISPATCH: {dispatch!r} (expected: local, none or inline)")
+    if dispatch not in ("local", "none", "inline", "lambda"):
+        raise ValueError(f"Unknown AF_DISPATCH: {dispatch!r} (expected: local, none, inline or lambda)")
     if kind == "memory":
         runs = InMemoryRunStore()
         return ApiService(runs=runs, dispatcher=_dispatcher(runs, dispatch))

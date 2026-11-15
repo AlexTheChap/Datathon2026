@@ -87,7 +87,7 @@ def api_origin(api_url: str) -> dict:
             "CustomHeaders": {"Quantity": 0},
             "CustomOriginConfig": {"HTTPPort": 80, "HTTPSPort": 443, "OriginProtocolPolicy": "https-only",
                                    "OriginSslProtocols": {"Quantity": 1, "Items": ["TLSv1.2"]},
-                                   "OriginReadTimeout": 30, "OriginKeepaliveTimeout": 5},
+                                   "OriginReadTimeout": 60, "OriginKeepaliveTimeout": 5},
             "ConnectionAttempts": 3, "ConnectionTimeout": 10, "OriginShield": {"Enabled": False}}
 
 
@@ -248,9 +248,16 @@ def main() -> None:
     ap.add_argument("--dry-run", action="store_true", help="print what would be published and created, change nothing")
     ap.add_argument("--delete", action="store_true", help="delete the distribution, its access control and the bucket")
     args = ap.parse_args()
+    if hasattr(sys.stdout, "reconfigure"):   # Windows console (cp1252): the ✓ and → of the messages
+        sys.stdout.reconfigure(errors="replace")
 
     import os
 
+    try:  # Windows: system certificates for botocore (before boto3 is imported)
+        import truststore
+        truststore.inject_into_ssl()
+    except ImportError:
+        pass
     import boto3
 
     if not args.profile:
