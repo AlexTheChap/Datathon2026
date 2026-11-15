@@ -132,6 +132,8 @@ def test_fit_score_is_measured_on_the_callers_profile(client):
     assert [p["key"] for p in body["parts"]] == ["rules", "risk_level", "asset_mix", "loss", "horizon", "diversification"]
     assert client.post("/v1/fit-score", json={}, headers=h).status_code == 422          # no weights, no saved portfolio
     assert client.post("/v1/fit-score", json={"weights": {"NOPE": 1.0}}, headers=h).status_code == 422
+    better = client.post("/v1/fit-score/improve", json={"weights": {"QQQ": 1.0}}, headers=h).json()
+    assert better["found"] and better["best"]["score"] > better["base"]["score"] and better["changes"]
 
 
 # ---------- Profile form ----------

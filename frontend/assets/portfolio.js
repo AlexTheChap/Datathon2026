@@ -413,6 +413,7 @@ function whatIfSection(view) {
 
   const rows = h("div", { class: "whatif__rows" });
   const result = h("div", { class: "whatif__result", "aria-live": "polite" });
+  const suggestion = h("div", { class: "whatif__suggest", "aria-live": "polite" });
   const reset = h("button", { class: "btn btn--secondary btn--sm", type: "button", onclick: () => setWeights({ ...p.weights }, true) }, "Back to my portfolio");
   const pick = h("input", { class: "input whatif__pick", id: "whatif-pick", list: "whatif-assets", placeholder: "Ticker or name, e.g. NVDA",
     autocomplete: "off", "aria-describedby": "whatif-pick-help" });
@@ -444,8 +445,9 @@ function whatIfSection(view) {
     }));
   }
   /** New weights: update the sliders in place (the one being dragged keeps its focus), then score them. */
-  function setWeights(next, redraw, moving) {
+  function setWeights(next, redraw, moving, keepSuggestion = false) {
     weights = next;
+    if (!keepSuggestion) suggestion.replaceChildren(); // a suggestion is for the mix it was made from
     trials.set(p.runId, weights);
     if (redraw) {
       // One row per holding in the weights, always: rows keep their place, and a holding that comes back (the reset
@@ -476,11 +478,33 @@ function whatIfSection(view) {
       const [trial, base] = await Promise.all([fitFor(ctx, profile, clean), fitFor(ctx, profile, p.weights).catch(() => null)]);
       if (mine !== seq) return; // a newer move is on its way
       result.classList.remove("is-loading");
-      result.replaceChildren(...whatIfResult(view, trial, base).filter(Boolean));
+      result.replaceChildren(...whatIfResult(view, trial, base, improve).filter(Boolean));
     } catch (err) {
       if (mine !== seq) return;
       result.classList.remove("is-loading");
       result.replaceChildren(ctx.alertBox(err, "the fit of this mix", score));
+    }
+  }
+
+  /** "Improve my score": the closest mix that fits the profile better (POST /v1/fit-score/improve), shown with the
+   * before/after and each change; "Try this mix" loads it into the sliders (Back to my portfolio undoes it). */
+  async function improve() {
+    const from = { ...weights };
+    suggestion.replaceChildren(h("p", { class: "small muted" }, "Looking for a closer fit to your profile…"));
+    try {
+      const { data } = await ctx.api("POST", "/v1/fit-score/improve", { weights: from });
+      if (!D.sameWeights(from, weights)) return; // the mix moved meanwhile: this answer is for an older one
+      suggestion.replaceChildren(...suggestionCard(view, data, {
+        apply: () => {
+          order = D.sortedWeights(data.weights).map(([t]) => t);
+          setWeights({ ...data.weights }, true, null, true);
+          suggestion.replaceChildren(h("p", { class: "small" }, h("strong", null, "The suggested mix is in the sliders. "),
+            "Adjust it as you like; “Back to my portfolio” undoes it."));
+        },
+        dismiss: () => suggestion.replaceChildren(),
+      }).filter(Boolean));
+    } catch (err) {
+      suggestion.replaceChildren(ctx.alertBox(err, "a better mix", improve));
     }
   }
 
@@ -495,10 +519,34 @@ function whatIfSection(view) {
         h("div", { class: "whatif__add" }, h("label", { class: "field__label", for: "whatif-pick" }, "Add an investment"),
           h("div", { class: "whatif__add-row" }, pick, h("button", { class: "btn btn--secondary btn--sm", type: "button", onclick: add }, "Add")), pickHelp, options),
         reset),
-      result));
+      result),
+    suggestion);
 }
 
-function whatIfResult(view, fit, base) {
+function suggestionCard(view, data, { apply, dismiss }) {
+  const { h, level } = view;
+  const uni = view.uni || {};
+  if (!data.found) return [h("p", { class: "small" }, h("strong", null, "No better mix found. "), data.message)];
+  const name = (t) => (level === "simple" ? (uni[t] || {}).plain || t : t);
+  return [
+    h("h3", { class: "whatif__suggest-title" }, level === "simple" ? "A mix that suits you better" : "A closer fit to your profile"),
+    h("p", { class: "whatif__jump" }, `${data.base.score}%`, h("span", { "aria-hidden": "true" }, " → "),
+      h("span", { class: "visually-hidden" }, " becomes "), h("strong", null, `${data.best.score}%`),
+      h("span", { class: "small muted" }, ` ${data.best.band}`)),
+    data.steps.length ? h("ul", { class: "small answer-list" }, data.steps.map((s) => h("li", null, s))) : null,
+    h("div", { class: "table-wrap" }, h("table", { class: "data-table" },
+      h("caption", { class: "visually-hidden" }, "What changes, holding by holding"),
+      h("thead", null, h("tr", null, h("th", { scope: "col" }, "Holding"), ["Now", "Suggested"].map((x) => h("th", { scope: "col", class: "num" }, x)))),
+      h("tbody", null, data.changes.map((c) => h("tr", null, h("th", { scope: "row" }, name(c.ticker)),
+        h("td", { class: "num" }, c.from ? pct1(c.from) : "—"), h("td", { class: "num" }, c.to ? pct1(c.to) : "removed")))))),
+    h("div", { class: "whatif__suggest-actions" },
+      h("button", { class: "btn btn--primary btn--sm", type: "button", onclick: apply }, "Try this mix"),
+      h("button", { class: "link-btn", type: "button", onclick: dismiss }, "Dismiss")),
+    level !== "simple" ? h("p", { class: "small muted" }, data.method) : null,
+  ];
+}
+
+function whatIfResult(view, fit, base, onImprove) {
   const { h, level } = view;
   const delta = base ? fit.score - base.score : null;
   const mix = (fit.parts.find((x) => x.key === "asset_mix") || { items: [{}] }).items[0].measured;
@@ -518,6 +566,8 @@ function whatIfResult(view, fit, base) {
     lines.length ? h("ul", { class: "small plain-list fit-lines" }, lines.map((l) => h("li", null,
       h("strong", null, level === "simple" ? l.title : `${l.title}: −${l.lost}`), h("span", { class: "fit-lines__why" }, ` ${l.reasons.join("; ")}.`))))
       : h("p", { class: "small muted" }, "This mix meets every part of your profile."),
+    fit.score < 100 && onImprove ? h("button", { class: "btn btn--secondary btn--sm whatif__improve", type: "button", onclick: onImprove },
+      level === "simple" ? "Find a mix that suits me better" : "Improve my score") : null,
   ];
 }
 
