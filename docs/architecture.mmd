@@ -170,9 +170,13 @@ flowchart TB
   GOV -->|"PASS / WARN"| EXP
   %% L12 Sub-agents → Tools: TARGET: AgentCore Gateway (MCP, SigV4/OAuth auth, optional Cedar
   %%      Policy) → quant tool Lambdas. CURRENT: direct in-process calls — sub-agents own their
-  %%      domain toolsets (risk: metrics/concentration/correlation/risk_contribution/
-  %%      macro: macro_snapshot/rate_sensitivity/correlation · esg: esg_screen ·
-  %%      fundamentals: company_fundamentals (SEC XBRL, point-in-time) + news_search(8-K) + esg_screen · allocation: optimize/metrics/concentration/governance_check).
+  %%      domain toolsets (risk: metrics/concentration/correlation/risk_contribution +
+  %%      market_screen/market_related ·
+  %%      macro: macro_snapshot/rate_sensitivity/correlation · esg: esg_screen (Gateway esg___esg_screen
+  %%      when configured: the Lambda reads the LIVE market graph, freshness-gated; local = curated CSVs) ·
+  %%      fundamentals: company_fundamentals (SEC XBRL, point-in-time) + news_search(8-K) + esg_screen ·
+  %%      allocation: optimize/metrics/concentration/governance_check + market_screen/market_related
+  %%      (candidate discovery; optimize still gates tickers on the dated returns)).
   SUB -->|"tool calls (in-process)"| GW
   %% L13 News → KB: Bedrock Knowledge Base "alphaforge-news-docs" (Titan Text Embeddings v2, S3 Vectors index, metadata
   %%      filter published_date <= as_of applied BEFORE ranking), deployed by scripts/deploy_news_kb.py (AF_KB_ID).
@@ -185,6 +189,22 @@ flowchart TB
   %%      CURRENT: in-process pandas reads over data/curated CSVs (returns_daily_cad,
   %%      macro_daily_asof, rate_sensitivity, esg_index_screen, controversies…).
   GW --> S3
+  %% Market graph (app.market): LIVE Neptune snapshot (or the identical LocalGraph over data/market
+  %%      Parquet), refreshed 11:00/17:00 ET business days. Reliable within AF_GRAPH_FRESH_HOURS (12h
+  %%      default) of Snapshot.loaded_at/intraday_at; a STALE graph refuses every graph tool
+  %%      (market_screen/market_related/esg_screen) instead of serving outdated data. Price series stay
+  %%      in Parquet: metrics/correlation/optimize remain point-in-time over the curated store.
+  %%      LOCAL fast path (app/tools/market_store.py): the same S3 market tables synced into
+  %%      data/market (manifest included, so the 12h rule stays honest) serve market_screen/
+  %%      market_related/esg_screen from the in-process LocalGraph — milliseconds, no gateway hop,
+  %%      no Lambda cold start; the Gateway path (AF_GATEWAY_URL) stays the deployed route. One
+  %%      MCPClient per gateway URL is shared across sub-agents and runs (warm handshake).
+  %%      WARM-UP at intake: run_intake / the dispatcher kick off a daemon thread
+  %%      (market_store.kick_off_market_warmup) that syncs the cache and probes the quant Lambda
+  %%      once, so Neptune's wake (~9s idle) happens during the intake LLM call, not during the
+  %%      forks. The quant Lambda runs an always-warm "live" alias with provisioned concurrency 1
+  %%      (memory 1769MB) behind the Gateway targets; sub-agent prompts batch independent tool
+  %%      calls into one turn (they execute concurrently).
   %% L15 Tools → Evidence ledger: a Strands hook (Before/AfterToolCallEvent) fires around every
   %%      tool call. TARGET sink: DynamoDB (RUN#id / EVID#ev-<hash>). CURRENT: local JSONL ledger
   %%      data/runs/<run_id>.jsonl behind the same EvidenceLedger interface — every call is
