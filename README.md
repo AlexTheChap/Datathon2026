@@ -40,7 +40,7 @@ Before writing or reviewing any code, read it. See
 ## Run the pipeline (boxes ③④⑤⑥)
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -e ".[dev,bedrock]"
+python3 -m venv .venv && .venv/bin/pip install -e ".[dev,bedrock,api]"
 .venv/bin/pytest -q                                   # unit tests, no AWS needed
 
 # Requires AWS credentials with Bedrock Claude access (default model + region
