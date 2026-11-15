@@ -43,6 +43,16 @@ from .service import ApiError, ApiService, MessageIn, MessageOut, RunSummary, ex
 FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
 
 
+class _FreshStaticFiles(StaticFiles):
+    """The web app's files with "Cache-Control: no-cache": the browser revalidates them (ETag, a 304 when unchanged)
+    on every load, so a new version of app.js or its modules is never mixed with an old cached one."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 def identity_from(request: Request) -> Identity:
     try:
         return identify(request.scope.get("aws.event"), request.headers)
@@ -161,7 +171,7 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
                 body = "// Sign-in is off: this API does not verify Cognito tokens (AF_AUTH_MODE is not cognito).\n"
             return Response(body, media_type="application/javascript", headers={"Cache-Control": "no-store"})
 
-        api.mount("/", StaticFiles(directory=frontend, html=True), name="frontend")
+        api.mount("/", _FreshStaticFiles(directory=frontend, html=True), name="frontend")
 
     log_auth_mode()
 
