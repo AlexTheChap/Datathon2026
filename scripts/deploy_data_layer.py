@@ -106,7 +106,7 @@ def test(session, bucket: str) -> bool:
             print(f"  {'✓' if same else '✗'} {name:<18} {a.shape}  identical to the repo CSV")
         rt_s3, rt_csv = RiskTools(tmp), RiskTools(local)
         w = {"XIU.TO": 0.24, "XBB.TO": 0.24, "ZST.TO": 0.08, "RY.TO": 0.08, "FTS.TO": 0.08, "JNJ": 0.08, "NVDA": 0.2}
-        for label, f in [("stress 2022", lambda rt: rt.stress(w, "2022", 400000)),
+        for label, f in [("replay 2022", lambda rt: rt.replay(w, 400000, "2022-01-03", "2022-12-30")),
                          ("metrics as_of 2022-06-30", lambda rt: rt.metrics(["NVDA"], as_of="2022-06-30"))]:
             x, y = f(rt_s3), f(rt_csv)
             same = x["evidence_id"] == y["evidence_id"] and x["output"] == y["output"]

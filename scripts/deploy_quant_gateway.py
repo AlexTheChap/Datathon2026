@@ -15,8 +15,8 @@ What it creates (all names prefixed "alphaforge-quant"):
    (handler app.tools.quant_gateway.handler).
 3. IAM role "alphaforge-quant-gateway" (trusted by bedrock-agentcore, may invoke ONLY that Lambda).
 4. AgentCore Gateway "alphaforge-quant-gateway": protocol MCP, authorizer AWS_IAM (SigV4).
-5. Five Gateway targets on the same Lambda: metrics · risk · scenarios · optimizer · macro
-   (tool schemas from app.tools.quant_gateway.TARGETS).
+5. Three Gateway targets on the same Lambda: metrics · risk · macro
+   (tool schemas from app.tools.quant_gateway.TARGETS; removed targets are pruned on redeploy).
 The Gateway URL is written to build/quant_gateway.json and to .env as AF_GATEWAY_URL.
 """
 from __future__ import annotations
@@ -193,6 +193,10 @@ def ensure_targets(ac, gateway_id: str, lambda_arn: str) -> None:
                                            credentialProviderConfigurations=creds)["targetId"]
         _wait(lambda: ac.get_gateway_target(gatewayIdentifier=gateway_id, targetId=tid), f"target {name}")
         print(f"• Target ready: {name} -> {[t['name'] for t in tools]}")
+    for name, tid in existing.items():  # a target removed from TARGETS: delete it, never leave a zombie
+        if name not in TARGETS:
+            ac.delete_gateway_target(gatewayIdentifier=gateway_id, targetId=tid)
+            print(f"• Stale target removed: {name}")
 
 
 def save_url(url: str, gateway_id: str, region: str) -> None:
@@ -215,8 +219,6 @@ TEST_CALLS = [
     ("metrics___correlation", {"tickers": ["XIU.TO", "XBB.TO"], "start": "2022-01-01", "end": "2022-12-31"}),
     ("risk___risk_contribution", {"weights": ROBERT_NVDA}),
     ("risk___concentration", {"weights": ROBERT_NVDA}),
-    ("scenarios___stress", {"weights": ROBERT_NVDA, "window": "2022", "capital": 400000}),
-    ("optimizer___max_position", {"base_weights": ROBERT, "asset": "NVDA", "max_drawdown_limit": 0.15}),
     ("macro___macro_snapshot", {"as_of": "2022-06-30"}),
     ("macro___fx_usdcad", {"as_of": "2022-12-30", "start": "2022-01-03"}),
 ]
@@ -243,7 +245,7 @@ def test(session, url: str) -> bool:
         mark = "✓" if same else "✗"
         print(f"  {mark} {name:<26} {ms:6.0f} ms  {remote.get('evidence_id') if isinstance(remote, dict) else '?'}"
               f"  {(remote.get('say') or remote.get('error')) if isinstance(remote, dict) else remote}")
-    bad = client.call_tool("scenarios___stress", {"weights": ROBERT, "window": "1929"})
+    bad = client.call_tool("metrics___metrics", {"tickers": ["NVDA"], "start": "1929-01-01", "end": "1929-12-31"})
     print(f"  {'✓' if 'error' in bad else '✗'} bad window returns an error the agent can fix: {bad.get('error')}")
     ok &= "error" in bad
     print("• Gateway == local for every tool" if ok else "✗ Gateway and local results differ")
