@@ -122,7 +122,7 @@ def deploy_lambda(lam, zip_path: Path, role_arn: str) -> str:
     code = zip_path.read_bytes()
     env = {"AF_CURATED_S3": curated_s3()} if curated_s3() else {"AF_CURATED_DIR": "/var/task/data/curated"}
     g = graph_state()
-    cfg = dict(Timeout=60, MemorySize=1024)
+    cfg = dict(Timeout=60, MemorySize=1769)  # CPU scales with memory: faster init on cold start
     if g:  # inside the graph VPC, Neptune for the market target
         env |= {"AF_NEPTUNE_ENDPOINT": g["neptune_endpoint"], "AF_NEPTUNE_PORT": str(g["neptune_port"])}
         cfg["VpcConfig"] = {"SubnetIds": g["subnet_ids"], "SecurityGroupIds": [g["sg_lambda"]]}
@@ -147,7 +147,31 @@ def deploy_lambda(lam, zip_path: Path, role_arn: str) -> str:
                 time.sleep(5)
         print(f"• Lambda created: {FUNCTION}")
     lam.get_waiter("function_updated_v2").wait(FunctionName=FUNCTION)
-    return lam.get_function(FunctionName=FUNCTION)["Configuration"]["FunctionArn"]
+    # Always-warm alias: one provisioned container so sub-agents never pay the ~12s cold start.
+    version = lam.publish_version(FunctionName=FUNCTION)["Version"]
+    try:
+        lam.create_alias(FunctionName=FUNCTION, Name="live", FunctionVersion=version,
+                         Description="always-warm alias (provisioned concurrency)")
+        print(f"• Alias created: live -> {version}")
+    except lam.exceptions.ResourceConflictException:
+        lam.update_alias(FunctionName=FUNCTION, Name="live", FunctionVersion=version)
+        print(f"• Alias updated: live -> {version}")
+    try:
+        cur = lam.get_provisioned_concurrency_config(FunctionName=FUNCTION, Qualifier="live")
+    except lam.exceptions.ProvisionedConcurrencyConfigNotFoundException:
+        cur = None
+    if cur is None or cur.get("RequestedProvisionedConcurrentExecutions") != 1:
+        for attempt in range(3):  # repointing the alias can race a live config update
+            try:
+                lam.put_provisioned_concurrency_config(
+                    FunctionName=FUNCTION, Qualifier="live", ProvisionedConcurrentExecutions=1)
+                break
+            except lam.exceptions.InvalidParameterValueException:
+                if attempt == 2:
+                    raise
+                time.sleep(15)
+    print("• Provisioned concurrency: 1 on live (warm container; ACTIVE within a few minutes)")
+    return f"{lam.get_function(FunctionName=FUNCTION)['Configuration']['FunctionArn']}:live"
 
 
 # ---------- Gateway ----------
@@ -376,6 +400,7 @@ def main() -> None:
             "Statement": [{"Effect": "Allow", "Action": "lambda:InvokeFunction", "Resource": lambda_arn}]}))
         if new2:
             time.sleep(10)  # IAM propagation before the Gateway can assume the role
+        time.sleep(10)      # the just-updated invoke policy (alias ARN) must reach AgentCore's validation
         ac = session.client("bedrock-agentcore-control")
         gw = ensure_gateway(ac, gw_role)
         ensure_targets(ac, gw["gatewayId"], lambda_arn)

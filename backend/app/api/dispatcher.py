@@ -23,6 +23,37 @@ log = logging.getLogger(__name__)
 Runner = Callable[[OrchestratorInput], OrchestratorOutput]
 
 
+class LambdaDispatcher:
+    """AF_DISPATCH=lambda (the deployed API, scripts/deploy_api.py): POST /v1/runs answers 202 at once and the
+    same Lambda is invoked again asynchronously ({"af_dispatch_run": run_id}, app.api.app.handler) to run the
+    orchestrator + Explainer (InlineDispatcher), so no request waits minutes behind CloudFront's timeout.
+    The page polls GET /v1/runs/{id}: QUEUED -> RUNNING -> DONE / FAILED."""
+
+    note = None
+
+    def __init__(self, runs: RunStore, function_name: str | None = None, client=None) -> None:
+        import os
+
+        self.runs = runs
+        self.function_name = function_name or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+        self._client = client
+
+    def dispatch(self, run: RunRecord) -> None:
+        import json
+
+        if self._client is None:
+            import boto3
+
+            self._client = boto3.client("lambda")
+        try:
+            self._client.invoke(FunctionName=self.function_name, InvocationType="Event",
+                                Payload=json.dumps({"af_dispatch_run": run.run_id}).encode())
+        except Exception as e:   # visible failure, never a run stuck in QUEUED
+            log.exception("run %s could not be dispatched", run.run_id)
+            self.runs.put(run.model_copy(update={"status": "FAILED", "error": f"dispatch: {type(e).__name__}: {e}",
+                                                 "updated_at": _now()}))
+
+
 def payload_from_run(run: RunRecord) -> OrchestratorInput:
     """The AgentCore payload (L6) built from the stored run: same function as the inline dispatcher
     (profile snapshot, request with its named positions as portfolio weights, plan, prompt reference, session)."""
@@ -58,6 +89,12 @@ class LocalDispatcher:
         run = self.runs.get(run_id)
         if run is None:
             return
+        try:  # warm the market path for runs that skipped intake in this process (idempotent)
+            from app.tools.market_store import kick_off_market_warmup
+
+            kick_off_market_warmup()
+        except Exception:  # noqa: BLE001  warm-up is optional, never blocks a run
+            pass
         run = self._save(run, status="RUNNING")
         try:
             out = self.runner(payload_from_run(run))

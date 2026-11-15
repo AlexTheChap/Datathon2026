@@ -212,12 +212,31 @@ def store_with_portfolio(make_profile):
 
 
 @pytest.mark.parametrize("text", ["How exposed is my portfolio to a rate hike?", "Is my portfolio too risky?",
-                                  "What would a crash do to my holdings?"])
+                                  "What would a crash do to my holdings?",
+                                  "is my portofolio is mainly ESG compliant",            # typo (real question)
+                                  "Is my porfolio aligned with ESG?",
+                                  "Est-ce que mon portefeuille est conforme ESG ?",      # French
+                                  "Mon portefeuile actuel est-il trop risqué ?"])
 def test_my_portfolio_questions_use_the_saved_portfolio(mock, store_with_portfolio, text):
     res = run_intake(text, "mateo", backend=mock, store=store_with_portfolio)
     assert {p.ticker: p.weight for p in res.request.positions} == SAVED
     assert any(w.startswith("Analysed on your saved portfolio: SPY 35%") for w in res.warnings)
     assert res.profile.portfolio == SAVED  # the intake keeps it in the profile
+
+
+def test_the_model_can_say_the_question_is_about_the_saved_portfolio(mock, store_with_portfolio):
+    """Wording no text pattern catches ("what I own"): the model's about_own_portfolio is enough."""
+    class Reads:
+        name = "fake"
+
+        def extract(self, text, known, feedback=None):
+            d = mock.extract(text, known, feedback)
+            d.request.task, d.request.about_own_portfolio = "esg_screen", True
+            return d
+
+    res = run_intake("Is the stuff I own ESG friendly?", "mateo", backend=Reads(), store=store_with_portfolio)
+    assert {p.ticker: p.weight for p in res.request.positions} == SAVED
+    assert res.request.task == "esg_screen"
 
 
 @pytest.mark.parametrize("text", ["Is Nvidia too risky for me?", "Build a simulated portfolio that fits my profile.",

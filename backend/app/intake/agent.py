@@ -14,6 +14,7 @@ The Intake analyses nothing and blocks nothing: governance (box 5) decides. It o
 """
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from datetime import date
@@ -24,10 +25,11 @@ from pydantic import ValidationError
 from app.schemas import Parameters, PortfolioRef, Position, Profile, Request, Toggles
 from app.store.profiles import ProfileStore
 
-from .backends import IntakeBackend, IntakeRefused, IntakeUnavailable, get_backend
+from .backends import IntakeBackend, IntakeRefused, IntakeUnavailable, get_backend, split_preferences_by_rules
 from .schemas import AgentToggleChange, IntakeDraft, IntakeResult
 from .universe import load_universe, normalize_ticker
 
+log = logging.getLogger(__name__)
 DATA_END = date(2026, 11, 12)  # last date of the dataset (see schemas/enums.py)
 MIN_CONFIDENCE = 0.6
 REQUIRED_PROFILE_FIELDS = ("risk_band", "experience", "language")
@@ -62,6 +64,22 @@ def _extract_with_retry(backend: IntakeBackend, text: str, known: dict) -> Intak
         raise IntakeError(f"The language model could not be reached: {type(e).__name__}: {str(e)[:300]}") from e
 
 
+def derive_preferences(text: str, backend: IntakeBackend) -> tuple[list[str], list[str]]:
+    """The profile form's free text -> (preferences, constraints), with the same backend as the chat intake
+    (AF_INTAKE_MODE): the model's extraction in bedrock / lambda mode, simple rules in mock mode.
+    Raises IntakeRefused when the model or guardrail refuses the text. When the backend is unreachable the rules
+    are used instead, so saving the profile never fails because of the language model."""
+    if not text.strip():
+        return [], []
+    splitter = getattr(backend, "split_preferences", None)
+    if splitter is not None:
+        return splitter(text)
+    try:
+        draft = _extract_with_retry(backend, text, {})
+    except IntakeError as e:
+        log.warning("Preferences split by rules, the intake backend failed: %s", e)
+        return split_preferences_by_rules(text)
+    return list(draft.profile.preferences), list(draft.profile.constraints)
 def _dedupe(items: list) -> list:
     out = []
     for item in items:
@@ -141,11 +159,36 @@ def _merge_profile(stored: Optional[Profile], draft: IntakeDraft, form: Optional
 _OWN_PORTFOLIO = re.compile(r"\bmy\s+(?:current\s+|whole\s+|own\s+)?(?:portfolio|holdings|investments|mix|allocation)\b", re.I)
 
 
-def _about_own_portfolio(text: str, task: str) -> bool:
-    """The question is about the user's own portfolio: it says so, or it is a risk / scenario / projection question
-    naming no asset.
+_POSSESSIVES = {"my", "our", "mon", "ma", "mes", "notre", "nos"}
+_FILLERS = {"current", "whole", "own", "entire", "actuel", "actuelle", "actuels", "propre", "propres"}
+_OWN_NOUNS = ["portfolio", "holdings", "investments", "allocation", "portefeuille", "placements",
+              "investissements", "positions"]
+
+
+def _says_my_portfolio(text: str) -> bool:
+    """"my portfolio" in English or French, typos tolerated ("my portofolio", "mon portefeuile"): a possessive,
+    at most one filler word ("current", "actuel"), then a word close to one of _OWN_NOUNS (difflib ratio >= 0.8)."""
+    if _OWN_PORTFOLIO.search(text):
+        return True
+    from difflib import get_close_matches
+
+    words = re.findall(r"[a-zà-ÿ]+", _normalize(text))
+    for i, w in enumerate(words):
+        if w not in _POSSESSIVES:
+            continue
+        nxt = words[i + 1:i + 3]
+        if nxt and nxt[0] in _FILLERS:
+            nxt = nxt[1:]
+        if nxt and len(nxt[0]) >= 6 and get_close_matches(nxt[0], _OWN_NOUNS, n=1, cutoff=0.8):
+            return True
+    return False
+
+
+def _about_own_portfolio(text: str, task: str, model_says: bool = False) -> bool:
+    """The question is about the user's own portfolio: the model read it so (any wording, language, typo), the text
+    says so (safety net when the model misses it), or it is a risk / scenario / projection question naming no asset.
     Building a new portfolio ("a portfolio that fits my profile") is not: it starts from the profile, not the old mix."""
-    return task != "out_of_scope" and (bool(_OWN_PORTFOLIO.search(text))
+    return task != "out_of_scope" and (model_says or _says_my_portfolio(text)
                                        or task in ("risk_review", "scenario_analysis", "projection"))
 
 
@@ -187,6 +230,15 @@ def run_intake(
     store: Optional[ProfileStore] = None,
 ) -> IntakeResult:
     backend = backend or get_backend()
+    # A request just reached the intaker: warm the market path (cache sync + Neptune wake via one
+    # probe invoke) on a daemon thread while the intake LLM call runs, so the sub-agents' first
+    # tool calls land warm. Idempotent per process; never raises.
+    try:
+        from app.tools.market_store import kick_off_market_warmup
+
+        kick_off_market_warmup()
+    except Exception:  # noqa: BLE001  packaging without app.tools: warm-up is optional
+        pass
     stored = store.get(actor_id) if store else None
     known = _known_profile(stored, profile_form)
 
@@ -212,7 +264,7 @@ def run_intake(
     r = draft.request
     positions = _clean_positions(r.positions, warnings)
     used_saved = False
-    if not positions and profile is not None and profile.portfolio and _about_own_portfolio(text, r.task):
+    if not positions and profile is not None and profile.portfolio and _about_own_portfolio(text, r.task, r.about_own_portfolio):
         used_saved = True
         # "How exposed is my portfolio to a rate hike?": the analysis runs on the portfolio saved in the profile.
         positions = [Position(ticker=t, weight=w) for t, w in sorted(profile.portfolio.items(), key=lambda kv: -kv[1])]

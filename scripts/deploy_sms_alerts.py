@@ -1,4 +1,4 @@
-"""Deploy the news-alert agent: SEC news on held stocks -> SMS (Amazon SNS), weekdays 18:00 Toronto. boto3 only.
+"""Deploy the news-alert agent: SEC news on held stocks -> SMS (Amazon SNS), every 15 min 7:00-22:45 Toronto. boto3 only.
 
     python scripts/deploy_sms_alerts.py --sec-contact "AlphaForge Datathon you@example.com"   # create / update
     python scripts/deploy_sms_alerts.py --test                    # dry run in AWS: who would get which text
@@ -17,7 +17,7 @@ What it creates:
    User-Agent), AF_APP_URL (optional link in the text).
 2. IAM role: CloudWatch logs; DynamoDB GetItem/PutItem/Scan on the table only; sns:Publish (direct SMS
    publishing has no topic ARN to scope it to).
-3. EventBridge Scheduler "alphaforge-news-alerts": cron(0 18 ? * MON-FRI *) America/Toronto.
+3. EventBridge Scheduler "alphaforge-news-alerts": cron(0/15 7-22 ? * * *) America/Toronto (no texts at night).
 4. SNS SMS default type "Transactional".
 
 SMS sandbox: a new AWS account can only text VERIFIED numbers (--verify-phone, then --code). That is enough for
@@ -45,7 +45,7 @@ from deploy_quant_gateway import LAMBDA_TRUST, ensure_role  # noqa: E402
 
 FUNCTION = ROLE = SCHEDULE = "alphaforge-news-alerts"
 SCHEDULER_ROLE = "alphaforge-news-alerts-scheduler"
-CRON, TIMEZONE = "cron(0 18 ? * MON-FRI *)", "America/Toronto"
+CRON, TIMEZONE = "cron(0/15 7-22 ? * * *)", "America/Toronto"
 RUNTIME = "python3.12"
 DEPS = ["pydantic>=2.7,<3", "tzdata"]
 TAGS = {"project": "alphaforge", "component": "news-alerts"}

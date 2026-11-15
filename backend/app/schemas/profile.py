@@ -54,7 +54,16 @@ class Profile(BaseModel):
     horizon_years: HorizonYears = Field(default_factory=HorizonYears)
     experience: Experience
     language: Language
+    age: Optional[int] = Field(
+        default=None, ge=18, le=120,
+        description="Context only. Never mapped to a risk level or an allocation (the case forbids automatic profile-to-asset rules).",
+    )
     objective: Optional[str] = None
+    preferences_text: Optional[str] = Field(
+        default=None, max_length=2000,
+        description="The investor's own words for preferences and constraints, kept verbatim.",
+    )
+    # Derived from `preferences_text` when the profile is saved (app.api.service.put_profile).
     preferences: list[str] = Field(default_factory=list)
     constraints: list[str] = Field(default_factory=list)
     exclusions: list[Exclusion] = Field(default_factory=list)

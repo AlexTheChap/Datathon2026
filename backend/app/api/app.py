@@ -248,7 +248,19 @@ _mangum = None  # built on the first Lambda invocation, reused by the warm conta
 
 
 def handler(event: dict, context: Any) -> dict:
-    """AWS Lambda entry point (API Gateway HTTP API → Mangum → FastAPI)."""
+    """AWS Lambda entry point (API Gateway HTTP API or Function URL → Mangum → FastAPI).
+
+    {"af_dispatch_run": run_id}: the asynchronous self-invocation of AF_DISPATCH=lambda (api/dispatcher.py):
+    runs the orchestrator + Explainer for that QUEUED run and writes the outcome to the run store."""
+    if isinstance(event, dict) and event.get("af_dispatch_run"):
+        from .dispatch import InlineDispatcher
+
+        runs, run_id = service_from_env().runs, str(event["af_dispatch_run"])
+        run = runs.get(run_id)
+        if run is not None and run.status == "QUEUED":   # an async retry never runs the same analysis twice
+            InlineDispatcher(runs).dispatch(run)
+            run = runs.get(run_id)
+        return {"run_id": run_id, "status": run.status if run else "NOT_FOUND"}
     global _mangum
     if _mangum is None:
         from mangum import Mangum

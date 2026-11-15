@@ -160,9 +160,13 @@ def _market_graph():
     global _graph
     if _graph is None:
         from app.market.graph import backend
+        from app.tools.market_store import local_market_graph
 
         s = get_settings()
-        _graph = backend(s.abs_path(s.curated_dir), s.abs_path(s.market_dir))
+        # local: the synced S3 market cache served in-process (or the curated fallback);
+        # with AF_NEPTUNE_ENDPOINT the source stays the Gateway's NeptuneGraph.
+        _graph = local_market_graph(s.abs_path(s.curated_dir), s.abs_path(s.market_dir)) \
+            or backend(s.abs_path(s.curated_dir), s.abs_path(s.market_dir))
     return _graph
 
 
@@ -173,8 +177,8 @@ def market_screen(sector: str | None = None, country: str | None = None, risk_cl
                   max_vol: float | None = None, max_drawdown_limit: float | None = None,
                   sort_by: str = "ann_vol", descending: bool = False, limit: int = 20) -> dict:
     """Screen the market graph (S&P 500 + the curated universe) by sector, listing country, risk class,
-    volatility, drawdown, ESG index status and controversies, sorted by a risk metric. Live snapshot:
-    refused (error) when the run is dated before the snapshot.
+    volatility, drawdown, ESG index status and controversies, sorted by a risk metric. Live snapshot,
+    reliable within 12h of its last load: a stale graph returns an error (use the point-in-time tools).
     Args:
         sector: GICS sector, e.g. "Utilities".
         country: Listing country: "US", "CA" or "Global (crypto)".

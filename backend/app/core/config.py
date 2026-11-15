@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     # Bedrock models — node ⑤: Sonnet for the orchestrator and the Explainer, Haiku for the sub-agents.
     # On-demand Bedrock calls need an inference profile ("us." prefix): the bare
     # "anthropic.claude-sonnet-5-5" and the old "anthropic.claude-sonnet-4-5-v1:0" are refused.
+    # Latency-optimized inference: checked 2026-11-15 via bedrock list_inference_profiles — no
+    # latency-optimized profiles exist for these model IDs in us-east-1 (0 system-defined profiles
+    # at all). If AWS ships them, swap these IDs for the profile IDs and re-run the timing smokes.
     model_orchestrator: str = "us.anthropic.claude-sonnet-5-5"
     model_subagent: str = "us.anthropic.claude-haiku-5-5"
 

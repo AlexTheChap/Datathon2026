@@ -69,11 +69,23 @@ def page(base_url):
 
 
 def fill_profile_form(page, risk, experience):
-    """The profile form (#/profile/form): risk and experience are 1-to-10 scales landing in a category."""
-    page.goto(page.url.split("#")[0] + "#/profile/form")
-    page.wait_for_selector("text=Start from an example")
-    page.fill("#risk_band", str(risk))
-    page.fill("#experience", str(experience))
+    """The profile page (#/profile), step by step: skip age, then answer the two required questions.
+    Risk and experience are 1-to-10 scales landing in a category. The profile is saved once experience is."""
+    page.goto(page.url.split("#")[0] + "#/profile")
+    page.wait_for_selector("#q-card-age.q-card--open")
+    page.click("button[aria-label='Skip age']")
+    page.fill("#q-risk_band", str(risk))
+    page.click("button[aria-label='Save risk level']")
+    page.fill("#q-experience", str(experience))
+    page.click("button[aria-label='Save experience']")
+    page.wait_for_selector("#q-card-experience.q-card--locked")
+
+
+def skip_the_rest(page):
+    """Skip every remaining optional question; the last one completes the profile."""
+    while page.locator("button[aria-label^='Skip ']").count():
+        page.locator("button[aria-label^='Skip ']").first.click()
+        page.wait_for_timeout(150)
 
 
 def test_new_user_answers_inline_then_gets_a_plan(page):
@@ -92,9 +104,6 @@ def test_new_user_answers_inline_then_gets_a_plan(page):
 
 def test_news_switched_off_in_chat_shows_in_plan_profile_and_can_be_undone(page):
     fill_profile_form(page, risk=6, experience=2)   # Moderate, Beginner
-    page.click("button:has-text('Save profile')")
-    page.wait_for_selector("text=Saved at")
-
     page.click("a.nav__link:has-text('Ask')")
     page.fill("#question", "I don't care about the news. I'm thinking of putting 20% in Nvidia, everyone is talking about it.")
     page.keyboard.press("Control+Enter")
@@ -111,9 +120,9 @@ def test_news_switched_off_in_chat_shows_in_plan_profile_and_can_be_undone(page)
 
 def test_learning_switch_is_saved_and_picks_the_learning_template(page):
     fill_profile_form(page, risk=6, experience=2)   # Moderate, Beginner
-    page.check("#wants_to_learn")
-    page.click("button:has-text('Save profile')")
-    page.wait_for_selector("text=Saved at")
+    page.check("#q-wants_to_learn")
+    page.click("button[aria-label='Save learning explanations']")
+    page.wait_for_selector("#q-card-wants_to_learn.q-card--locked")
     actor = page.evaluate("JSON.parse(localStorage.getItem('af.actor'))")
     assert SERVICE.get_profile(actor).wants_to_learn is True
 
@@ -127,18 +136,25 @@ def test_learning_switch_is_saved_and_picks_the_learning_template(page):
 
 
 def test_profile_validation_and_example_persona(page):
-    page.goto(page.url.split("#")[0] + "#/profile/form")
+    page.goto(page.url.split("#")[0] + "#/profile")
     page.wait_for_selector("text=Start from an example")
-    page.click("button:has-text('Save profile')")  # nothing chosen yet
+    page.click("button[aria-label='Skip age']")
+    page.click("button[aria-label='Save risk level']")  # nothing chosen yet
     page.wait_for_selector("text=Pick the risk level that fits you best.")
-    page.fill("#horizon_min", "10")
-    page.fill("#horizon_max", "3")
-    page.click("button:has-text('Save profile')")
+    page.fill("#q-risk_band", "6")
+    page.click("button[aria-label='Save risk level']")
+    page.fill("#q-experience", "5")
+    page.click("button[aria-label='Save experience']")
+    page.click("button[aria-label='Skip learning explanations']")
+    page.fill("#q-horizon_min", "10")
+    page.fill("#q-horizon_max", "3")
+    page.click("button[aria-label='Save investment horizon']")
     page.wait_for_selector("text=The end can't be before the start.")
-    page.click("button.example:has-text('Robert')")
-    page.click("button:has-text('Save profile')")
-    page.wait_for_selector("text=Saved at")
+    page.click("button.example:has-text('Robert')")          # fills every question, unsaved
+    page.click("button[aria-label='Save all answers']")
+    page.wait_for_selector("#q-card-limits.q-card--locked")
     assert page.is_checked("input[name='limit-crypto']")
+    assert page.input_value("#q-age") == "59"
     assert page.errors == []
 
 
@@ -233,7 +249,7 @@ def test_cognito_demo_sign_in_seeds_the_persona_and_signs_out(base_url, monkeypa
         assert pg.is_hidden(".nav")
         pg.click("button.demo-account:has-text('Robert')")
         pg.wait_for_selector("text=Your investor profile")  # back to the page asked for
-        assert pg.input_value("#risk_band") == "4" and "Low to moderate" in pg.inner_text("#risk_band-out")  # persona profile seeded by the API
+        assert pg.input_value("#q-risk_band") == "4" and "Low to moderate" in pg.inner_text("#q-risk_band-out")  # persona profile seeded by the API
         assert pg.inner_text("#who") == "robert.demo@alphaforge.example"
 
         # A token the pool did not sign is refused by the API: the app signs out and says why
@@ -388,7 +404,7 @@ def test_risk_comes_from_the_follow_up_on_the_exact_mix(page, base_url):
 
 def test_saving_a_profile_builds_the_portfolio(page, base_url):
     fill_profile_form(page, risk=6, experience=5)   # Moderate, Intermediate
-    page.click("button:has-text('Save profile')")
+    skip_the_rest(page)                              # the last answer completes the profile
     page.wait_for_selector("text=Building your portfolio")
     page.click("a:has-text('See my portfolio')")
     # This test server only plans (no Bedrock): the dashboard says so instead of spinning forever.
@@ -400,7 +416,7 @@ def test_portfolio_without_a_profile_asks_for_one(page, base_url):
     page.goto(f"{base_url}/#/portfolio")
     page.wait_for_selector("text=First, tell AlphaForge about you")
     page.click("main a:has-text('Set up my profile')")
-    page.wait_for_selector("text=Answer the questions")                       # a new user gets the conversation
+    page.wait_for_selector("#q-card-age.q-card--open")                        # a new user gets the first question
     assert page.errors == []
 
 
@@ -424,55 +440,71 @@ def test_portfolio_on_a_phone_has_no_sideways_scroll(base_url):
         browser.close()
 
 
-# ---------- Profile set-up as a conversation (onboarding.js) ----------
-
-def test_profile_set_up_by_answering_questions(page, base_url):
+# ---------- Profile set-up, one question at a time (profile-steps.js) ----------
+def test_profile_set_up_step_by_step(page, base_url):
     page.click("#usermenu-btn")
     page.click("text=Set up my profile")
-    page.click("button:has-text('Answer the questions')")
-    page.wait_for_selector("text=How much up and down can you live with?")
-    page.click("form.onboarding__step button:has-text('Continue')")              # nothing chosen yet
-    page.wait_for_selector("text=Move the slider to choose first.")
-    page.fill("#ob-risk", "7")
+    page.wait_for_selector("#q-card-age.q-card--open")
+    assert page.locator("fieldset.q-card--open").count() == 1                       # one question open at a time
+    assert page.locator("fieldset.q-card legend").all_inner_texts()[:3] == [
+        "Your age (optional)", "Risk level (required)", "Experience (required)"]
+    page.fill("#q-age", "17")
+    page.click("button[aria-label='Save age']")
+    page.wait_for_selector("text=between 18 and 120")                               # inline error, focus stays
+    assert page.evaluate("document.activeElement.id") == "q-age"
+    page.fill("#q-age", "41")
+    page.click("button[aria-label='Save age']")
+    page.wait_for_selector("#q-card-age.q-card--locked")
+    assert page.input_value("#q-age") == "41" and page.is_disabled("#q-age")        # the saved answer stays in its card
+    assert page.evaluate("document.activeElement.id") == "q-risk_band"             # focus moved to the next question
+    assert page.locator("#q-card-age .q-card__actions button").all_inner_texts() == ["Change"]
+    page.fill("#q-risk_band", "7")
     page.wait_for_selector("text=7 / 10 · Moderate")
-    page.click("form.onboarding__step:not(.is-answered) button:has-text('Continue')")
-    page.wait_for_selector(".msg--user:has-text('Risk 7/10: Moderate')")
-    page.fill("#ob-exp", "2")
-    page.click("form.onboarding__step:not(.is-answered) button:has-text('Continue')")
-    page.fill("#ob-horizon", "12")
-    page.click("form.onboarding__step:not(.is-answered) button:has-text('Continue')")
-    page.click("form.onboarding__step:not(.is-answered) button:has-text('Skip')")   # money
-    page.click("form.onboarding__step:not(.is-answered) button:has-text('Skip')")   # goal
-    page.click("button:has-text('Yes, teach me as we go')")
-    page.click("label.choice:has-text('No crypto')")
-    page.click("form.onboarding__step:not(.is-answered) button:has-text('Continue')")
-    page.uncheck("#ob-toggle-news")
-    page.click("form.onboarding__step:not(.is-answered) button:has-text('Continue')")
-    page.wait_for_selector("text=Here's your profile")
-    # "Change" goes back to a question
-    page.locator(".msg--user:has-text('Experience') button:has-text('Change')").click()
-    page.fill("#ob-exp", "9")
-    page.click("form.onboarding__step:not(.is-answered) button:has-text('Continue')")
-    for _ in range(6):   # the questions after it are asked again: keep the answers
-        if page.locator("text=Here's your profile").count():
-            break
-        step = page.locator("form.onboarding__step:not(.is-answered), .onboarding__pick").last
-        if step.locator("button:has-text('Yes, teach me as we go')").count():
-            page.click("button:has-text('Yes, teach me as we go') >> nth=-1")
-        elif step.locator("button:has-text('Skip')").count():
-            step.locator("button:has-text('Skip')").click()
-        else:
-            step.locator("button:has-text('Continue')").click()
-        page.wait_for_timeout(350)
-    page.wait_for_selector("text=Here's your profile")
-    page.click("button:has-text('Save my profile')")
-    page.wait_for_selector("text=Saved. I'm building your portfolio")
+    page.click("button[aria-label='Save risk level']")
+    page.fill("#q-experience", "2")
+    page.click("button[aria-label='Save experience']")
+    page.wait_for_selector("#q-card-experience.q-card--locked")
+    page.click("button[aria-label='Save learning explanations']")                    # off by default: a valid answer
+    page.fill("#q-horizon_min", "12")
+    page.click("button[aria-label='Save investment horizon']")
+    page.click("button[aria-label='Skip capital and largest loss']")
+    page.fill("#q-objective", "a house")
+    page.click("button[aria-label='Save goal']")
+    page.fill("#q-preferences_text", "I want some diversification and not only tech; little interest in very speculative investments.")
+    page.click("button[aria-label='Save preferences and constraints']")
+    page.wait_for_selector(".understood:has-text('AlphaForge understood')")
+    understood = page.locator(".understood").inner_text()
+    assert "I want some diversification" in understood and "not only tech" in understood
+    page.check("input[name='limit-crypto']")
+    page.click("button[aria-label='Save hard limits']")
+    page.click("button[aria-label='Save analyses']")
+    page.wait_for_selector("#q-card-analyses.q-card--locked")
+    assert page.locator(".msg, .msg__bubble").count() == 0                           # no answer is echoed as a bubble
     actor = page.evaluate("JSON.parse(localStorage.getItem('af.actor'))")
     saved = SERVICE.get_profile(actor)
-    assert (saved.risk_band, saved.experience, saved.wants_to_learn) == ("moderate", "advanced", True)
-    assert saved.horizon_years.min == 12 and saved.agent_toggles.news is False
+    assert (saved.age, saved.risk_band, saved.experience, saved.horizon_years.min) == (41, "moderate", "beginner", 12)
+    assert saved.preferences == ["I want some diversification"]
+    assert saved.constraints == ["not only tech", "little interest in very speculative investments"]
     assert [e.value for e in saved.exclusions] == ["crypto"]
-    page.wait_for_url("**/#/portfolio", timeout=5000)                           # then on to the portfolio
+    # Back later: every answer is locked with its Change button
+    page.goto(page.url.split("#")[0] + "#/portfolio")   # (a full reload would give this test a new random user)
+    page.goto(page.url.split("#")[0] + "#/profile")
+    page.wait_for_selector("fieldset.q-card--locked")
+    assert page.locator("fieldset.q-card--locked").count() == 10
+    assert page.locator("fieldset.q-card button:has-text('Change')").count() == 10
+    page.click("button[aria-label='Change goal']")
+    assert page.locator("#q-card-objective .q-card__actions button").all_inner_texts() == ["Cancel", "Save"]
+    assert page.locator("fieldset.q-card--locked").count() == 9                     # only that card is unlocked
+    page.fill("#q-objective", "retire")
+    page.click("button[aria-label='Cancel changing goal']")
+    assert page.input_value("#q-objective") == "a house"
+    page.click("button[aria-label='Change goal']")
+    page.fill("#q-objective", "retire")
+    page.click("button[aria-label='Save goal']")
+    page.wait_for_selector("#q-card-objective.q-card--locked")
+    assert SERVICE.get_profile(actor).objective == "retire"
+    page.goto(page.url.split("#")[0] + "#/ask")                                       # the Ask page still works
+    page.wait_for_selector("#question")
     assert page.errors == []
 
 
@@ -481,18 +513,22 @@ def test_profile_set_up_from_a_document(page, base_url, tmp_path):
     from pathlib import Path as _Path
     _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "unit"))
     from test_onboarding import docx
-
     f = tmp_path / "advisor-notes.docx"
     f.write_bytes(docx(["Moderate risk. I'm a student and I want to learn.", "No crypto please.", "Buy milk."]))
     page.goto(page.url.split("#")[0] + "#/profile")
-    page.wait_for_selector("label.attach-btn[title='Attach a PDF or Word file']")   # the small round attach button
+    page.wait_for_selector("#profile-file")
     page.set_input_files("#profile-file", str(f))
-    page.wait_for_selector(".msg--user:has-text('advisor-notes.docx')")
-    page.wait_for_selector("text=Here's what I found:")
-    found = page.locator(".msg--ai dl.facts").last.inner_text()
-    assert "Moderate" in found and "Explained so you learn" in found and "No crypto" in found
-    page.wait_for_selector("text=How much do you know about investing?")         # only what is missing is asked
-    assert page.locator("text=How much up and down can you live with?").count() == 0
+    page.wait_for_selector("text=Found in the document")
+    found = page.locator("section[aria-labelledby='document-title']").inner_text()
+    assert "Risk level" in found and "Learning explanations" in found and "Hard limits" in found
+    assert page.locator("fieldset.q-card--open").count() == 10                       # filled, unsaved
+    page.fill("#q-experience", "9")                                                  # the document said nothing about it
+    page.click("button[aria-label='Save all answers']")
+    page.wait_for_selector("#q-card-analyses.q-card--locked")
+    actor = page.evaluate("JSON.parse(localStorage.getItem('af.actor'))")
+    saved = SERVICE.get_profile(actor)
+    assert (saved.risk_band, saved.experience, saved.wants_to_learn) == ("moderate", "advanced", True)
+    assert [e.value for e in saved.exclusions] == ["crypto"]
     assert page.errors == []
 
 
@@ -511,7 +547,7 @@ def test_my_portfolio_questions_know_the_portfolio_without_opening_the_dashboard
     """Built while the user was elsewhere: the chat saves it in the profile before sending a question."""
     from app.api.service import MessageIn  # noqa: F401
     run = _portfolio_for(page)
-    page.goto(page.url.split("#")[0] + "#/profile/form")                        # anywhere but the dashboard
+    page.goto(page.url.split("#")[0] + "#/profile")                        # anywhere but the dashboard
     page.click("a.nav__link:has-text('Ask a question')")
     page.wait_for_selector("text=SPY 35%, XBB.TO 31%, XIU.TO 25%, QQQ 10%")      # synced into the profile panel
     page.fill("#question", "Is my portfolio too risky compared to SPY?")
@@ -527,8 +563,6 @@ def test_profile_page_is_drawn_once_when_the_user_navigates_during_its_load(page
     page.add_init_script("""const f = window.fetch; window.fetch = async (u, o) => {
       if (String(u).includes('/v1/personas')) await new Promise((r) => setTimeout(r, 700)); return f(u, o); };""")
     fill_profile_form(page, risk=6, experience=5)
-    page.click("button:has-text('Save profile')")
-    page.wait_for_selector("text=Saved at")
     page.goto(page.url.split("#")[0] + "#/portfolio")
     for h in ("#/profile", "#/ask", "#/profile"):
         page.evaluate(f"window.location.hash = '{h}'")
@@ -542,14 +576,15 @@ def test_profile_page_is_drawn_once_when_the_user_navigates_during_its_load(page
 
 def test_esg_screening_and_controversies_are_one_hard_limit(page, base_url):
     run = _portfolio_for(page)                                                     # Mateo: no major controversies
-    page.goto(page.url.split("#")[0] + "#/profile/form")
+    page.goto(page.url.split("#")[0] + "#/profile")
     page.wait_for_selector("input[name=limit-esg]")
     page.wait_for_timeout(300)
     assert page.is_checked("input[name=limit-esg]")
-    assert page.locator("input[name=limit-fossil], #toggle-esg").count() == 0      # no fossil limit, no ESG switch
+    assert page.locator("input[name=limit-fossil], #q-toggle-esg").count() == 0      # no fossil limit, no ESG switch
     assert page.locator("main label:has-text('ESG')").count() == 1                 # ESG is named once, in the limits
+    page.click("button[aria-label='Change hard limits']")
     page.uncheck("input[name=limit-esg]")
-    page.click("button:has-text('Save profile')")
+    page.click("button[aria-label='Save hard limits']")
     for _ in range(50):
         saved = SERVICE.profiles.get(run.actor_id)
         if not saved.exclusions:
@@ -561,11 +596,13 @@ def test_esg_screening_and_controversies_are_one_hard_limit(page, base_url):
 
 def test_switching_an_analysis_off_does_not_rebuild(page, base_url):
     run = _portfolio_for(page)
-    page.goto(page.url.split("#")[0] + "#/profile/form")
-    page.wait_for_selector("#toggle-news")
-    page.uncheck("#toggle-news")
-    page.click("button:has-text('Save profile')")
-    page.wait_for_selector("text=Your portfolio stays the same")                  # explained, no rebuild
+    page.goto(page.url.split("#")[0] + "#/profile")
+    page.wait_for_selector("#q-toggle-news")
+    page.click("button[aria-label='Change analyses']")
+    page.uncheck("#q-toggle-news")
+    page.click("button[aria-label='Save analyses']")
+    page.wait_for_selector("#q-card-analyses.q-card--locked")                      # saved, and no rebuild
+    page.wait_for_timeout(500)
     assert [r.request.user_message for r in SERVICE.runs.list_for_actor(run.actor_id, 20)].count(
         "Build a simulated portfolio that fits my profile.") == 1                  # no new build
     assert page.errors == []

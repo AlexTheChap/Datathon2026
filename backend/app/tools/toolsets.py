@@ -1,10 +1,12 @@
 """Where each sub-agent's tools come from: AWS box ⑥ when configured, local fallback otherwise.
 
   quant_toolset()  -> Risk sub-agent (L12)
-      AF_GATEWAY_URL set : [MCPClient] on the AgentCore Gateway; the agent discovers the 4 quant tools
+      AF_GATEWAY_URL set : [MCPClient] on the AgentCore Gateway; the agent discovers the quant tools
                            (metrics___metrics, market___screen…) and calls them
                            over MCP (SigV4). The Lambda runs the same RiskTools code.
       unset              : the same functions in-process (app.tools.agent_tools).
+  esg_toolset()    -> ESG sub-agent: the Gateway's esg___esg_screen (the Lambda reads the live market
+                      graph in the VPC) or the local curated esg_screen otherwise.
   news_mode() / news_toolset() -> News sub-agent (L13)
       AF_KB_ID set       : "kb"        search_news on the Bedrock Knowledge Base (S3 Vectors), published <= as_of.
       news_index.csv     : "local"     news_search on the same dated corpus in-process (app.tools.news_tools).
@@ -60,16 +62,45 @@ def local_quant_tools() -> list:
             agent_tools.market_screen, agent_tools.market_related, *projection_tools()]
 
 
+_mcp_clients: dict[str, object] = {}
+
+
+def _gateway_client(url: str, region: str):
+    """One MCPClient per gateway URL, SHARED across sub-agents and runs. Construction is free
+    (no I/O); the initialize handshake + tools/list happen once and stay warm — the registry
+    restarts the client transparently whenever its last consumer unregisters."""
+    client = _mcp_clients.get(url)
+    if client is None:
+        from app.tools.gateway_client import strands_mcp_client
+
+        client = strands_mcp_client(url, region)
+        _mcp_clients[url] = client
+        log.info("gateway MCP client created (shared) for %s", url)
+    return client
+
+
 def quant_toolset() -> list:
-    """Risk sub-agent toolset: the AgentCore Gateway (one MCP client per sub-agent run) or local functions,
+    """Risk sub-agent toolset: the AgentCore Gateway (one SHARED MCP client) or local functions,
     plus the in-process projection tools either way."""
     s = get_settings()
     if not s.gateway_url:
         return local_quant_tools()
-    from app.tools.gateway_client import strands_mcp_client
 
     log.info("risk tools via AgentCore Gateway %s", s.gateway_url)
-    return [strands_mcp_client(s.gateway_url, s.aws_region), *projection_tools()]
+    return [_gateway_client(s.gateway_url, s.aws_region), *projection_tools()]
+
+
+def esg_toolset() -> list:
+    """ESG sub-agent toolset: the Gateway's esg_screen (the Lambda reads the live market graph in the VPC)
+    or the local curated esg_screen (backed by the synced market cache when fresh)."""
+    s = get_settings()
+    if not s.gateway_url:
+        from app.tools.analysis_tools import esg_screen
+
+        return [esg_screen]
+
+    log.info("esg tools via AgentCore Gateway %s", s.gateway_url)
+    return [_gateway_client(s.gateway_url, s.aws_region)]
 
 
 def news_toolset() -> list:

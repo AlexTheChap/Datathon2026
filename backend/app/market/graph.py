@@ -16,13 +16,17 @@ tables (fresh clone, unit tests), metrics fall back to curated asset_risk_metric
 
 Price series stay in Parquet (S3): the graph holds the latest metrics and the relationships.
 
-Point-in-time: the graph is a LIVE snapshot. The tools refuse a request whose `as_of` is earlier than the
-snapshot (that would be look-ahead), so historical runs keep using the dated risk tools.
+Freshness: the graph is a LIVE snapshot, reliable within FRESH_WINDOW_HOURS (default 12) of its last
+load (Snapshot.loaded_at / intraday_at; refreshes run 11:00 and 17:00 ET on business days). A stale
+graph refuses to answer (it means the refresh chain did not run); historical runs keep using the
+dated risk tools.
 """
 from __future__ import annotations
 
+import json
 import math
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -85,6 +89,25 @@ def _metrics(curated_dir: Path, market_dir: Path | None) -> pd.DataFrame:
     c["risk_class"] = c["ann_vol"].map(risk_class)
     c["last_close"] = None
     return c.assign(metrics_as_of=c["end"].astype(str), metrics_window=c["window"].astype(str) + " (curated, CAD)")
+
+
+def _market_loaded_at(market_dir: str | Path | None) -> str | None:
+    """When the market tables were last (re)written: the close manifest's generated_at, else the newest
+    market_*.parquet mtime — the LocalGraph's substitute for the Neptune Snapshot.loaded_at stamp."""
+    if market_dir is None:
+        return None
+    m = Path(market_dir) / "manifest_close.json"
+    if m.exists():
+        try:
+            generated = json.loads(m.read_text(encoding="utf-8")).get("generated_at")
+            if generated:
+                return str(generated)
+        except (OSError, ValueError):
+            pass
+    mtimes = [p.stat().st_mtime for p in Path(market_dir).glob("market_*.parquet")]
+    if mtimes:
+        return datetime.fromtimestamp(max(mtimes), tz=timezone.utc).isoformat(timespec="seconds")
+    return None
 
 
 def build_spec(curated_dir: str | Path, market_dir: str | Path | None = None) -> dict:
@@ -152,6 +175,7 @@ def build_spec(curated_dir: str | Path, market_dir: str | Path | None = None) ->
     records = [{k: _clean(v) for k, v in row.items()} for row in assets.to_dict("records")]
     return {
         "as_of": as_of,
+        "loaded_at": _market_loaded_at(market_dir),
         "source": "market tables (app.market.refresh, Yahoo Finance)" if _read_market(market_dir, "market_metrics")
                   is not None else "curated asset_risk_metrics (fallback, 31 assets)",
         "assets": records,
@@ -214,6 +238,24 @@ class LocalGraph:
 
     def snapshot_as_of(self) -> str | None:
         return self.spec.get("as_of")
+
+    def snapshot_freshness(self) -> dict:
+        return {"as_of": self.spec.get("as_of"), "loaded_at": self.spec.get("loaded_at"), "intraday_at": None}
+
+    def esg_screen(self, tickers: list[str], as_of: str) -> tuple[list[dict], list[dict]]:
+        """(membership rows, controversy rows) in the same shape as NeptuneGraph.esg_screen."""
+        tset = set(tickers)
+        membership = []
+        for rel, member in (("MEMBER_OF", True), ("EXCLUDED_FROM", False)):
+            membership += [{"ticker": x["src"], "member": member, "esg_index": x["dst"], "status": x.get("status")}
+                           for x in self.edges[rel] if x["src"] in tset]
+        rows = sorted((self.controversies[x["dst"]] for x in self.edges["HAS_CONTROVERSY"]
+                       if x["src"] in tset and self.controversies[x["dst"]].get("publication_date", "") <= as_of),
+                      key=lambda c: c.get("publication_date", ""))
+        controversies = [{k: (str(c[k])[:220] if k == "description" and c.get(k) else c.get(k))
+                          for k in ("ticker", "severity", "status", "category", "description", "source_doc")}
+                         for c in rows]
+        return membership, controversies
 
     def screen(self, f: dict) -> list[dict]:
         d = self.assets
@@ -284,21 +326,60 @@ ASSUMPTIONS = [
     "listing_country is the country of the listing exchange, not the legal domicile.",
     "ESG status = membership of the reference ESG index (Vanguard ESGV / FTSE US All Cap Choice): a "
     "preference signal, the exclusion reason is not published; not_screened = no comparison available.",
-    "Live snapshot from Yahoo Finance (unofficial, delayed): not usable for a run dated before the snapshot.",
+    "Live snapshot from Yahoo Finance (unofficial, delayed), reliable within the freshness window of its "
+    "last load; a stale graph refuses to answer rather than serve outdated data.",
 ]
 
-
-def _guard_as_of(g, as_of: str | None) -> str | None:
-    snap = g.snapshot_as_of()
-    if as_of and snap and str(as_of) < snap:
-        raise LookupError(f"The market graph holds the snapshot of {snap}; using it for a run dated {as_of} "
-                          "would be look-ahead. Use the metrics / correlation tools (point-in-time) instead.")
-    return snap
+FRESH_WINDOW_ENV = "AF_GRAPH_FRESH_HOURS"
 
 
-def _envelope(tool: str, inputs: dict, output: Any, say: str, snap: str | None) -> dict:
-    return {"evidence_id": _eid(tool, {**inputs, "snapshot": snap}), "tool": tool, "inputs": inputs,
+def _fresh_window_hours() -> int:
+    try:
+        return max(1, int(os.environ.get(FRESH_WINDOW_ENV, "12")))
+    except ValueError:
+        return 12
+
+
+def _parse_ts(value: Any) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def freshness(g) -> dict:
+    """Age of the graph's last load against the reliability window (12h by default).
+
+    The load times are the Neptune Snapshot.loaded_at (close) / intraday_at (midday) — the LocalGraph
+    answers from the spec's loaded_at stamp. No load time at all (curated fallback) counts as fresh but
+    reports an unknown age. Stale = the refresh chain did not run: refuse, never serve.
+    """
+    window = _fresh_window_hours()
+    if hasattr(g, "snapshot_freshness"):
+        snap = g.snapshot_freshness()
+    else:                                   # a bare spec/duck-typed graph (tests)
+        snap = {"as_of": g.snapshot_as_of()}
+    stamps = [t for t in (_parse_ts(snap.get("loaded_at")), _parse_ts(snap.get("intraday_at"))) if t]
+    age = (datetime.now(timezone.utc) - max(stamps)).total_seconds() / 3600 if stamps else None
+    out = {"as_of": snap.get("as_of"), "loaded_at": snap.get("loaded_at"),
+           "intraday_at": snap.get("intraday_at"),
+           "age_hours": round(age, 1) if age is not None else None,
+           "window_hours": window, "fresh": age is None or age <= window}
+    if not out["fresh"]:
+        raise LookupError(f"The market graph is stale: its last load is {age:.1f}h old, past the "
+                          f"{window}h reliability window (refreshes run 11:00 and 17:00 ET on business "
+                          "days). Use the point-in-time tools instead.")
+    return out
+
+
+def _envelope(tool: str, inputs: dict, output: Any, say: str, fresh: dict) -> dict:
+    snap = fresh.get("as_of")
+    return {"evidence_id": _eid(tool, {**inputs, "snapshot": snap, "loaded_at": fresh.get("loaded_at")}),
+            "tool": tool, "inputs": inputs,
             "output": output, "say": say, "as_of": snap, "currency": "listing currency",
+            "freshness": {k: fresh.get(k) for k in ("age_hours", "loaded_at", "window_hours", "fresh")},
             "method": "Graph query (Amazon Neptune openCypher, or the identical in-memory graph offline).",
             "assumptions": ASSUMPTIONS,
             "data_sources": ["Yahoo Finance daily bars via yfinance (market refresh 11:00 / 17:00 ET)",
@@ -306,11 +387,68 @@ def _envelope(tool: str, inputs: dict, output: Any, say: str, snap: str | None) 
                              "curated/esg_index_screen.csv", "curated/controversies.csv"]}
 
 
+def esg_screen_data(g, tickers: list[str], as_of: str | None) -> dict:
+    """Membership + controversies for the tickers, in the esg_screen output shape, from the LIVE graph.
+
+    Freshness-gated (a stale graph raises). Point-in-time is kept for controversies: only lines
+    published on or before `as_of` come back. Membership is the current index screen (no `wording`:
+    the graph stores the edge status, not the published wording). Backend parity: both LocalGraph and
+    NeptuneGraph implement `.esg_screen(tickers, as_of)`.
+    """
+    fresh = freshness(g)
+    m_rows, c_rows = g.esg_screen(tickers, as_of)
+    membership: dict[str, dict] = {}
+    for r in m_rows:
+        membership[r["ticker"]] = {"esg_index": r["esg_index"], "in_esg_index": bool(r["member"]),
+                                   "status": r.get("status"), "wording": None}
+    controversies = c_rows
+    unverified = sorted({c["ticker"] for c in controversies if c["status"] != "verified"}
+                        - {c["ticker"] for c in controversies if c["status"] == "verified"})
+    out = {"membership": membership, "controversies": controversies, "unverified_only": unverified}
+    excluded = sorted(t for t, m in membership.items() if not m["in_esg_index"])
+    say = (f"Outside reference ESG index: {', '.join(excluded) if excluded else 'none'}. "
+           f"Controversy lines: {len(controversies)}"
+           + (f" (unverified-only for: {', '.join(unverified)})" if unverified else "") + ".")
+    return out, say, fresh
+
+
+ESG_ASSUMPTIONS = [
+    "Live market graph, reliable within its freshness window of the last load; a stale graph refuses.",
+    "Controversies are limited to those published on or before the given as_of (point-in-time).",
+    "Index membership does not explain WHY a stock is excluded (reason not published); it is a "
+    "discussion signal, not a verdict.",
+    "Controversy rows with status != 'verified' are unreviewed extracts: absence of evidence is not "
+    "evidence of absence.",
+]
+
+
+def esg_screen_tool(g, args: dict | None) -> dict:
+    """The Gateway's esg___esg_screen: the esg_screen evidence envelope from the LIVE graph
+    (same shape as the local curated tool, so prompts and validators are unchanged)."""
+    args = dict(args or {})
+    tickers = sorted({str(t).strip().upper() for t in (args.get("tickers") or []) if str(t).strip()})
+    if not tickers:
+        return {"error": "tickers is required", "note": "Fix the arguments and call the tool again."}
+    as_of = str(args.get("as_of") or datetime.now(timezone.utc).date().isoformat())
+    try:
+        out, say, fresh = esg_screen_data(g, tickers, as_of)
+    except LookupError as e:
+        return {"error": str(e)}
+    except OSError as e:  # Neptune unreachable
+        return {"error": f"market graph unavailable: {e}"}
+    envelope = _envelope("esg_screen", {"tickers": tickers, "as_of": as_of}, out, say, fresh)
+    envelope["assumptions"] = ESG_ASSUMPTIONS
+    envelope["data_sources"] = ["market graph (MEMBER_OF / EXCLUDED_FROM / HAS_CONTROVERSY edges, "
+                                "Neptune openCypher; loaded from curated/esg_index_screen.csv and "
+                                "curated/controversies.csv)"]
+    return envelope
+
+
 def screen_tool(g, args: dict | None) -> dict:
     args = dict(args or {})
     try:
         f = normalize_filters(args)
-        snap = _guard_as_of(g, args.get("as_of"))
+        fresh = freshness(g)
         rows = g.screen(f)
     except (ValueError, LookupError) as e:
         return {"error": str(e), "note": "Fix the arguments and call the tool again."}
@@ -320,8 +458,8 @@ def screen_tool(g, args: dict | None) -> dict:
     head = ", ".join(f"{r['ticker']} ({r[f['sort_by']]:.1%})" if isinstance(r.get(f["sort_by"]), float)
                      and f["sort_by"] != "beta_spy" else r["ticker"] for r in rows[:5])
     say = (f"{len(rows)} asset(s) match [{crit}], sorted by {f['sort_by']} "
-           f"{'descending' if f['descending'] else 'ascending'} (snapshot {snap}): {head or 'none'}.")
-    return _envelope("market_screen", f, {"count": len(rows), "rows": rows}, say, snap)
+           f"{'descending' if f['descending'] else 'ascending'} (snapshot {fresh['as_of']}): {head or 'none'}.")
+    return _envelope("market_screen", f, {"count": len(rows), "rows": rows}, say, fresh)
 
 
 def related_tool(g, args: dict | None) -> dict:
@@ -330,7 +468,7 @@ def related_tool(g, args: dict | None) -> dict:
     if not ticker:
         return {"error": "ticker is required", "note": "Fix the arguments and call the tool again."}
     try:
-        snap = _guard_as_of(g, args.get("as_of"))
+        fresh = freshness(g)
         out = g.related(ticker)
     except LookupError as e:
         return {"error": str(e)}
@@ -344,5 +482,5 @@ def related_tool(g, args: dict | None) -> dict:
     say = (f"{ticker}: {a.get('sector')}, {a.get('risk_class') or 'unclassified'} risk (vol {vol}); held by "
            f"{', '.join(h['fund'] for h in out['held_by']) or 'no fund in the graph'}; "
            f"{len(out['correlated'])} strongly correlated asset(s); ESG {a.get('esg_status')}; "
-           f"{len(out['controversies'])} controversy line(s) (snapshot {snap}).")
-    return _envelope("market_related", {"ticker": ticker}, out, say, snap)
+           f"{len(out['controversies'])} controversy line(s) (snapshot {fresh['as_of']}).")
+    return _envelope("market_related", {"ticker": ticker}, out, say, fresh)

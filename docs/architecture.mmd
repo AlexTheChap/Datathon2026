@@ -47,7 +47,7 @@ flowchart TB
   %%      On AWS: scripts/deploy_frontend.py → private S3 bucket read by CloudFront only (Origin Access Control),
   %%      managed security headers; with --api-url, CloudFront also routes /v1/* to the API Gateway (same origin:
   %%      no CORS, the Cognito Bearer token is forwarded). config.js = the Cognito settings from setup_cognito.py.
-  UI["① Frontend — web app (HTML/CSS/JS) on S3 + CloudFront · Cognito login<br/>my portfolio (built from the profile) · ask (chat) · profile set-up chat (questions or a PDF / Word file) · profile form · analysis plan"]
+  UI["① Frontend — web app (HTML/CSS/JS) on S3 + CloudFront · Cognito login<br/>my portfolio (built from the profile) · ask (chat) · profile form, one question at a time (or filled from a PDF / Word file) · analysis plan"]
 
   %% ===== 2. API =====
   %% AWS: API Gateway (HTTP API + Cognito JWT authorizer) · Lambda (FastAPI + Mangum)
@@ -131,6 +131,9 @@ flowchart TB
   %%      Onboarding: POST /v1/profile/draft[/file] reads the person's answers or a PDF / Word file (text extracted by
   %%      the API, never stored) with the intake model and returns the fields found, what is missing and what was
   %%      irrelevant; nothing is saved until the person saves (PUT /v1/profile). Code: app/intake/onboarding.py.
+  %%      Profile form "Preferences and constraints": the person's own words are kept verbatim (preferences_text); on
+  %%      PUT /v1/profile the API splits them into preferences and constraints with the same intake backend
+  %%      (AF_INTAKE_MODE; simple rules in mock mode). Age is context only: no rule maps it to a risk level or assets.
   %%      The profile also keeps the user's current portfolio (portfolio + portfolio_run_id: the mix AlphaForge built
   %%      from it, saved by the web app); a question about "my portfolio" naming no asset gets its positions from it.
   ING --> PROF
@@ -171,12 +174,17 @@ flowchart TB
   GOV -->|"PASS / WARN"| EXP
   %% L12 Sub-agents → Tools: TARGET: AgentCore Gateway (MCP, SigV4/OAuth auth, optional Cedar
   %%      Policy) → quant tool Lambdas. CURRENT: direct in-process calls — sub-agents own their
-  %%      domain toolsets (risk: metrics/concentration/correlation/risk_contribution/projection/vol_forecast
-  %%      — the last two in-process in both modes: Monte Carlo range under the 2026 FP Canada / IPF planning
-  %%      guidelines (app/quant/projection.py, never a return forecast) and the GARCH volatility trend
-  %%      (vol_forecast.csv from L20); also served by POST /v1/projection and GET /v1/vol-forecast /
-  %%      macro: macro_snapshot/rate_sensitivity/correlation · esg: esg_screen ·
-  %%      fundamentals: company_fundamentals (SEC XBRL, point-in-time) + news_search(8-K) + esg_screen · allocation: optimize/metrics/concentration/governance_check).
+  %%      domain toolsets (risk: metrics/concentration/correlation/risk_contribution +
+  %%      market_screen/market_related + projection/vol_forecast — the last two in-process in both modes: Monte
+  %%      Carlo range under the 2026 FP Canada / IPF planning guidelines (app/quant/projection.py, never a return
+  %%      forecast) and the GARCH volatility trend (vol_forecast.csv from L20); also served by POST /v1/projection
+  %%      and GET /v1/vol-forecast ·
+  %%      market_screen/market_related ·
+  %%      macro: macro_snapshot/rate_sensitivity/correlation · esg: esg_screen (Gateway esg___esg_screen
+  %%      when configured: the Lambda reads the LIVE market graph, freshness-gated; local = curated CSVs) ·
+  %%      fundamentals: company_fundamentals (SEC XBRL, point-in-time) + news_search(8-K) + esg_screen ·
+  %%      allocation: optimize/metrics/concentration/governance_check + market_screen/market_related
+  %%      (candidate discovery; optimize still gates tickers on the dated returns)).
   SUB -->|"tool calls (in-process)"| GW
   %% L13 News → KB: Bedrock Knowledge Base "alphaforge-news-docs" (Titan Text Embeddings v2, S3 Vectors index, metadata
   %%      filter published_date <= as_of applied BEFORE ranking), deployed by scripts/deploy_news_kb.py (AF_KB_ID).
@@ -196,6 +204,22 @@ flowchart TB
   %%      without AWS. Details: docs/garch_job.md.
   S3 -.->|"returns ≤ as_of"| SM
   SM -.->|"vol_forecast.csv"| S3
+  %% Market graph (app.market): LIVE Neptune snapshot (or the identical LocalGraph over data/market
+  %%      Parquet), refreshed 11:00/17:00 ET business days. Reliable within AF_GRAPH_FRESH_HOURS (12h
+  %%      default) of Snapshot.loaded_at/intraday_at; a STALE graph refuses every graph tool
+  %%      (market_screen/market_related/esg_screen) instead of serving outdated data. Price series stay
+  %%      in Parquet: metrics/correlation/optimize remain point-in-time over the curated store.
+  %%      LOCAL fast path (app/tools/market_store.py): the same S3 market tables synced into
+  %%      data/market (manifest included, so the 12h rule stays honest) serve market_screen/
+  %%      market_related/esg_screen from the in-process LocalGraph — milliseconds, no gateway hop,
+  %%      no Lambda cold start; the Gateway path (AF_GATEWAY_URL) stays the deployed route. One
+  %%      MCPClient per gateway URL is shared across sub-agents and runs (warm handshake).
+  %%      WARM-UP at intake: run_intake / the dispatcher kick off a daemon thread
+  %%      (market_store.kick_off_market_warmup) that syncs the cache and probes the quant Lambda
+  %%      once, so Neptune's wake (~9s idle) happens during the intake LLM call, not during the
+  %%      forks. The quant Lambda runs an always-warm "live" alias with provisioned concurrency 1
+  %%      (memory 1769MB) behind the Gateway targets; sub-agent prompts batch independent tool
+  %%      calls into one turn (they execute concurrently).
   %% L15 Tools → Evidence ledger: a Strands hook (Before/AfterToolCallEvent) fires around every
   %%      tool call. TARGET sink: DynamoDB (RUN#id / EVID#ev-<hash>). CURRENT: local JSONL ledger
   %%      data/runs/<run_id>.jsonl behind the same EvidenceLedger interface — every call is

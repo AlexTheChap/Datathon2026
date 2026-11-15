@@ -145,6 +145,28 @@ class NeptuneGraph:
         r = self.query("MATCH (s:Snapshot {id: 'market'}) RETURN s.as_of AS as_of")
         return r[0]["as_of"] if r else None
 
+    def snapshot_freshness(self) -> dict:
+        """When the graph was last written: the close load (loaded_at) and the midday quotes (intraday_at)."""
+        r = self.query("MATCH (s:Snapshot {id: 'market'}) RETURN s.as_of AS as_of, s.loaded_at AS loaded_at, "
+                       "s.intraday_at AS intraday_at")
+        return r[0] if r else {}
+
+    def esg_screen(self, tickers: list[str], as_of: str) -> tuple[list[dict], list[dict]]:
+        """(membership rows, controversy rows) — same shape as LocalGraph.esg_screen."""
+        tset = sorted(set(tickers))
+        membership = self.query("MATCH (a:Asset)-[e:MEMBER_OF|EXCLUDED_FROM]->(i:ESGIndex) WHERE a.ticker IN $ts "
+                                "RETURN a.ticker AS ticker, type(e) = 'MEMBER_OF' AS member, i.name AS esg_index, "
+                                "e.status AS status ORDER BY ticker, esg_index", {"ts": tset})
+        cont = self.query("MATCH (a:Asset)-[:HAS_CONTROVERSY]->(c:Controversy) WHERE a.ticker IN $ts "
+                          "AND c.publication_date <= $as_of "
+                          "RETURN a.ticker AS ticker, c.severity AS severity, c.status AS status, "
+                          "c.category AS category, c.description AS description, c.source_doc AS source_doc "
+                          "ORDER BY a.ticker, c.publication_date", {"ts": tset, "as_of": as_of})
+        controversies = [{k: (str(r.get(k))[:220] if k == "description" and r.get(k) else r.get(k))
+                          for k in ("ticker", "severity", "status", "category", "description", "source_doc")}
+                         for r in cont]
+        return membership, controversies
+
     def count(self) -> dict:
         r = self.query("MATCH (a:Asset) RETURN count(a) AS assets")
         e = self.query("MATCH ()-[e]->() RETURN type(e) AS type, count(e) AS n")
