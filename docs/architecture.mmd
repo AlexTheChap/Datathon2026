@@ -253,8 +253,8 @@ flowchart TB
   EXP -->|"GET /v1/runs/id (poll)"| OUT
   %% Alerts: the news-alert Lambda reads the opted-in contacts and their saved portfolios from DynamoDB, fetches
   %%      the new SEC filings on those tickers, and texts one fixed-wording message (no model, never advice) via SNS.
-  %%      Dedupe per filing (SMSSENT log). Not yet: phone ownership check (OTP) beyond the SNS sandbox, and the
-  %%      "at most one text a day" promise shown in the settings is not enforced by the code.
+  %%      Dedupe per filing (SMSSENT log): a person may get several texts a day, never the same news twice.
+  %%      Not yet: phone ownership check (OTP) beyond the SNS sandbox.
   DDB -.->|"contacts · saved portfolios"| ALR
 
   classDef aws fill:#fff4e5,stroke:#e88a1a,color:#1f1f1f;

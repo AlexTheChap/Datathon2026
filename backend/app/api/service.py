@@ -328,7 +328,7 @@ def notify_view(c: SmsContact | None) -> dict[str, Any]:
 def sms_view(opt_in: bool, phone: Optional[str], consent_at: Optional[str]) -> dict[str, Any]:
     """The owner's own preferences (the phone is shown back to them so the form can be edited)."""
     return {"opt_in": opt_in, "phone": phone, "phone_masked": mask(phone), "consent_at": consent_at,
-            "what": "News on the stocks you hold (SEC filings), at most one text a day. Information only."}
+            "what": "News on the stocks you hold (SEC filings), one text per new filing batch, never the same news twice. Information only."}
 
 
 def example_personas(path: Path = PERSONAS_PATH) -> list[dict[str, Any]]:
