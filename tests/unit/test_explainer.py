@@ -211,3 +211,33 @@ def test_what_the_user_switched_off_is_listed(make_profile):
     answer = run_explain(make_run(make_profile, agent_toggles={"news": False},
                                   agent_toggle_reasons={"news": "I don't care about the news"}), FakeClient(draft()))
     assert any("I don't care about the news" in line for line in answer.not_analysed)
+
+
+# ---------- Verdict names and prompt hygiene ----------
+
+def test_unverified_verdicts_are_reported_not_crashed(make_profile):
+    """governance_check returns UNVERIFIED (e.g. an ESG exclusion on stocks without reviewed rows)."""
+    from app.agents.evidence import EvidenceItem
+    from app.agents.explainer import _verdict_checks
+    from app.schemas.run_result import RunAnswer
+
+    cat = {"ev-1": EvidenceItem(id="ev-1", tool="governance_check", agent="orchestrator", verdict="UNVERIFIED",
+                                say="Governance verdict UNVERIFIED for this profile.", weights={"ENB.TO": 0.5})}
+    answer = RunAnswer(kind="explained", short_answer="x", checks=_verdict_checks(cat))
+    assert answer.checks[0].verdict == "UNVERIFIED"
+    assert draft(checks=[{"allocation": "x", "verdict": "UNVERIFIED", "text": "y", "evidence": []}]).checks[0].verdict
+
+
+def test_no_prompt_mentions_removed_stress_tools_or_2022_examples():
+    import re
+
+    from app.agents.subagents import allocation, esg, fundamentals, macro, news, risk
+    from app.context import tool_guide
+
+    prompts_dir = Path(__file__).resolve().parents[2] / "backend" / "app" / "prompts"
+    texts = {f.name: f.read_text(encoding="utf-8") for f in prompts_dir.glob("*.md")}
+    texts.update({m.__name__: m.SYSTEM_PROMPT for m in (allocation, esg, fundamentals, macro, risk)})
+    texts.update({"news": news.KB_PROMPT + news.LOCAL_PROMPT})
+    texts.update({"tool_guide": tool_guide.tools_block("risk_review") + tool_guide.tools_block("allocation_proposal")})
+    for name, text in texts.items():
+        assert not re.search(r"`stress`|stress_tests|max_position|\b2022\b|NON_VERIFIE", text), name

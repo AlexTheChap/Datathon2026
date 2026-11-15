@@ -26,9 +26,9 @@ _DELEGATION_LINES: dict[str, str] = {
              "→ **`news_subagent`** — the corpus is incomplete: say so when it finds nothing; "
              "if its record says SIMULATED, label the content as fictional"),
 }
-_DELEGATION_FOOTER = """Give each sub-agent a precise `subject` (+ `weights` / `tickers` when relevant); calibration
-questions belong in the subject (e.g. "...and the maximum NVDA weight respecting a -15% loss
-limit"). You keep only `governance_check(weights)` (deterministic PASS/WARN/BLOCK).
+_DELEGATION_FOOTER = """Give each sub-agent a precise `subject` (+ `weights` / `tickers` when relevant); the exact
+question belongs in the subject (e.g. "...and NVDA's share of the portfolio risk at 20%").
+You keep only `governance_check(weights)` (deterministic PASS/WARN/BLOCK).
 Cite every evidence_id (the sub-agents' and your own governance check)."""
 
 _STRATEGIES: dict[str, str] = {
@@ -37,17 +37,16 @@ _STRATEGIES: dict[str, str] = {
    PASS / WARN / BLOCK verdict frames the whole answer.
 2. Delegate the deep-dive: **`risk_subagent`** with a question-focused subject and the
    proposed weights; add the Macro sub-agent for rate context when it is enabled in this run.
-3. Calibration: position sizing lives inside `risk_subagent` — ask for it in the subject
-   (e.g. "...and the maximum NVDA weight respecting a -15% loss limit"), then run
-   `governance_check` yourself on the calibrated weights.
-4. A BLOCK verdict is never negotiable: explain the conflict, propose the calibrated
-   alternative, do not endorse the request as-is.""",
+3. If the verdict is BLOCK and the Allocation sub-agent is enabled in this run, ask it for the
+   smallest change that satisfies the rules, then run `governance_check` yourself on its weights.
+4. A BLOCK verdict is never negotiable: explain the conflict and do not endorse the request
+   as-is; present an alternative only when one was found and verified.""",
     "allocation_proposal": """### Strategy for "allocation_proposal"
 1. Delegate construction: **`allocation_subagent`** with the goal in the subject (risk band,
    horizon and exclusions are attached automatically) — its weights come from the
    optimizer tool and are already verified; if it returns none, no allocation satisfies the rules: say which.
 2. Verify the returned weights yourself with **`governance_check`**.
-3. Add the Risk / Macro sub-agents on the retained weights for crisis context when useful.
+3. Add the Risk / Macro sub-agents on the retained weights for risk and rate context when useful.
 4. Present the allocation as a hypothetical scenario with evidence, not a recommendation.""",
 }
 

@@ -14,7 +14,6 @@
     "benchmark": "SPY"
   },
   "toggles": {
-    "stress_tests": true,
     "include_rag": false
   },
   "as_of": null,

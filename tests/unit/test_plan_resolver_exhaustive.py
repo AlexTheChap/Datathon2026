@@ -111,7 +111,7 @@ def test_turning_a_toggle_off_never_enables_anything(make_profile, make_request)
     """Monotonicity: switching an agent off in the profile can only remove agents, never add one."""
     for task in TASKS:
         for agent in AGENTS:
-            req = make_request("persona-mateo", task, toggles={"stress_tests": True, "include_rag": True})
+            req = make_request("persona-mateo", task, toggles={"include_rag": True})
             on = set(resolve_plan(make_profile("mateo"), req).enabled_names)
             off = set(resolve_plan(make_profile("mateo", agent_toggles={agent: False}), req).enabled_names)
             assert off <= on, (task, agent)

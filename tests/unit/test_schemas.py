@@ -19,7 +19,7 @@ def test_request_example():
     req = Request.model_validate(json.loads((EXAMPLES / "request.example.json").read_text()))
     assert req.task == "risk_review"
     assert req.actor_id == "sub-xyz"
-    assert req.toggles.stress_tests is True and req.toggles.include_rag is False
+    assert req.toggles.include_rag is False
 
 
 def test_profile_example():

@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .prompt_ref import PromptRef
 
-Verdict = Literal["PASS", "WARN", "BLOCK", "NON_VERIFIE"]
+Verdict = Literal["PASS", "WARN", "BLOCK", "UNVERIFIED"]  # as governance_check returns them
 
 
 class AnswerPoint(BaseModel):

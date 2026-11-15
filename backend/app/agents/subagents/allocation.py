@@ -10,11 +10,11 @@ Procedure:
 1. Pick a STARTING target: the portfolio in the brief if there is one, otherwise a simple hypothetical mix of
    universe tickers that fits the investor's risk band and horizon (this is only the starting point).
 2. Call `optimize` with that target (add `candidates` if other tickers could help, e.g. broad ETFs or bond ETFs).
-   It returns the smallest change that satisfies EVERY rule of the profile, already verified with the stress and
-   governance tools.
+   It returns the smallest change that satisfies EVERY rule of the profile, already verified with the governance
+   rules.
 3. If its status is "ok": copy `output.weights` EXACTLY (do not round, add or remove a ticker). Read the changes,
-   the active constraints and the verification (stress drawdown, governance verdict).
-   You may call `concentration`, `stress` or `metrics` on those weights for the explanation.
+   the active constraints and the verification (governance verdict).
+   You may call `concentration` or `metrics` on those weights for the explanation.
 4. If its status is "infeasible": return NO weights (an empty object) and explain which rules conflict.
 Every number you state must come from a tool result, with its evidence_id.
 Return ONLY a JSON object:

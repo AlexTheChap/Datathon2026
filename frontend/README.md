@@ -104,7 +104,7 @@ the decisions.
 | — correction | The question text is kept when sending fails; "Try again" on errors; "Edit my question" when the task was unclear. |
 | **6. Consistency** | One name per analysis everywhere (Ask, Profile, plan); one primary button style; same field recipe and states on every input. |
 | **7. Significance of codes** | Status in words ("Queued", "Done"); on/off shown by an icon and a word; red is reserved for the action and the current selection, errors always carry an icon and text. |
-| **8. Compatibility** | Investor vocabulary (risk level, horizon, capital in CAD, "crash like 2022"), no internal codes on screen; amounts formatted for Canada. |
+| **8. Compatibility** | Investor vocabulary (risk level, horizon, capital in CAD, "rate hike"), no internal codes on screen; amounts formatted for Canada. |
 
 ## Tests
 

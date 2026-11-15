@@ -109,7 +109,6 @@ def test_crash_routes_to_scenario_analysis(mock):
     res = run_intake("Show me what would happen to my portfolio in a crash.", "robert",
                      backend=mock, profile_form=ROBERT_FORM)
     assert res.request.task == "scenario_analysis"
-    assert res.request.toggles.stress_tests is True
 
 
 def test_benchmark_is_not_a_position(mock):

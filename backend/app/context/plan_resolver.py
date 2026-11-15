@@ -6,7 +6,7 @@ module only applies them, in this order, to each sub-agent:
 1. task `out_of_scope` → no sub-agent, no governance, the Explainer declines;
 2. agent REQUIRED by the task → enabled, even if profile.agent_toggles disables it (forced);
 3. forced trigger (e.g. controversy exclusion in the profile → ESG) → enabled (forced);
-4. optional trigger (e.g. toggles.stress_tests → macro_scenarios) → enabled, unless the profile
+4. optional trigger (e.g. toggles.include_rag → news) → enabled, unless the profile
    toggle is false (the profile wins, with a warning);
 5. otherwise → disabled, "not needed for task".
 

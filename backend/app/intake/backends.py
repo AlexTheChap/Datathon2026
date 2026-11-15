@@ -180,7 +180,6 @@ _OUT_OF_SCOPE = re.compile(
     r"place\s+(?:an|the)\s+order|execute\s+(?:the\s+|a\s+)?trade|guaranteed\s+return",
     re.I,
 )
-_STRESS = re.compile(r"crash|stress|scenario|recession|2022|rate\s+hike", re.I)
 _NEWS = re.compile(r"\bnews\b|headlines|hype|buzz|everyone\s+is\s+talking|everybody\s+talks", re.I)
 _NO_CRYPTO = re.compile(r"(?:no|avoid|without|exclude|not\s+interested\s+in)\W+(?:\w+\W+){0,3}?(?:crypto|bitcoin)", re.I)
 _CONTROVERSY = re.compile(r"(?:avoid|exclude|no)\W+(?:\w+\W+){0,8}?controvers", re.I)
@@ -339,12 +338,10 @@ class MockBackend:
         bench = None
         if m := _BENCH.search(text):
             bench = _BENCH_MAP.get(re.sub(r"\s+", "", m.group(1).lower()))
-        stress = bool(_STRESS.search(request_text))
         request = RequestDraft(
             task=task or "risk_review",
             positions=self._positions(text, bench),
             benchmark=bench,
-            stress_tests=stress,
             include_rag=bool(_NEWS.search(request_text)),
             intake_confidence=0.9 if task else 0.4,
         )

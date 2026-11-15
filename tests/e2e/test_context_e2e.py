@@ -70,7 +70,7 @@ INTAKE = {
         {"request_id": "req-a1", "actor_id": "u-amira", "task": "allocation_proposal",
          "portfolio_ref": {"portfolio_id": "pf-amira"},
          "user_message": "Build me an aggressive AI + crypto portfolio.",
-         "toggles": {"stress_tests": True, "include_rag": True}, "as_of": "2026-11-12",
+         "toggles": {"include_rag": True}, "as_of": "2026-11-12",
          "intake_confidence": 0.88},
     ),
     "mateo": (
@@ -91,7 +91,7 @@ INTAKE = {
         {"request_id": "req-r1", "actor_id": "u-robert", "task": "risk_review",
          "portfolio_ref": {"portfolio_id": "pf-robert"},
          "user_message": "I'm thinking of putting 20% in Nvidia, everyone is talking about it.",
-         "parameters": {"benchmark": "XIU.TO"}, "toggles": {"stress_tests": True},
+         "parameters": {"benchmark": "XIU.TO"}, "toggles": {},
          "as_of": "2026-11-12", "intake_confidence": 0.93},
     ),
 }

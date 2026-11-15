@@ -24,7 +24,7 @@ from app.core.config import Settings, get_settings
 from app.schemas.run_result import ExplainerDraft, RemovedClaim, RunAnswer, Verification
 
 AGENT_NAMES = {
-    "risk": "Portfolio risk", "macro_scenarios": "Crash scenarios", "esg": "ESG and controversies",
+    "risk": "Portfolio risk", "macro_scenarios": "Macro and rates", "esg": "ESG and controversies",
     "fundamentals": "Company fundamentals", "news": "News", "allocation": "Allocation proposal",
 }
 _INLINE_ID = re.compile(r"\s*[\[(]\s*(?:ev-[0-9a-f]{6,}|E-\d{3})(?:\s*[,;]\s*(?:ev-[0-9a-f]{6,}|E-\d{3}))*\s*[\])]")
@@ -70,8 +70,8 @@ def declined(run: Any) -> RunAnswer:
     return RunAnswer(
         kind="declined",
         short_answer=("AlphaForge can't do that. It is a simulation tool: it never places real trades and does not give "
-                      "personal financial advice. It can test how risky a portfolio is, replay a past crisis on it, "
-                      "check it against your profile or propose a simulated allocation."),
+                      "personal financial advice. It can test how risky a portfolio is, show how sensitive it is to "
+                      "interest rates, check it against your profile or propose a simulated allocation."),
         not_analysed=_not_analysed(_plan(run)),
         note="The request was outside what the simulation can do, so no analysis was run.",
     )

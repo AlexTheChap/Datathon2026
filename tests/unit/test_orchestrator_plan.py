@@ -18,7 +18,7 @@ def _input(profile, request, **extra) -> OrchestratorInput:
 # ---------- Sub-agent selection ----------
 
 def test_subagents_follow_the_plan_in_plan_order(make_profile, make_request):
-    r = make_request("persona-amira", "allocation_proposal", toggles={"stress_tests": True, "include_rag": True})
+    r = make_request("persona-amira", "allocation_proposal", toggles={"include_rag": True})
     plan = resolve_plan(make_profile("amira"), r)
     assert [t.tool_name for t in subagents_for_plan(plan)] == [REGISTRY[a].tool_name for a in plan.enabled_names]
 
@@ -40,7 +40,7 @@ def test_task_rules_limit_subagents(make_profile, make_request):
 # ---------- plan_for ----------
 
 def test_payload_plan_is_used_as_is(make_profile, make_request):
-    p, r = make_profile("robert"), make_request("persona-robert", "risk_review", toggles={"stress_tests": True})
+    p, r = make_profile("robert"), make_request("persona-robert", "risk_review", toggles={})
     plan = resolve_plan(p, r)
     assert orchestrator.plan_for(_input(p, r, execution_plan=plan)) is plan
 
@@ -72,7 +72,7 @@ def test_payload_from_box4_json_validates(make_profile, make_request):
 # ---------- Tool guide ----------
 
 def test_tools_block_lists_only_enabled_subagents_with_parameters(make_profile, make_request):
-    r = make_request("persona-robert", "risk_review", toggles={"stress_tests": True}, parameters={"benchmark": "SPY"})
+    r = make_request("persona-robert", "risk_review", toggles={}, parameters={"benchmark": "SPY"})
     g = tools_block("risk_review", resolve_plan(make_profile("robert"), r))
     assert "**`risk_subagent`**" in g
     for absent in ("esg_subagent", "news_subagent", "allocation_subagent", "fundamentals_subagent",

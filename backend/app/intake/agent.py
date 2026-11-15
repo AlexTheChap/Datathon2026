@@ -35,7 +35,7 @@ QUESTIONS = {
     "risk_band": "What level of risk are you comfortable with: low, low-to-moderate, moderate or high?",
     "experience": "How would you describe your investing experience: beginner, intermediate or advanced?",
     "language": "Which language would you like the answers in?",
-    "task": "What would you like me to analyse: portfolio risk, a crisis scenario, an allocation, an ESG screen, "
+    "task": "What would you like me to analyse: portfolio risk, a rate or market scenario, an allocation, an ESG screen, "
             "fundamentals or news?",
 }
 
@@ -207,7 +207,7 @@ def run_intake(
         positions=positions,
         capital=r.capital,
         parameters=Parameters(benchmark=r.benchmark),
-        toggles=Toggles(stress_tests=r.stress_tests, include_rag=r.include_rag),
+        toggles=Toggles(include_rag=r.include_rag),
         as_of=analysis_date,
         intake_confidence=max(0.0, min(1.0, r.intake_confidence)),
     )

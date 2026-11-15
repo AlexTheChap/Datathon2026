@@ -1,7 +1,7 @@
 """Evidence catalogue for the Explainer (L16): every citable item of a run's ledger, by id.
 
 The ledger (L15) holds one record per tool call, but citable evidence is also nested: sub-agent findings embed
-their tools' evidence ids, governance checks point at the stress replay they used, and older governance
+their tools' evidence ids, governance checks point at the evidence they used, and older governance
 results carry no id at all. The catalogue indexes all of them:
 
 - a dict with an `evidence_id` anywhere in a record's payload → one item under that id;
@@ -147,7 +147,7 @@ def _item_from_envelope(env: dict, record: dict) -> EvidenceItem:
 
 
 def _item_from_nested(d: dict, parent: EvidenceItem) -> EvidenceItem:
-    """An id referenced inside another item (e.g. a governance check's stress replay)."""
+    """An id referenced inside another item (e.g. the evidence behind one governance check)."""
     nums: set[float] = set()
     _numbers(d, nums)
     label = d.get("id") or d.get("metric") or d.get("tool") or "detail"

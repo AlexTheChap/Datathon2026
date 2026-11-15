@@ -23,7 +23,7 @@
 %%   explainer.py: Claude Sonnet on Bedrock, structured sections, deterministic claim check, retry once then
 %%   remove, honest fallback; style from experience × wants_to_learn) · ③ Intake (deployed Lambda
 %%   alphaforge-intake; chat toggles saved in the profile; the API calls it with AF_INTAKE_MODE=lambda) · ④ plan
-%%   resolver + Explainer prompt loader (deployed Lambda alphaforge-context, 1.1.0 templates in S3; the API calls
+%%   resolver + Explainer prompt loader (deployed Lambda alphaforge-context, 1.2.0 templates in S3; the API calls
 %%   it with AF_CONTEXT_MODE=lambda; deploy_context_lambda.py --test-only detects a stale bucket or package).
 %% DIVERGES from target (by design for the prototype): dispatch = agents-as-tools
 %%   (sequential), Strands graph + parallel nodes = next phase · PURE DELEGATION: the
