@@ -26,7 +26,7 @@ from app.context.tool_guide import tools_block
 from app.core.config import Settings, get_settings
 from app.schemas.execution_plan import ExecutionPlan
 from app.schemas.models import OrchestratorInput, OrchestratorOutput, Profile
-from app.store.ledger import JsonlLedger
+from app.store.ledger import EvidenceLedger, make_ledger
 from app.tools import agent_tools
 
 
@@ -75,7 +75,7 @@ def plan_for(inp: OrchestratorInput) -> ExecutionPlan:
     return plan
 
 
-def build_orchestrator(inp: OrchestratorInput, ledger: JsonlLedger | None = None,
+def build_orchestrator(inp: OrchestratorInput, ledger: EvidenceLedger | None = None,
                        settings: Settings | None = None, plan: ExecutionPlan | None = None) -> Agent:
     """Strands Agent for one run (never reused across runs)."""
     s = settings or get_settings()
@@ -104,7 +104,7 @@ def build_orchestrator(inp: OrchestratorInput, ledger: JsonlLedger | None = None
             region_name=s.aws_region,
         )
 
-    led = ledger or JsonlLedger(s.abs_path(s.runs_dir))
+    led = ledger or make_ledger(s)   # JSONL locally, DynamoDB when AF_STORE=dynamodb (L15)
     # Sub-agents enabled by the box 4 ExecutionPlan (task rules + profile toggles, L6).
     # Pure delegation: the orchestrator keeps ONLY the deterministic governance
     # verdict — every number comes from a sub-agent finding (no double compute).
@@ -140,7 +140,7 @@ def _final_text(result: Any) -> str:
 def run_orchestrator(inp: OrchestratorInput, settings: Settings | None = None) -> OrchestratorOutput:
     """Runs the end-to-end analysis for one validated payload."""
     s = settings or get_settings()
-    led = JsonlLedger(s.abs_path(s.runs_dir))
+    led = make_ledger(s)   # JSONL locally, DynamoDB when AF_STORE=dynamodb (L15)
     agent_tools.current_profile.set(inp.profile.model_dump())
     # Sub-agents write their nested tool calls into the SAME run ledger (L15);
     # as_of feeds the deterministic brief preamble.

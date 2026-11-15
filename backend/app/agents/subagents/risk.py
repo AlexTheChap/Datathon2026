@@ -1,12 +1,13 @@
 """Risk sub-agent — the first node of the sub-agent layer (see base.py).
 
-Uses the real quant toolset (RiskTools via agent_tools) and returns a grounded
-risk finding. Replaces the earlier SIMULATED placeholder now that tools are wired.
+Uses the real quant toolset and returns a grounded risk finding. The tools come from
+app.tools.toolsets.quant_toolset at each run: the AgentCore Gateway (MCP, box ⑥, L12) when
+AF_GATEWAY_URL is set, otherwise the same RiskTools functions in-process.
 """
 from __future__ import annotations
 
 from app.agents.subagents.base import make_subagent_tool
-from app.tools import agent_tools
+from app.tools.toolsets import quant_toolset
 
 SYSTEM_PROMPT = """You are the Risk sub-agent of AlphaForge (datathon prototype).
 
@@ -27,8 +28,7 @@ Keep it under 8 lines. No investment advice.
 risk_subagent = make_subagent_tool(
     "risk_subagent",
     SYSTEM_PROMPT,
-    tools=[agent_tools.metrics, agent_tools.stress, agent_tools.concentration,
-           agent_tools.correlation, agent_tools.risk_contribution, agent_tools.max_position],
+    tools=quant_toolset,   # resolved per run: Gateway (MCP) or local functions
     description="""Quantitative risk analysis (volatility, crisis stress, concentration,
     risk contribution, calibrated position limits) from the Risk sub-agent, grounded
     in real curated data. Returns an evidence record whose nested_evidence_ids are

@@ -1,12 +1,15 @@
 """Quant tools behind the AgentCore Gateway (box ⑥, links L12 + L14 of docs/architecture.mmd).
 
-One Lambda serves every quant tool. The Gateway exposes it as an MCP server with four targets,
-the four families of the diagram ("metrics · risk · scenarios · optimizer"):
+One Lambda serves every quant tool. The Gateway exposes it as an MCP server with five targets:
+the four families of the diagram ("metrics · risk · scenarios · optimizer") + point-in-time macro/FX:
 
     metrics___metrics              metrics___correlation
     risk___risk_contribution       risk___concentration
     scenarios___stress
     optimizer___max_position
+    macro___macro_snapshot         macro___fx_usdcad
+
+Data (L14): S3 curated Parquet when AF_CURATED_S3 is set (synced to /tmp on cold start), else repo CSVs.
 
 Contract with the Gateway (Lambda target):
   - event   = the tool arguments sent by the agent (a JSON object);
@@ -87,25 +90,48 @@ TARGETS: dict[str, list[dict[str, Any]]] = {
              "window": _WINDOW},
              "required": ["base_weights", "asset", "max_drawdown_limit"]}},
     ],
+    "macro": [
+        {"name": "macro_snapshot",
+         "description": "Point-in-time macro snapshot (release-aware): Bank of Canada and Fed policy rates, "
+                        "Canada/US 2y and 10y yields, CPI, unemployment, as known on `as_of`.",
+         "inputSchema": {"type": "object", "properties": {"as_of": _AS_OF}}},
+        {"name": "fx_usdcad",
+         "description": "USD/CAD exchange rate (Bank of Canada) on `as_of`, and its change since `start` "
+                        "when given (how much of a US asset's CAD return came from the currency).",
+         "inputSchema": {"type": "object", "properties": {"as_of": _AS_OF, "start": _DATE}}},
+    ],
 }
 
 
 # ---------- dispatch ----------
 _rt: RiskTools | None = None
+_dir: Path | None = None
 
 
-def _curated_dir() -> Path:
-    env = os.environ.get("AF_CURATED_DIR")
-    if env:
-        return Path(env)
-    return Path(__file__).resolve().parents[3] / "data" / "curated"
+def curated_dir() -> Path:
+    """AF_CURATED_S3 (S3 curated Parquet, synced to /tmp once per container) > AF_CURATED_DIR > repo CSVs."""
+    global _dir
+    if _dir is None:
+        from app.tools.curated_store import curated_dir_from_env
+
+        default = os.environ.get("AF_CURATED_DIR") or Path(__file__).resolve().parents[3] / "data" / "curated"
+        _dir = curated_dir_from_env(default)
+    return _dir
 
 
 def tools() -> RiskTools:
-    global _rt  # loaded once per Lambda container (CSV parsing is the slow part)
+    global _rt  # loaded once per Lambda container (file parsing is the slow part)
     if _rt is None:
-        _rt = RiskTools(_curated_dir())
+        _rt = RiskTools(curated_dir())
     return _rt
+
+
+def _macro(name: str, a: dict) -> dict:
+    from app.tools import macro_tools
+
+    if name == "macro_snapshot":
+        return macro_tools.macro_snapshot(curated_dir(), a.get("as_of") or None)
+    return macro_tools.fx_usdcad(curated_dir(), a.get("as_of") or None, a.get("start") or None)
 
 
 def _weights(value: Any) -> dict[str, float]:
@@ -141,6 +167,8 @@ HANDLERS: dict[str, Callable[[dict], dict]] = {
     "max_position": lambda a: tools().max_position(_weights(a["base_weights"]), str(a["asset"]),
                                                    float(a["max_drawdown_limit"]),
                                                    window=a.get("window") or "2022"),
+    "macro_snapshot": lambda a: _macro("macro_snapshot", a),
+    "fx_usdcad": lambda a: _macro("fx_usdcad", a),
 }
 
 assert set(HANDLERS) == {t["name"] for ts in TARGETS.values() for t in ts}, "schemas and handlers out of sync"

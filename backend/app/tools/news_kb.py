@@ -128,7 +128,7 @@ def news_search(query: str, as_of: Optional[str] = None, tickers: Optional[list[
     }
 
 
-def as_strands_tool():
+def as_strands_tool(kb_id: Optional[str] = None):
     """The same function as a Strands @tool (for the News sub-agent)."""
     from strands import tool
 
@@ -145,6 +145,6 @@ def as_strands_tool():
             doc_type: "news" or "filing"; both when omitted.
             k: number of passages (1-20).
         """
-        return news_search(query, as_of=as_of, tickers=tickers, doc_type=doc_type, k=k)
+        return news_search(query, as_of=as_of, tickers=tickers, doc_type=doc_type, k=k, kb_id=kb_id)
 
     return search_news

@@ -8,13 +8,14 @@
 Credentials: --profile, otherwise the AWS_* variables, otherwise the repo's .env file (git-ignored).
 
 What it creates (all names prefixed "alphaforge-quant"):
-1. build/quant_lambda.zip: app/tools (risk_tools + quant_gateway) + the 4 curated CSVs the tools read
-   + numpy/pandas (Linux x86_64 wheels, Python 3.12).
+1. build/quant_lambda.zip: app/tools (risk_tools, quant_gateway, curated_store, macro_tools)
+   + numpy/pandas/fastparquet (Linux x86_64 wheels, Python 3.12). Data: the S3 curated Parquet published by
+   scripts/deploy_data_layer.py (env AF_CURATED_S3, read-only IAM), or the CSVs bundled in the zip without it.
 2. IAM role "alphaforge-quant-lambda" (CloudWatch logs only) and Lambda "alphaforge-quant-tools"
    (handler app.tools.quant_gateway.handler).
 3. IAM role "alphaforge-quant-gateway" (trusted by bedrock-agentcore, may invoke ONLY that Lambda).
 4. AgentCore Gateway "alphaforge-quant-gateway": protocol MCP, authorizer AWS_IAM (SigV4).
-5. Four Gateway targets on the same Lambda: metrics · risk · scenarios · optimizer
+5. Five Gateway targets on the same Lambda: metrics · risk · scenarios · optimizer · macro
    (tool schemas from app.tools.quant_gateway.TARGETS).
 The Gateway URL is written to build/quant_gateway.json and to .env as AF_GATEWAY_URL.
 """
@@ -43,8 +44,14 @@ LAMBDA_ROLE = "alphaforge-quant-lambda"
 GATEWAY = "alphaforge-quant-gateway"
 GATEWAY_ROLE = "alphaforge-quant-gateway"
 RUNTIME = "python3.12"
-DEPS = ["numpy", "pandas", "python-dateutil<3"]  # <3: same major as the botocore in the runtime
-CSVS = ["returns_daily_cad.csv", "prices_cad.csv", "assets_universe.csv", "etf_holdings.csv"]
+DEPS = ["numpy", "pandas", "python-dateutil<3", "fastparquet"]  # dateutil<3: same major as the runtime botocore
+CSVS = ["returns_daily_cad.csv", "prices_cad.csv", "assets_universe.csv", "etf_holdings.csv",
+        "fx_usdcad_filled.csv", "macro_daily_asof.csv"]   # bundled only when the S3 data layer is absent
+DATA_LAYER = BUILD / "data_layer.json"   # written by scripts/deploy_data_layer.py (S3 curated Parquet, L14)
+
+
+def curated_s3() -> str | None:
+    return json.loads(DATA_LAYER.read_text())["curated_s3"] if DATA_LAYER.exists() else None
 TAGS = {"project": "alphaforge", "component": "quant-gateway"}
 STATE = BUILD / "quant_gateway.json"
 
@@ -68,11 +75,12 @@ def build_zip() -> Path:
     subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--target", str(pkg),
                     "--platform", "manylinux2014_x86_64", "--implementation", "cp", "--python-version", "3.12",
                     "--only-binary=:all:", *DEPS], check=True)
-    for f in ("risk_tools.py", "quant_gateway.py"):  # only what the Lambda imports
+    for f in ("risk_tools.py", "quant_gateway.py", "curated_store.py", "macro_tools.py"):  # what the Lambda imports
         shutil.copy(ROOT / "backend" / "app" / "tools" / f, pkg / "app" / "tools" / f)
-    (pkg / "data" / "curated").mkdir(parents=True)
-    for f in CSVS:
-        shutil.copy(ROOT / "data" / "curated" / f, pkg / "data" / "curated" / f)
+    if curated_s3() is None:  # no S3 data layer: ship the CSVs inside the zip (previous behaviour)
+        (pkg / "data" / "curated").mkdir(parents=True)
+        for f in CSVS:
+            shutil.copy(ROOT / "data" / "curated" / f, pkg / "data" / "curated" / f)
     zip_path = BUILD / "quant_lambda.zip"
     zip_path.unlink(missing_ok=True)
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
@@ -100,7 +108,8 @@ def ensure_role(iam, name: str, trust: dict, description: str) -> tuple[str, boo
 def deploy_lambda(lam, zip_path: Path, role_arn: str) -> str:
     code = zip_path.read_bytes()
     cfg = dict(Timeout=60, MemorySize=1024,
-               Environment={"Variables": {"AF_CURATED_DIR": "/var/task/data/curated"}})
+               Environment={"Variables": {"AF_CURATED_S3": curated_s3()} if curated_s3()
+                            else {"AF_CURATED_DIR": "/var/task/data/curated"}})
     try:
         lam.get_function(FunctionName=FUNCTION)
         lam.update_function_code(FunctionName=FUNCTION, ZipFile=code)
@@ -208,6 +217,8 @@ TEST_CALLS = [
     ("risk___concentration", {"weights": ROBERT_NVDA}),
     ("scenarios___stress", {"weights": ROBERT_NVDA, "window": "2022", "capital": 400000}),
     ("optimizer___max_position", {"base_weights": ROBERT, "asset": "NVDA", "max_drawdown_limit": 0.15}),
+    ("macro___macro_snapshot", {"as_of": "2022-06-30"}),
+    ("macro___fx_usdcad", {"as_of": "2022-12-30", "start": "2022-01-03"}),
 ]
 
 
@@ -304,6 +315,16 @@ def main() -> None:
         lambda_role, new1 = ensure_role(iam, LAMBDA_ROLE, LAMBDA_TRUST, "AlphaForge quant tools Lambda (box 6)")
         iam.attach_role_policy(RoleName=LAMBDA_ROLE,
                                PolicyArn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole")
+        if curated_s3():  # read-only access to the curated Parquet prefix (L14)
+            from app.tools.curated_store import parse_s3_uri
+
+            bucket, prefix = parse_s3_uri(curated_s3())
+            iam.put_role_policy(RoleName=LAMBDA_ROLE, PolicyName="read-curated-parquet", PolicyDocument=json.dumps({
+                "Version": "2012-10-17", "Statement": [
+                    {"Effect": "Allow", "Action": "s3:GetObject", "Resource": f"arn:aws:s3:::{bucket}/{prefix}*"},
+                    {"Effect": "Allow", "Action": "s3:ListBucket", "Resource": f"arn:aws:s3:::{bucket}",
+                     "Condition": {"StringLike": {"s3:prefix": [f"{prefix}*"]}}}]}))
+            print(f"• Lambda reads curated Parquet from {curated_s3()}")
         lambda_arn = deploy_lambda(session.client("lambda"), build_zip(), lambda_role)
 
         gw_role, new2 = ensure_role(iam, GATEWAY_ROLE, gateway_trust(account),

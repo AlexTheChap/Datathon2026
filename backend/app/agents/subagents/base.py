@@ -86,16 +86,26 @@ def render_brief(subject: str, weights: dict[str, float] | None = None,
     return "\n".join(parts)
 
 
-def make_subagent_tool(tool_name: str, system_prompt: str, tools: list,
-                       simulated: bool = False, description: str | None = None):
+def _resolve(value: Any) -> Any:
+    """A setting given as a zero-argument callable is evaluated at call time (see make_subagent_tool)."""
+    return value() if callable(value) and not isinstance(value, (list, tuple)) else value
+
+
+def make_subagent_tool(tool_name: str, system_prompt: Any, tools: Any,
+                       simulated: Any = False, description: str | None = None):
     """Create the Strands @tool that runs one sub-agent.
 
     Args:
         tool_name: e.g. "esg_subagent" (the tool the orchestrator calls).
         system_prompt: the sub-agent's role prompt (forces the JSON contract).
-        tools: the domain toolset the sub-agent may use (may be empty).
+        tools: the domain toolset the sub-agent may use (may be empty). May also be a
+            Strands ToolProvider such as an MCPClient (AgentCore Gateway, L12).
         simulated: True when the domain has no real data (content is fictional).
         description: docstring for the orchestrator-facing tool.
+
+    system_prompt / tools / simulated may each be a zero-argument callable, resolved at
+    every call: the choice between AWS (Gateway, Knowledge Base) and the local fallback
+    then follows the current settings, and importing this module never opens a connection.
     """
 
     def _nested_ids(ledger: EvidenceLedger, run_id: str, before: int) -> list[str]:
@@ -111,19 +121,20 @@ def make_subagent_tool(tool_name: str, system_prompt: str, tools: list,
         inputs = {"subject": subject, "weights": weights, "tickers": tickers}
         brief = render_brief(subject, weights, tickers)
         ctx = run_context.get()
+        is_simulated = bool(_resolve(simulated))
         try:
             s = get_settings()
             agent = Agent(
                 model=BedrockModel(model_id=s.model_subagent, region_name=s.aws_region),
-                system_prompt=system_prompt,
-                tools=tools,
+                system_prompt=_resolve(system_prompt),
+                tools=_resolve(tools),
                 hooks=[EvidenceHook(ctx["ledger"], ctx["run_id"], agent=tool_name)] if ctx else [],
             )
             before = len(ctx["ledger"].records(ctx["run_id"])) if ctx else 0
             result = agent(brief)
             finding = extract_json(str(result))
             nested = _nested_ids(ctx["ledger"], ctx["run_id"], before) if ctx else []
-            return build_envelope(tool_name, inputs, finding, nested, simulated=simulated)
+            return build_envelope(tool_name, inputs, finding, nested, simulated=is_simulated)
         except (ValueError, json.JSONDecodeError) as e:
             return {"error": f"{tool_name} failed: {e}",
                     "note": "Prototype sub-agent; retry with a simpler brief."}

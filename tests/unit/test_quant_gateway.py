@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.tools import macro_tools
 from app.tools import quant_gateway as qg
 
 ROBERT = {"XIU.TO": 0.3, "XBB.TO": 0.3, "ZST.TO": 0.1, "RY.TO": 0.1, "FTS.TO": 0.1, "JNJ": 0.1}
@@ -37,6 +38,17 @@ def test_gateway_call_returns_the_same_evidence_as_a_direct_call(tool, args, dir
     assert out["tool"] == tool.split("___")[1]
     assert {"evidence_id", "output", "say", "assumptions"} <= set(out)
     assert set(out) == set(ref)  # the full envelope passes through the Gateway untouched
+
+
+@pytest.mark.parametrize("tool, args, direct", [
+    ("macro___macro_snapshot", {"as_of": "2022-06-30"}, lambda d: macro_tools.macro_snapshot(d, "2022-06-30")),
+    ("macro___fx_usdcad", {"as_of": "2022-12-30", "start": "2022-01-03"},
+     lambda d: macro_tools.fx_usdcad(d, "2022-12-30", "2022-01-03")),
+])
+def test_macro_family_point_in_time(tool, args, direct):
+    out = qg.handler(dict(args), ctx(tool))
+    assert "error" not in out and out == direct(qg.curated_dir())
+    assert out["output"]["date"] <= args["as_of"]
 
 
 def test_robert_nvdia_numbers_match_the_risk_subagent_run():
@@ -80,5 +92,5 @@ def test_schemas_use_only_fields_the_gateway_accepts():
     for target, specs in qg.TARGETS.items():
         for spec in specs:
             walk(spec["inputSchema"])
-            assert set(spec["inputSchema"]["required"]) <= set(spec["inputSchema"]["properties"])
-    assert set(qg.TARGETS) == {"metrics", "risk", "scenarios", "optimizer"}
+            assert set(spec["inputSchema"].get("required", [])) <= set(spec["inputSchema"]["properties"])
+    assert set(qg.TARGETS) == {"metrics", "risk", "scenarios", "optimizer", "macro"}

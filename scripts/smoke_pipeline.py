@@ -27,7 +27,7 @@ from app.intake.backends import BedrockBackend  # noqa: E402
 from app.schemas.execution_plan import ExecutionPlan  # noqa: E402
 from app.schemas.models import OrchestratorInput  # noqa: E402
 from app.agents.orchestrator import run_orchestrator  # noqa: E402
-from app.store.ledger import JsonlLedger  # noqa: E402
+from app.store.ledger import make_ledger  # noqa: E402
 
 MESSAGES = {
     "robert": "I'm thinking of putting 20% in Nvidia, everyone is talking about it.",
@@ -102,7 +102,7 @@ def main() -> int:
     print(out.summary)
     print(f"\nEvidence ({len(out.evidence_ids)}): {', '.join(out.evidence_ids)}")
     print(f"\nTrace: .venv/bin/python scripts/show_run.py {out.run_id}")
-    for r in JsonlLedger(s.abs_path(s.runs_dir)).records(out.run_id):
+    for r in make_ledger(s).records(out.run_id):
         caller = r.get("agent") or "orchestrator"
         print(f"  {r['seq']} [{caller}] {r['tool']}")
     return 0
