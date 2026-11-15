@@ -267,9 +267,9 @@ class ApiService:
     def get_evidence_catalog(self, actor_id: str, run_id: str) -> list[dict[str, Any]]:
         """Every citable item of the run, nested ids included, for the web app's evidence panel (owner only)."""
         self.get_run(actor_id, run_id)
-        from app.agents.evidence import build_catalog
+        from app.agents.evidence import build_catalog, user_catalog
 
-        return [item.for_user() for item in build_catalog(self._ledger().records(run_id)).values()]
+        return user_catalog(build_catalog(self._ledger().records(run_id)))
 
     # ----- POST /v1/profile/draft[/file]: onboarding, profile fields from text or a document (nothing saved) -----
     def draft_profile(self, actor_id: str, text: str) -> dict[str, Any]:

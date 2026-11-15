@@ -149,6 +149,7 @@ def main() -> int:
         total_ms = int((time.perf_counter() - t_all) * 1000)
         haiku_calls = sum(v for k, v in MODEL["by_prefix"].items() if k.startswith(HAIKU_PREFIX))
         sonnet_calls = sum(v for k, v in MODEL["by_prefix"].items() if k.startswith(SONNET_PREFIX))
+        v = answer.verification
         summary = {
             "tag": args.tag, "run": i, "run_id": run_id, "enabled_agents": enabled,
             "model_calls_total": MODEL["calls"], "haiku_calls": haiku_calls, "sonnet_calls": sonnet_calls,
@@ -156,9 +157,19 @@ def main() -> int:
             "wall_ms": {"intake": intake_ms, "orchestrator": orch_ms, "explainer": explain_ms, "total": total_ms},
             "agents_tool_calls": agents,
             "answer_kind": answer.kind,
+            # full outputs for the before/after quality comparison (same input both sides)
+            "outputs": {
+                "orchestrator_summary": out.summary,
+                "short_answer": answer.short_answer,
+                "key_points": [pt.text for pt in answer.key_points],
+                "claims_checked": v.claims_checked if v else 0,
+                "removed_claims": [f"{r.section}: {r.reason[:90]}" for r in (v.removed if v else [])],
+                "retried": v.retried if v else False,
+                "limitations": answer.limitations and answer.limitations[0].text if answer.limitations else None,
+            },
         }
         summaries.append(summary)
-        print(json.dumps(summary, indent=1))
+        print(json.dumps({k: v2 for k, v2 in summary.items() if k != "outputs"}, indent=1))
         print(f"[{run_id}] done: {haiku_calls} Haiku + {sonnet_calls} Sonnet calls, "
               f"{sum(MODEL['ms'])/1000:.1f}s model time, {total_ms/1000:.1f}s wall\n")
 

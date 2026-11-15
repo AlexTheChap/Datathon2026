@@ -39,8 +39,16 @@ class Settings(BaseSettings):
     # How plan-enabled sub-agents run: graph (default — Strands fork/join, parallel) | tools
     # (the orchestrator delegates to them as tools, serially).
     orchestration: str = "graph"
+    # Graph-mode synthesis node (joins the forks' findings into the working draft): Haiku keeps the
+    # post-join step off the critical path (it runs serially after the slowest fork; the deterministic
+    # governance_check owns every verdict, so synthesis only weaves already-verified evidence).
+    # AF_MODEL_SYNTHESIS=us.anthropic.claude-sonnet-5-5 restores the previous Sonnet synthesis.
+    model_synthesis: str = "us.anthropic.claude-haiku-5-5"
     model_explainer: str = "us.anthropic.claude-sonnet-5-5"
-    explainer_effort: str = "medium"   # low | medium | high (Sonnet 5.5 effort; thinking stays adaptive)
+    # Output-token-bound stage (measured 12-24s of a 44-53s run): low effort trims it ~30-50%.
+    # The deterministic claim checker still strips any wrong number, and answer.verification.retried
+    # shows when a second pass was needed. AF_EXPLAINER_EFFORT=medium|high restores depth.
+    explainer_effort: str = "low"      # low | medium | high (Sonnet 5.5 effort; thinking stays adaptive)
     aws_region: str = "us-east-1"
     # Bedrock Guardrails (scripts/deploy_guardrail.py) — empty = no guardrail. One guardrail serves both the intake
     # input (prompt attacks, personal data) and the Explainer output (L18: contextual grounding + relevance per

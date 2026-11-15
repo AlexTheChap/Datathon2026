@@ -876,19 +876,10 @@ function profileForm(saved) {
 
 /* ---------------- The answer (box ⑤ Explainer) ---------------- */
 
-const TOOL_NAMES = {
-  metrics: "Risk measures", risk_contribution: "Risk contribution", correlation: "Correlations",
-  concentration: "Concentration", governance_check: "Profile rules check", optimize: "Allocation search",
-  macro_snapshot: "Rates and inflation", rate_sensitivity: "Rate sensitivity", esg_screen: "ESG screen",
-  company_fundamentals: "Company financials", news_search: "News search", search_news: "News search",
-  risk_subagent: "Risk analysis summary", macro_subagent: "Macro analysis summary", esg_subagent: "ESG summary",
-  fundamentals_subagent: "Company facts summary", news_subagent: "News summary", allocation_subagent: "Allocation summary",
-};
 const VERDICTS = {
   BLOCK: { word: "Goes against your profile", cls: "block", icon: "alert" }, PASS: { word: "Fits your profile", cls: "pass", icon: "check" },
   WARN: { word: "Worth a look", cls: "warn", icon: "alert" }, UNVERIFIED: { word: "Not confirmed", cls: "unverified", icon: "alert" },
 };
-const toolName = (t) => TOOL_NAMES[t] || (String(t || "").endsWith(" detail") ? "Profile rules check, detail" : t);
 
 /** The Explainer's answer. `scope` keeps ids unique when several answers share a page (the chat);
  * in the chat (`chat: true`) the evidence opens in place and loads when first needed. */
@@ -915,11 +906,25 @@ function drawAnswer(run, { scope = "page", chat = false, animate = false } = {})
 
   const evidenceBox = h("div", { class: "answer__section" });
   let loading = null;
-  const ensureEvidence = () => (loading ||= loadEvidence(run.run_id, order, evidenceBox, scope));
-  const chips = (ids) => (ids || []).length ? h("span", { class: "chips" }, ids.map((id) => h("button", {
-    class: "chip", type: "button", "aria-label": `Evidence ${order.indexOf(id) + 1}`, title: id,
-    onclick: async () => { await ensureEvidence(); focusEvidence(id, scope); },
-  }, String(order.indexOf(id) + 1)))) : null;
+  const chipEls = [];
+  // Once the catalogue is in, number only what it shows (profile-rule verdicts are left out: the fit score explains them).
+  let onShown = () => {};
+  const renumber = (shown) => {
+    const visible = order.filter((id) => shown.has(id));
+    for (const { el, id } of chipEls) {
+      if (!shown.has(id)) { const box = el.parentElement; el.remove(); if (box && !box.children.length) box.remove(); continue; }
+      el.textContent = String(visible.indexOf(id) + 1);
+      el.setAttribute("aria-label", `Source ${visible.indexOf(id) + 1}`);
+    }
+    onShown(visible.length);
+  };
+  const ensureEvidence = () => (loading ||= loadEvidence(run.run_id, order, evidenceBox, scope, renumber));
+  const chips = (ids) => (ids || []).length ? h("span", { class: "chips" }, ids.map((id) => {
+    const el = h("button", { class: "chip", type: "button", "aria-label": `Source ${order.indexOf(id) + 1}`,
+      onclick: async () => { await ensureEvidence(); focusEvidence(id, scope); } }, String(order.indexOf(id) + 1));
+    chipEls.push({ el, id });
+    return el;
+  })) : null;
 
   const shortText = h("span", { class: "answer__text" }, a.short_answer);
   section.append(h("p", { class: "answer__short" }, shortText, " ", chips(a.short_answer_evidence)));
@@ -964,12 +969,16 @@ function drawAnswer(run, { scope = "page", chat = false, animate = false } = {})
   section.append(h("p", { class: "small muted" }, a.disclaimer));
 
   if (chat) {
-    evidenceBox.append(h("p", { class: "small muted" }, "Loading the evidence…"));
+    evidenceBox.append(h("p", { class: "small muted" }, "Loading the sources…"));
+    const summary = h("summary", null, "Sources");
     section.append(h("details", { class: "fold", ontoggle: (e) => { if (e.currentTarget.open) ensureEvidence(); } },
-      h("summary", null, `Evidence${order.length ? ` (${order.length} cited)` : ""}`), evidenceBox));
+      summary, evidenceBox));
+    // Loaded now, not on opening: the citation numbers depend on what the catalogue shows.
+    onShown = (n) => { summary.textContent = n ? `Sources (${n} cited)` : "Sources"; };
+    ensureEvidence();
   } else {
     evidenceBox.id = "evidence-section";
-    evidenceBox.append(h("h3", { id: `evidence-title-${scope}` }, "Evidence"), h("p", { class: "small muted" }, "Loading the evidence…"));
+    evidenceBox.append(h("h3", { id: `evidence-title-${scope}` }, "Sources"), h("p", { class: "small muted" }, "Loading the sources…"));
     section.append(evidenceBox);
     ensureEvidence();
   }
@@ -1020,37 +1029,42 @@ function streamIn(root) {
   tick();
 }
 
-async function loadEvidence(runId, order, box, scope = "page") {
+/** The sources behind the answer: what each tool measured, from which data, over which period. `shown(ids)` gets the
+ * cited ids it shows, so the citation chips are renumbered from them (also after a retry). */
+async function loadEvidence(runId, order, box, scope = "page", shown = () => {}) {
   let items;
-  // The page shows an "Evidence" heading; in the chat the fold's summary names it. Never a null child (it prints "null").
-  const title = () => (scope === "page" ? [h("h3", { id: `evidence-title-${scope}` }, "Evidence")] : []);
+  // The page shows a "Sources" heading; in the chat the fold's summary names it. Never a null child (it prints "null").
+  const title = () => (scope === "page" ? [h("h3", { id: `evidence-title-${scope}` }, "Sources")] : []);
   try {
     items = (await api("GET", `/v1/runs/${encodeURIComponent(runId)}/evidence/catalog`)).data;
   } catch (err) {
-    box.replaceChildren(...title(), alertBox(err, "the evidence", () => loadEvidence(runId, order, box, scope)));
+    box.replaceChildren(...title(), alertBox(err, "the sources", () => loadEvidence(runId, order, box, scope, shown)));
     return;
   }
   const byId = Object.fromEntries(items.map((i) => [i.id, i]));
   const cited = order.filter((id) => byId[id]);
+  // Name the mix a card is about only when the cited cards are about more than one.
+  const mixes = new Set(cited.map((id) => byId[id].mix).filter(Boolean));
   const item = (id, n) => {
     const e = byId[id];
+    const basis = [(e.sources || []).join(" · "), e.period].filter(Boolean).join(" · ");
     return h("li", { class: "evidence-item", id: `evidence-${scope}-${id}`, tabindex: "-1" },
       h("div", { class: "evidence-item__head" },
         n ? h("span", { class: "evidence-item__num" }, String(n)) : null,
-        h("span", { class: "evidence-item__tool" }, toolName(e.tool)),
-        e.verdict ? h("span", { class: `verdict verdict--${(VERDICTS[e.verdict] || VERDICTS.UNVERIFIED).cls}` }, (VERDICTS[e.verdict] || VERDICTS.UNVERIFIED).word) : null),
+        h("span", { class: "evidence-item__tool" }, e.title || e.tool)),
+      mixes.size > 1 && e.mix ? h("p", { class: "evidence-item__meta" }, `For the mix ${e.mix}`) : null,
       h("p", null, e.say || "No summary sentence."),
-      h("p", { class: "evidence-item__meta" }, [e.period ? `Period ${e.period}` : null, `Id ${e.id}`].filter(Boolean).join(". ") + "."),
-      (e.data_sources || []).length ? h("p", { class: "evidence-item__meta" }, `Sources: ${e.data_sources.join("; ")}`) : null,
+      basis ? h("p", { class: "evidence-item__meta" }, `Based on: ${basis}`) : null,
       (e.assumptions || []).length ? h("details", null, h("summary", null, "Assumptions"),
         h("ul", { class: "warning-list" }, e.assumptions.map((x) => h("li", null, x)))) : null);
   };
   const rest = items.filter((i) => !cited.includes(i.id));
   box.replaceChildren(...title(),
-    h("p", { class: "small muted" }, "What the analysis tools found, with their sources. The numbers match the answer above."),
-    h("ol", { class: "evidence-list" }, cited.map((id) => item(id, order.indexOf(id) + 1))),
-    ...(rest.length ? [h("details", null, h("summary", null, `All other evidence from this analysis (${rest.length})`),
+    h("p", { class: "small muted" }, "What the analysis measured, and the data it used. The numbers match the answer above."),
+    h("ol", { class: "evidence-list" }, cited.map((id, i) => item(id, i + 1))),
+    ...(rest.length ? [h("details", null, h("summary", null, `Everything else this analysis measured (${rest.length})`),
       h("ol", { class: "evidence-list" }, rest.map((e) => item(e.id, null))))] : []));
+  shown(new Set(cited));
 }
 
 function focusEvidence(id, scope = "page") {
