@@ -82,4 +82,4 @@ def test_schemas_use_only_fields_the_gateway_accepts():
         for spec in specs:
             walk(spec["inputSchema"])
             assert set(spec["inputSchema"].get("required", [])) <= set(spec["inputSchema"]["properties"])
-    assert set(qg.TARGETS) == {"metrics", "risk", "macro", "market"}
+    assert set(qg.TARGETS) == {"metrics", "risk", "macro", "market", "esg"}

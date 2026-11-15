@@ -1,8 +1,12 @@
-"""ESG sub-agent — index membership and controversy signals (architecture node ⑤)."""
+"""ESG sub-agent — index membership and controversy signals (architecture node ⑤).
+
+The toolset resolves per run (app.tools.toolsets.esg_toolset): the Gateway's esg___esg_screen — the
+Lambda reads the LIVE market graph (Neptune, freshness-gated) — or the local curated esg_screen.
+"""
 from __future__ import annotations
 
 from app.agents.subagents.base import make_subagent_tool
-from app.tools.analysis_tools import esg_screen
+from app.tools.toolsets import esg_toolset
 
 SYSTEM_PROMPT = """You are the ESG sub-agent of AlphaForge.
 
@@ -27,7 +31,7 @@ No investment advice.
 esg_subagent = make_subagent_tool(
     "esg_subagent",
     SYSTEM_PROMPT,
-    tools=[esg_screen],
+    tools=esg_toolset,   # resolved per run: Gateway (live graph) or local curated esg_screen
     description="""ESG screening (reference-index membership + documented controversies
     with review status) from the ESG sub-agent, grounded in curated ESGV/FTSE
     screens and 10-K/NBIM extracts. Cite its nested evidence_ids.

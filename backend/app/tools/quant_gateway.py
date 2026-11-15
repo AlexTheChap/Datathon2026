@@ -7,6 +7,7 @@ for the diagram families ("metrics · risk") + point-in-time macro/FX:
     risk___risk_contribution       risk___concentration
     macro___macro_snapshot         macro___fx_usdcad
     market___screen                market___related      (market graph: S&P 500 + universe, app.market)
+    esg___esg_screen                                     (membership + controversies from the graph)
 
 Data (L14): S3 curated Parquet when AF_CURATED_S3 is set (synced to /tmp on cold start), else repo CSVs.
 Market graph: Amazon Neptune when AF_NEPTUNE_ENDPOINT is set (this Lambda then runs inside the graph VPC,
@@ -85,8 +86,8 @@ TARGETS: dict[str, list[dict[str, Any]]] = {
         {"name": "screen",
          "description": "Screen the market graph (S&P 500 + curated universe, refreshed 11:00 and 17:00 ET) "
                         "by sector, listing country, risk class, volatility, drawdown, ESG index status and "
-                        "controversies, sorted by a risk metric. LIVE snapshot: pass the run's as_of; a run "
-                        "dated before the snapshot gets an error (use metrics instead).",
+                        "controversies, sorted by a risk metric. LIVE snapshot, reliable within 12h of its "
+                        "last load: a stale graph returns an error (use metrics instead).",
          "inputSchema": {"type": "object", "properties": {
              "sector": {"type": "string", "description": 'GICS sector, e.g. "Utilities", "Energy".'},
              "country": {"type": "string", "description": 'Listing country: "US", "CA" or "Global (crypto)".'},
@@ -111,6 +112,15 @@ TARGETS: dict[str, list[dict[str, Any]]] = {
          "inputSchema": {"type": "object", "properties": {
              "ticker": {"type": "string", "description": 'Ticker, e.g. "XOM" or "RY.TO".'}, "as_of": _AS_OF},
              "required": ["ticker"]}},
+    ],
+    "esg": [
+        {"name": "esg_screen",
+         "description": "ESG-index membership and documented controversies for the given tickers, from the "
+                        "live market graph (reliable within 12h of its last load). Membership is a preference "
+                        "signal, never a ban; only status='verified' controversy lines may drive BLOCKs. "
+                        "Controversies published after `as_of` are never returned (point-in-time).",
+         "inputSchema": {"type": "object", "properties": {"tickers": _TICKERS, "as_of": _AS_OF},
+                         "required": ["tickers"]}},
     ],
 }
 
@@ -165,6 +175,13 @@ def _market(name: str, a: dict) -> dict:
     return (graph.screen_tool if name == "screen" else graph.related_tool)(market_graph(), a)
 
 
+def _esg_screen(a: dict) -> dict:
+    """esg_screen from the live market graph (this Lambda runs inside the VPC)."""
+    from app.market import graph
+
+    return graph.esg_screen_tool(market_graph(), a)
+
+
 def _weights(value: Any) -> dict[str, float]:
     """Accept {"NVDA": 0.2} or [{"ticker": "NVDA", "weight": 0.2}] (in case a client cannot send free keys)."""
     if isinstance(value, str):
@@ -197,6 +214,7 @@ HANDLERS: dict[str, Callable[[dict], dict]] = {
     "fx_usdcad": lambda a: _macro("fx_usdcad", a),
     "screen": lambda a: _market("screen", a),
     "related": lambda a: _market("related", a),
+    "esg_screen": lambda a: _esg_screen(a),
 }
 
 assert set(HANDLERS) == {t["name"] for ts in TARGETS.values() for t in ts}, "schemas and handlers out of sync"

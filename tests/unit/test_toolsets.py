@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.agents.subagents import base
+from app.agents.subagents.esg import esg_subagent
 from app.agents.subagents.news import KB_PROMPT, SIMULATED_PROMPT, news_subagent
 from app.agents.subagents.risk import risk_subagent
 from app.tools import toolsets
@@ -56,6 +57,33 @@ def test_gateway_gives_an_mcp_client_without_connecting(settings):
     settings.gateway_url = "https://gw.example/mcp"
     tools = toolsets.quant_toolset()
     assert len(tools) == 1 and isinstance(tools[0], MCPClient)
+
+
+def test_esg_toolset(settings):
+    assert [t.tool_name for t in toolsets.esg_toolset()] == ["esg_screen"]   # curated locally
+    settings.gateway_url = "https://gw.example/mcp"
+    from strands.tools.mcp import MCPClient
+
+    tools = toolsets.esg_toolset()
+    assert len(tools) == 1 and isinstance(tools[0], MCPClient)               # live graph via the Gateway
+
+
+def test_esg_subagent_uses_gateway_when_configured(settings, fake_agent):
+    from strands.tools.mcp import MCPClient
+
+    esg_subagent._tool_func("ESG check for XOM")
+    assert [t.tool_name for t in fake_agent[-1]["tools"]] == ["esg_screen"]
+    settings.gateway_url = "https://gw.example/mcp"
+    esg_subagent._tool_func("ESG check for XOM")
+    assert isinstance(fake_agent[-1]["tools"][0], MCPClient)
+
+
+def test_gateway_client_is_shared_across_toolsets_and_runs(settings):
+    settings.gateway_url = "https://gw.example/mcp"
+    a = toolsets.quant_toolset()[0]
+    b = toolsets.esg_toolset()[0]
+    assert a is b                               # one client per gateway URL, shared and warm
+    assert toolsets.quant_toolset()[0] is a     # and reused on the next run
 
 
 def test_news_toolset(settings):
