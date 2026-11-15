@@ -7,9 +7,11 @@ In-memory stand-in for tests and local runs.
 from __future__ import annotations
 
 import json
+import os
 import threading
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Literal, Optional, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -88,6 +90,47 @@ class InMemoryRunStore:
     def list_for_actor(self, actor_id: str, limit: int = 50) -> list[RunRecord]:
         runs = [RunRecord.model_validate_json(r) for r in self._items.values()]
         runs = sorted((r for r in runs if r.actor_id == actor_id), key=lambda r: r.created_at, reverse=True)
+        return runs[:limit]
+
+
+class JsonFileRunStore:
+    """AF_STORE=file: one JSON file per run (<dir>/<run_id>.json), so the run history (and the portfolio the
+    dashboard reads from it) survives a restart, like JsonFileProfileStore does for profiles."""
+
+    def __init__(self, directory: str | Path) -> None:
+        self.dir = Path(directory)
+        self.dir.mkdir(parents=True, exist_ok=True)
+        self._lock = threading.Lock()          # a background run writes while the API reads
+
+    def _path(self, run_id: str) -> Path:
+        safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in run_id)
+        return self.dir / f"{safe}.json"
+
+    def put(self, run: RunRecord) -> None:
+        path = self._path(run.run_id)
+        tmp = path.with_suffix(".json.tmp")
+        with self._lock:                        # write then rename: a reader never sees half a file
+            tmp.write_text(run.model_dump_json(), encoding="utf-8")
+            os.replace(tmp, path)
+
+    def get(self, run_id: str) -> Optional[RunRecord]:
+        path = self._path(run_id)
+        with self._lock:
+            raw = path.read_text(encoding="utf-8") if path.exists() else None
+        return RunRecord.model_validate_json(raw) if raw else None
+
+    def list_for_actor(self, actor_id: str, limit: int = 50) -> list[RunRecord]:
+        runs: list[RunRecord] = []
+        with self._lock:
+            raws = [p.read_text(encoding="utf-8") for p in self.dir.glob("*.json")]
+        for raw in raws:
+            try:
+                run = RunRecord.model_validate_json(raw)
+            except ValueError:                  # an old or damaged file must not hide the rest of the history
+                continue
+            if run.actor_id == actor_id:
+                runs.append(run)
+        runs.sort(key=lambda r: r.created_at, reverse=True)
         return runs[:limit]
 
 

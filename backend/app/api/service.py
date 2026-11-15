@@ -306,9 +306,10 @@ def _dispatcher(runs: RunStore, dispatch: str) -> Dispatcher:
 
 def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
     """AF_STORE=memory (default, local) | file | dynamodb (AF_TABLE, default "alphaforge").
-    AF_STORE=file keeps profiles as JSON files (one per user) under AF_DATA_DIR/profiles (default ".af_store/",
-    relative paths are resolved against the repo root), so they survive a restart. Runs stay in memory in this mode
-    (there is no file-backed run store): after a restart the run history is empty.
+    AF_STORE=file keeps profiles (one per user) and runs (one per run) as JSON files under AF_DATA_DIR/profiles
+    and AF_DATA_DIR/runs (default ".af_store/", relative paths are resolved against the repo root), so both survive
+    a restart: the dashboard finds the user's last portfolio run instead of building a new one. The evidence
+    ledger is already on disk (data/runs/*.jsonl).
     AF_DISPATCH=inline (default: the orchestrator runs before POST /v1/runs returns — live answers, no queue,
     app.api.dispatch.InlineDispatcher) | local (the orchestrator runs in a background thread after the 202;
     clients poll GET /v1/runs/{id}) | none (the run stays QUEUED with its plan only)."""
@@ -323,10 +324,11 @@ def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
     if kind == "file":
         from app.core.config import REPO_ROOT
         from app.store.profiles import JsonFileProfileStore
+        from app.store.runs import JsonFileRunStore
 
         root = Path(env.get("AF_DATA_DIR") or ".af_store")
         root = root if root.is_absolute() else REPO_ROOT / root
-        runs = InMemoryRunStore()
+        runs = JsonFileRunStore(root / "runs")
         from app.notify.contacts import JsonFileContactStore
 
         return ApiService(profiles=JsonFileProfileStore(root / "profiles"), runs=runs,
