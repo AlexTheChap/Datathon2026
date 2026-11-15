@@ -55,7 +55,10 @@ def browser():
         b.close()
 
 
-def new_page(browser, config_js: str = ""):
+DEV_CONFIG = 'window.AF_CONFIG = {"auth": "dev"};'  # explicit local test mode (never a fallback)
+
+
+def new_page(browser, config_js: str = DEV_CONFIG):
     ctx = browser.new_context(viewport={"width": 1280, "height": 900})
     ctx.route("**/config.js", lambda r: r.fulfill(status=200, content_type="application/javascript", body=config_js))
     pg = ctx.new_page()

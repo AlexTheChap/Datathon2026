@@ -42,11 +42,9 @@ Before writing or reviewing any code, read it. See
 ```bash
 .venv/bin/pip install -e ".[dev,api]"
 
-# With sign-in (Amazon Cognito, demo accounts for Amira, Mateo and Robert). Once: python scripts/setup_cognito.py
-(set -a; . ./.env; set +a; cd backend && AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app --port 8000)
+# Sign-in (Amazon Cognito) is always on: settings in backend/app/core/signin.json, nothing to set in .env
+cd backend && AF_INTAKE_MODE=mock AF_STORE=file ../.venv/bin/python -m uvicorn app.api.app:app --port 8000
 
-# Without sign-in (a demo user name kept in the browser, no password; local only)
-cd backend && AF_AUTH_MODE=dev AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app --port 8000
 ```
 
 Open http://127.0.0.1:8000. The first log line says which sign-in mode the API runs in, and the page follows it.

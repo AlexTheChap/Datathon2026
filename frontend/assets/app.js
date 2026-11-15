@@ -1,6 +1,6 @@
 // AlphaForge frontend (box ① of docs/architecture.mmd): plain ES module, no framework, no build step.
 // Talks to the box ② API (POST/GET /v1/runs, GET/PUT /v1/profile, GET /v1/personas, GET /v1/me) and, when
-// sign-in is configured (config.js from scripts/setup_cognito.py), to Amazon Cognito for the login.
+// to Amazon Cognito for the login (settings served by the API as config.js, from backend/app/core/signin.json).
 // Every piece of user or server text goes into the page as a text node (never as HTML).
 
 import { renderPortfolio, onProfileSaved, syncPortfolio } from "./portfolio.js";
@@ -130,6 +130,7 @@ const timeText = (iso) => {
 };
 
 /* ---------------- Identity: Amazon Cognito sign-in. No account, no app. ----------------
+ * The API serves the sign-in settings as config.js (backend/app/core/signin.json): sign-in is on by default.
  * DEV (no password, a "guest-…" id kept in this browser) only when config.js says {auth: "dev"}: the API serves that
  * only when started with AF_AUTH_MODE=dev, for local tests. Without sign-in settings the app does not run at all. */
 
@@ -448,8 +449,8 @@ function renderNoSignIn(main) {
     h("h1", null, "Sign-in isn't available"),
     h("p", null, "AlphaForge can only be used with an account, and this server has no sign-in set up. Try again later."))),
   band("body", h("div", { class: "panel stack-sm" },
-    h("p", { class: "small muted" }, "For whoever runs this server: start the API with AF_AUTH_MODE=cognito and the "
-      + "sign-in settings written by scripts/setup_cognito.py (frontend/config.js and .env)."))));
+    h("p", { class: "small muted" }, "For whoever runs this server: backend/app/core/signin.json has no user pool, "
+      + "or the server was started with an AF_AUTH_MODE that turns sign-in off. Run scripts/setup_cognito.py."))));
 }
 function route() {
   if (!COGNITO && !DEV) { renderNoSignIn(document.getElementById("main")); setWho(); return; }

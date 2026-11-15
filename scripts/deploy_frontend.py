@@ -19,8 +19,8 @@ What the script does (box ① and link L1 of docs/architecture.mmd):
    the API on its own origin: no CORS needed, and config.js keeps AF_API_BASE empty.
    Without --api-url the site still loads and signs in, but questions fail until the API exists.
 
-config.js = the Cognito settings of frontend/config.js (written by scripts/setup_cognito.py), or none: the page
-then refuses to run (no account, no app). The demo accounts' password is in it on purpose
+config.js = the sign-in settings of backend/app/core/signin.json (tracked, written by scripts/setup_cognito.py), plus
+the one-click demo accounts when AF_DEMO_PASSWORD is set; without a pool the page refuses to run (no account, no app). The demo accounts' password is in it on purpose
 (shared demo accounts, see setup_cognito.py). Re-running the script updates everything and invalidates the cache.
 """
 from __future__ import annotations
@@ -269,17 +269,21 @@ def main() -> None:
         return
     if args.api_url:
         api_origin(args.api_url)  # fail fast on a bad URL
-    cognito = FRONTEND / "config.js"
-    config_text = config_js(cognito.read_text(encoding="utf-8") if cognito.is_file() else None)
+    sys.path.insert(0, str(ROOT / "backend"))
+    from app.api.auth import browser_config
+
+    signin = browser_config(os.environ.get("AF_DEMO_PASSWORD"))
+    cognito_text = f"window.AF_CONFIG = {json.dumps(signin, indent=2)};" if signin else None
+    config_text = config_js(cognito_text)
     if not re.search(r'"auth":\s*"cognito"', config_text):
-        print("! No Cognito settings in frontend/config.js: the deployed page will not run (no sign-in).")
+        print("! No user pool in backend/app/core/signin.json: the deployed page will not run (no sign-in).")
 
     if args.dry_run:
         print("Dry run: nothing is created or changed.")
         for key, path in site_files():
             print(f"  would upload {key:28} {content_type(key):34} {cache_control(key)}")
         print(f"  would upload {'config.js':28} {content_type('config.js'):34} {cache_control('config.js')}"
-              f"  (Cognito settings: {'yes' if cognito.is_file() else 'no'})")
+              f"  (sign-in: {'yes' if signin else 'no'})")
         existing = find_distribution(session.client("cloudfront"))
         print(f"  would {'update distribution ' + existing['Id'] if existing else 'create a CloudFront distribution'}"
               f" ({COMMENT}), private bucket read through {OAC_NAME}")

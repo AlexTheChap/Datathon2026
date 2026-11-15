@@ -18,14 +18,15 @@
     /                       → the frontend (box ①, frontend/), served locally when that folder exists
 
 Identity (actor_id): the `sub` of a verified Amazon Cognito ID token (see auth.py: API Gateway authorizer
-claims, or AF_AUTH_MODE=cognito to verify the Bearer token here). Local tests only (AF_AUTH_MODE=dev): the
-X-Actor-Id header. Never trust an actor_id from a body. A demo account (amira/mateo/robert.demo@alphaforge.example)
+claims on Lambda; everywhere else, by default, the Bearer token is verified here against the pool in
+backend/app/core/signin.json). Local tests only (AF_AUTH_MODE=dev, never a default): the X-Actor-Id header. Never trust an actor_id from a body. A demo account (amira/mateo/robert.demo@alphaforge.example)
 gets its persona's profile on its first request.
 
 Lambda: `handler` (Mangum adapter). Local: `uvicorn app.api.app:app --app-dir backend --reload`.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 from pathlib import Path
@@ -64,14 +65,18 @@ def identity_from(request: Request) -> Identity:
 
 
 def auth_mode() -> str:
-    return os.environ.get("AF_AUTH_MODE", "jwt").lower()
+    from .auth import auth_mode as _mode
+
+    return _mode()
 
 
 def log_auth_mode() -> None:
     """One line at startup saying how callers are identified (the first thing to check when sign-in fails)."""
     mode, log = auth_mode(), logging.getLogger("uvicorn.error")
     if mode == "cognito":
-        pool = os.environ.get("AF_COGNITO_USER_POOL_ID") or "NOT SET: every request will get 401"
+        from .auth import signin_settings
+
+        pool = signin_settings()["user_pool_id"] or "NOT SET (backend/app/core/signin.json): every request will get 401"
         log.info("AlphaForge API sign-in: Amazon Cognito (user pool %s)", pool)
     elif mode == "dev":
         log.info("AlphaForge API sign-in: dev mode, X-Actor-Id header, no password (local tests only)")
@@ -177,9 +182,12 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
             """The page's sign-in settings always match how this API checks callers: the Cognito config when this API
             verifies Cognito tokens; the no-password test mode only when this API runs with AF_AUTH_MODE=dev (local
             tests); otherwise none, and the page then refuses to run (no account, no app: never a guest user)."""
-            cfg = frontend / "config.js"
-            if auth_mode() == "cognito" and cfg.is_file():
-                body = cfg.read_text(encoding="utf-8")
+            from .auth import browser_config
+
+            cfg = browser_config(os.environ.get("AF_DEMO_PASSWORD")) if auth_mode() == "cognito" else None
+            if cfg:
+                body = ("// Sign-in settings of this server (backend/app/core/signin.json).\n"
+                        f"window.AF_CONFIG = {json.dumps(cfg, indent=2)};\n")
             elif auth_mode() == "dev":
                 body = ("// Local test mode (AF_AUTH_MODE=dev): no password, X-Actor-Id header. Never for real users.\n"
                         'window.AF_CONFIG = {"auth": "dev"};\n')
