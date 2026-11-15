@@ -48,10 +48,10 @@ const EXPERIENCE = [
 // Hard limits. "esg" is one setting for two things: the ESG screening (agent toggle `esg`) and the exclusion of
 // companies with a major controversy, which only that screening can check (box ④ forces it while the exclusion is set).
 const LIMITS = [
-  { key: "crypto", exclusion: { type: "asset_class", value: "crypto" }, title: "No crypto-assets",
-    desc: "Bitcoin, Ether and similar are never part of an answer." },
-  { key: "esg", exclusion: { type: "controversy", min_severity: "major" }, toggle: "esg", title: "ESG screening, no major controversies",
-    desc: "Companies are checked on environmental, social and governance criteria; those with a serious controversy are flagged." },
+  { key: "crypto", exclusion: { type: "asset_class", value: "crypto" }, title: "No cryptocurrencies",
+    desc: "Bitcoin, Ether and other cryptocurrencies are never added to your portfolio or suggested to you." },
+  { key: "esg", exclusion: { type: "controversy", min_severity: "major" }, toggle: "esg", title: "Avoid companies with major controversies",
+    desc: "Turns on the ESG check (environmental, social and governance). A company with a serious, confirmed scandal is kept out of your portfolio. If one is inside a fund you hold, you get a warning instead." },
 ];
 // The analyses a person switches on or off. ESG is not one of them: it is the hard limit above.
 const ANALYSES = AGENT_ORDER.filter((a) => a !== "esg");
@@ -927,7 +927,7 @@ function profileForm(saved, initialStatus = null) {
       h("p", { class: "field__help", id: "preferences-help" }, "One per line, in your own words.")),
     h("fieldset", null,
       h("legend", null, "Hard limits ", h("span", { class: "optional" }, "(optional)")),
-      h("p", { class: "legend-help" }, "Rules AlphaForge always checks, whatever the question."),
+      h("p", { class: "legend-help" }, "Rules applied to your portfolio and to every answer, whatever you ask."),
       h("div", { class: "choices" }, LIMITS.map((l) => h("label", { class: "choice" },
         h("input", { type: "checkbox", name: `limit-${l.key}` }),
         h("span", { class: "choice__title" }, l.title),

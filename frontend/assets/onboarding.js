@@ -245,7 +245,7 @@ const QUESTIONS = {
     const boxes = ctx.LIMITS.map((l) => h("label", { class: "choice" },
       h("input", { type: "checkbox", name: `ob-limit-${l.key}`, checked: (a.exclusions || []).some((e) => e.type === l.exclusion.type) }),
       h("span", { class: "choice__title" }, l.title), h("span", { class: "choice__desc" }, l.desc)));
-    return step(h, "Is there anything AlphaForge must never include? These are hard limits, checked on every answer.",
+    return step(h, "Is there anything you never want in your portfolio? These rules apply to every answer.",
       h("div", { class: "choices" }, boxes),
       () => {
         const picked = ctx.LIMITS.filter((l, i) => boxes[i].querySelector("input").checked);
