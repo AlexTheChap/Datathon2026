@@ -63,10 +63,19 @@ def page(base_url):
         browser.close()
 
 
+def fill_profile_form(page, risk, experience):
+    """The profile form (#/profile/form): risk and experience are 1-to-10 scales landing in a category."""
+    page.goto(page.url.split("#")[0] + "#/profile/form")
+    page.wait_for_selector("text=Start from an example")
+    page.fill("#risk_band", str(risk))
+    page.fill("#experience", str(experience))
+
+
 def test_new_user_answers_inline_then_gets_a_plan(page):
     page.wait_for_selector("text=No profile yet")
     page.fill("#question", "Is my portfolio too risky?")
-    page.click("button:has-text('Ask')")
+    page.click("button[aria-label='Ask']")
+    page.wait_for_selector(".msg--user:has-text('Is my portfolio too risky?')")   # the question appears as a message
     page.wait_for_selector("text=AlphaForge needs one detail")
     page.click("label.choice:has-text('Low to moderate')")
     page.click("label.choice:has-text('Advanced')")
@@ -77,9 +86,7 @@ def test_new_user_answers_inline_then_gets_a_plan(page):
 
 
 def test_news_switched_off_in_chat_shows_in_plan_profile_and_can_be_undone(page):
-    page.click("a.nav__link:has-text('Profile')")
-    page.click("label.choice:has-text('Moderate')")
-    page.click("label.choice:has-text('Beginner')")
+    fill_profile_form(page, risk=6, experience=2)   # Moderate, Beginner
     page.click("button:has-text('Save profile')")
     page.wait_for_selector("text=Saved at")
 
@@ -87,11 +94,10 @@ def test_news_switched_off_in_chat_shows_in_plan_profile_and_can_be_undone(page)
     page.fill("#question", "I don't care about the news. I'm thinking of putting 20% in Nvidia, everyone is talking about it.")
     page.keyboard.press("Control+Enter")
     page.wait_for_selector("text=News is now off in your profile")
-    page.locator("a:has-text('See the analysis')").last.click()
-    page.wait_for_selector("text=What AlphaForge will look at")
+    page.locator("summary:has-text('How AlphaForge worked on this')").last.click()   # the plan, inside the answer
+    page.wait_for_selector("text=Off because you said")
     assert page.locator("text=Off because you said").count() == 1  # the plan quotes the user
 
-    page.go_back()
     page.wait_for_selector("text=Analyses off")
     page.click("button:has-text('Undo')")
     page.wait_for_selector("text=News is back on")
@@ -99,9 +105,7 @@ def test_news_switched_off_in_chat_shows_in_plan_profile_and_can_be_undone(page)
 
 
 def test_learning_switch_is_saved_and_picks_the_learning_template(page):
-    page.click("a.nav__link:has-text('Profile')")
-    page.click("label.choice:has-text('Moderate')")
-    page.click("label.choice:has-text('Beginner')")
+    fill_profile_form(page, risk=6, experience=2)   # Moderate, Beginner
     page.check("#wants_to_learn")
     page.click("button:has-text('Save profile')")
     page.wait_for_selector("text=Saved at")
@@ -111,15 +115,14 @@ def test_learning_switch_is_saved_and_picks_the_learning_template(page):
     page.click("a.nav__link:has-text('Ask')")
     page.wait_for_selector("text=Explained so you learn")  # the side summary
     page.fill("#question", "Is my portfolio too risky?")
-    page.keyboard.press("Control+Enter")
-    page.locator("a:has-text('See the analysis')").last.click()
-    page.click("summary:has-text('Details')")
-    page.wait_for_selector("text=Beginner investors, explained so you learn")
+    page.keyboard.press("Enter")                                              # Enter sends, like a chat
+    page.locator("summary:has-text('How AlphaForge worked on this')").last.click()
+    page.wait_for_selector("text=Explained for beginner investors, so you learn")
     assert page.errors == []
 
 
 def test_profile_validation_and_example_persona(page):
-    page.click("a.nav__link:has-text('Profile')")
+    page.goto(page.url.split("#")[0] + "#/profile/form")
     page.wait_for_selector("text=Start from an example")
     page.click("button:has-text('Save profile')")  # nothing chosen yet
     page.wait_for_selector("text=Pick the risk level that fits you best.")
@@ -225,7 +228,7 @@ def test_cognito_demo_sign_in_seeds_the_persona_and_signs_out(base_url, monkeypa
         assert pg.is_hidden(".nav")
         pg.click("button.demo-account:has-text('Robert')")
         pg.wait_for_selector("text=Your investor profile")  # back to the page asked for
-        assert pg.is_checked("input[name='risk_band'][value='low_moderate']")  # persona profile seeded by the API
+        assert pg.input_value("#risk_band") == "4" and "Low to moderate" in pg.inner_text("#risk_band-out")  # persona profile seeded by the API
         assert pg.inner_text("#who") == "robert.demo@alphaforge.example"
 
         # A token the pool did not sign is refused by the API: the app signs out and says why
@@ -235,9 +238,7 @@ def test_cognito_demo_sign_in_seeds_the_persona_and_signs_out(base_url, monkeypa
         pg.unroute("https://cognito-idp.us-east-1.amazonaws.com/")
         pg.route("https://cognito-idp.us-east-1.amazonaws.com/", lambda r: r.fulfill(
             status=400, content_type="application/x-amz-json-1.1", body=json.dumps({"__type": "NotAuthorizedException"})))
-        pg.click("a.nav__link:has-text('Ask')")
-        pg.fill("#question", "Is my portfolio too risky?")
-        pg.click("form.composer button[type=submit]")  # the API sees the forged token and answers 401
+        pg.click("a.nav__link:has-text('Ask')")  # the chat loads the history: the API sees the forged token, answers 401
         # Refused right after signing in: the app names the real cause instead of "session expired"
         pg.wait_for_selector("text=AlphaForge's server refused your sign-in")
         assert pg.evaluate("localStorage.getItem('af.session')") is None
@@ -337,6 +338,14 @@ def test_portfolio_dashboard_shows_the_built_portfolio(page, base_url):
     page.wait_for_selector("button:has-text('Measure it')")
     assert page.locator("text=Share of the money vs share of the risk").count() == 0
     assert page.locator(f"a[href='#/runs/{run.run_id}']").count() >= 1           # linked to its analysis
+    # Shown = adopted: saved in the profile, so "my portfolio" questions are analysed on it.
+    for _ in range(50):
+        if SERVICE.profiles.get(run.actor_id).portfolio_run_id == run.run_id:
+            break
+        time.sleep(0.1)
+    assert SERVICE.profiles.get(run.actor_id).portfolio == {"SPY": 0.3481, "XBB.TO": 0.3054, "XIU.TO": 0.2509, "QQQ": 0.0956}
+    page.click("a.nav__link:has-text('Ask a question')")
+    page.wait_for_selector("text=SPY 35%, XBB.TO 31%, XIU.TO 25%, QQQ 10%")       # the profile panel shows it
     assert page.errors == []
 
 
@@ -345,6 +354,10 @@ def test_detail_level_follows_experience_and_can_be_changed(page, base_url):
     page.goto(f"{base_url}/#/portfolio")
     page.wait_for_selector(".hero-card")
     assert page.is_checked("input[name='detail-level'][value='simple']")
+    off = page.evaluate("""() => [...document.querySelectorAll('.seg-control__option')].map((l) => {
+        const c = l.getBoundingClientRect(), t = l.querySelector('span').getBoundingClientRect();
+        return Math.abs((c.left + c.right) / 2 - (t.left + t.right) / 2); })""")
+    assert max(off) < 1.5                                                         # each label centred in its cell
     assert page.locator("text=500 large US companies").count() >= 1             # plain words for a beginner
     assert page.locator("text=Each holding's history").count() == 0
     page.click("label.seg-control__option:has-text('Detailed')")
@@ -364,13 +377,12 @@ def test_risk_comes_from_the_follow_up_on_the_exact_mix(page, base_url):
     assert page.locator("text=Measured on this exact mix in a follow-up analysis").count() == 1
     page.click("#risk ~ details summary, figure:has-text('Share of the money vs share of the risk') summary")
     assert "52%" in page.locator("figure:has-text('Share of the money vs share of the risk') table").inner_text()
+    assert "null" not in page.locator("main").inner_text()                     # an absent note is not printed
     assert page.errors == []
 
 
 def test_saving_a_profile_builds_the_portfolio(page, base_url):
-    page.click("a.nav__link:has-text('My profile')")
-    page.click("label.choice:has-text('Moderate')")
-    page.click("label.choice:has-text('Intermediate')")
+    fill_profile_form(page, risk=6, experience=5)   # Moderate, Intermediate
     page.click("button:has-text('Save profile')")
     page.wait_for_selector("text=Building your portfolio")
     page.click("a:has-text('See my portfolio')")
@@ -383,7 +395,7 @@ def test_portfolio_without_a_profile_asks_for_one(page, base_url):
     page.goto(f"{base_url}/#/portfolio")
     page.wait_for_selector("text=First, tell AlphaForge about you")
     page.click("a:has-text('Set up my profile')")
-    page.wait_for_selector("text=Start from an example")
+    page.wait_for_selector("text=Answer the questions")                       # a new user gets the conversation
     assert page.errors == []
 
 
@@ -405,3 +417,100 @@ def test_portfolio_on_a_phone_has_no_sideways_scroll(base_url):
             (e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 1).map((e) => e.className)""")
         assert wide == [] and page.locator("a.nav__link:has-text('My profile')").is_visible()
         browser.close()
+
+
+# ---------- Profile set-up as a conversation (onboarding.js) ----------
+
+def test_profile_set_up_by_answering_questions(page, base_url):
+    page.click("a.nav__link:has-text('My profile')")
+    page.click("button:has-text('Answer the questions')")
+    page.wait_for_selector("text=How much up and down can you live with?")
+    page.click("form.onboarding__step button:has-text('Continue')")              # nothing chosen yet
+    page.wait_for_selector("text=Move the slider to choose first.")
+    page.fill("#ob-risk", "7")
+    page.wait_for_selector("text=7 / 10 · Moderate")
+    page.click("form.onboarding__step:not(.is-answered) button:has-text('Continue')")
+    page.wait_for_selector(".msg--user:has-text('Risk 7/10: Moderate')")
+    page.fill("#ob-exp", "2")
+    page.click("form.onboarding__step:not(.is-answered) button:has-text('Continue')")
+    page.fill("#ob-horizon", "12")
+    page.click("form.onboarding__step:not(.is-answered) button:has-text('Continue')")
+    page.click("form.onboarding__step:not(.is-answered) button:has-text('Skip')")   # money
+    page.click("form.onboarding__step:not(.is-answered) button:has-text('Skip')")   # goal
+    page.click("button:has-text('Yes, teach me as we go')")
+    page.click("label.choice:has-text('No crypto')")
+    page.click("form.onboarding__step:not(.is-answered) button:has-text('Continue')")
+    page.uncheck("#ob-toggle-news")
+    page.click("form.onboarding__step:not(.is-answered) button:has-text('Continue')")
+    page.wait_for_selector("text=Here's your profile")
+    # "Change" goes back to a question
+    page.locator(".msg--user:has-text('Experience') button:has-text('Change')").click()
+    page.fill("#ob-exp", "9")
+    page.click("form.onboarding__step:not(.is-answered) button:has-text('Continue')")
+    for _ in range(6):   # the questions after it are asked again: keep the answers
+        if page.locator("text=Here's your profile").count():
+            break
+        step = page.locator("form.onboarding__step:not(.is-answered), .onboarding__pick").last
+        if step.locator("button:has-text('Yes, teach me as we go')").count():
+            page.click("button:has-text('Yes, teach me as we go') >> nth=-1")
+        elif step.locator("button:has-text('Skip')").count():
+            step.locator("button:has-text('Skip')").click()
+        else:
+            step.locator("button:has-text('Continue')").click()
+        page.wait_for_timeout(350)
+    page.wait_for_selector("text=Here's your profile")
+    page.click("button:has-text('Save my profile')")
+    page.wait_for_selector("text=Saved. I'm building your portfolio")
+    actor = page.evaluate("JSON.parse(localStorage.getItem('af.actor'))")
+    saved = SERVICE.get_profile(actor)
+    assert (saved.risk_band, saved.experience, saved.wants_to_learn) == ("moderate", "advanced", True)
+    assert saved.horizon_years.min == 12 and saved.agent_toggles.news is False
+    assert [e.value for e in saved.exclusions] == ["crypto"]
+    page.wait_for_url("**/#/portfolio", timeout=5000)                           # then on to the portfolio
+    assert page.errors == []
+
+
+def test_profile_set_up_from_a_document(page, base_url, tmp_path):
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "unit"))
+    from test_onboarding import docx
+
+    f = tmp_path / "advisor-notes.docx"
+    f.write_bytes(docx(["Moderate risk. I'm a student and I want to learn.", "No crypto please.", "Buy milk."]))
+    page.goto(page.url.split("#")[0] + "#/profile")
+    page.wait_for_selector("label.attach-btn[title='Attach a PDF or Word file']")   # the small round attach button
+    page.set_input_files("#profile-file", str(f))
+    page.wait_for_selector(".msg--user:has-text('advisor-notes.docx')")
+    page.wait_for_selector("text=Here's what I found:")
+    found = page.locator(".msg--ai dl.facts").last.inner_text()
+    assert "Moderate" in found and "Explained so you learn" in found and "No crypto" in found
+    page.wait_for_selector("text=How much do you know about investing?")         # only what is missing is asked
+    assert page.locator("text=How much up and down can you live with?").count() == 0
+    assert page.errors == []
+
+
+def test_floating_ask_button(page, base_url):
+    page.goto(page.url.split("#")[0] + "#/portfolio")
+    fab = page.locator("#ask-fab")
+    fab.wait_for(state="visible")
+    assert fab.get_attribute("href") == "#/ask"
+    fab.click()
+    page.wait_for_selector("#question")
+    assert fab.is_hidden()                                                        # not on the Ask page itself
+    assert page.errors == []
+
+
+def test_my_portfolio_questions_know_the_portfolio_without_opening_the_dashboard(page, base_url):
+    """Built while the user was elsewhere: the chat saves it in the profile before sending a question."""
+    from app.api.service import MessageIn  # noqa: F401
+    run = _portfolio_for(page)
+    page.goto(page.url.split("#")[0] + "#/profile/form")                        # anywhere but the dashboard
+    page.click("a.nav__link:has-text('Ask a question')")
+    page.wait_for_selector("text=SPY 35%, XBB.TO 31%, XIU.TO 25%, QQQ 10%")      # synced into the profile panel
+    page.fill("#question", "Is my portfolio too risky compared to SPY?")
+    page.keyboard.press("Enter")
+    page.wait_for_selector("text=Analysed on your saved portfolio")
+    asked = [r for r in SERVICE.runs.list_for_actor(run.actor_id, 10) if r.request.user_message.startswith("Is my portfolio")][0]
+    assert {p.ticker: p.weight for p in asked.request.positions} == {"SPY": 0.3481, "XBB.TO": 0.3054, "XIU.TO": 0.2509, "QQQ": 0.0956}
+    assert page.errors == []

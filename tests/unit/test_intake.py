@@ -199,3 +199,63 @@ def test_offline_intake_reads_each_weight_next_to_its_asset(mock, text, expected
     whether the percentage comes before or after the ticker."""
     positions = mock.extract(text, {}).request.positions
     assert {p.ticker: p.weight for p in positions} == expected
+
+
+SAVED = {"SPY": 0.3481, "XBB.TO": 0.3054, "XIU.TO": 0.2509, "QQQ": 0.0956}
+
+
+@pytest.fixture
+def store_with_portfolio(make_profile):
+    store = InMemoryProfileStore()
+    store.put(make_profile("mateo", actor_id="mateo", portfolio=SAVED, portfolio_run_id="run-pf"))
+    return store
+
+
+@pytest.mark.parametrize("text", ["How exposed is my portfolio to a rate hike?", "Is my portfolio too risky?",
+                                  "What would a crash do to my holdings?"])
+def test_my_portfolio_questions_use_the_saved_portfolio(mock, store_with_portfolio, text):
+    res = run_intake(text, "mateo", backend=mock, store=store_with_portfolio)
+    assert {p.ticker: p.weight for p in res.request.positions} == SAVED
+    assert any(w.startswith("Analysed on your saved portfolio: SPY 35%") for w in res.warnings)
+    assert res.profile.portfolio == SAVED  # the intake keeps it in the profile
+
+
+@pytest.mark.parametrize("text", ["Is Nvidia too risky for me?", "Build a simulated portfolio that fits my profile.",
+                                  "Buy 100 Tesla shares for me"])
+def test_other_questions_keep_their_own_assets(mock, store_with_portfolio, text):
+    res = run_intake(text, "mateo", backend=mock, store=store_with_portfolio)
+    assert not res.request or {p.ticker for p in res.request.positions} != set(SAVED)
+
+
+def test_a_saved_portfolio_must_have_valid_weights(make_profile):
+    with pytest.raises(ValueError):
+        make_profile("mateo", portfolio={"SPY": 1.4})
+
+
+def test_an_unreachable_model_is_an_intake_error_not_a_crash():
+    """Expired AWS credentials (403 from Bedrock) must reach the API as IntakeError (502 with the reason), not 500."""
+    class Expired:
+        name = "bedrock"
+
+        def extract(self, text, known, feedback=None):
+            raise PermissionError("The security token included in the request is expired")
+
+    with pytest.raises(IntakeError, match="expired"):
+        run_intake("Is my portfolio too risky?", "a", backend=Expired(), profile_form={"risk_band": "moderate", "experience": "beginner"})
+
+
+def test_a_composition_question_is_answered_on_the_saved_portfolio_not_asked_back(store_with_portfolio):
+    """"What is my portfolio made of?" must run on the saved holdings, even if the model was unsure of the task."""
+    class Unsure:
+        name = "bedrock"
+
+        def extract(self, text, known, feedback=None):
+            assert known.get("has_saved_portfolio") is True and "portfolio" not in known   # told it exists, not what
+            return IntakeDraft.model_validate({
+                "profile": {"learning": "unsaid"},
+                "request": {"task": "risk_review", "intake_confidence": 0.4},
+                "clarification_question": "Which stocks and bonds do you currently hold?"})
+
+    res = run_intake("what is my portfolio made of? what stocks and bonds?", "mateo", backend=Unsure(), store=store_with_portfolio)
+    assert res.status == "ready" and res.clarification_question is None
+    assert {p.ticker: p.weight for p in res.request.positions} == SAVED

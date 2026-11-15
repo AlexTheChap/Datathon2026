@@ -66,11 +66,24 @@ class Profile(BaseModel):
         description="The person wants explanations that teach (terms defined, reasoning shown), e.g. a student. "
         "Chosen from what they say or the profile form, never from age or other demographics.",
     )
+    portfolio: Optional[dict[str, float]] = Field(
+        default=None,
+        description="The user's current simulated portfolio (ticker -> weight): the one AlphaForge built from this "
+        "profile (web app, My portfolio). A question about \"my portfolio\" that names no asset is analysed on it.",
+    )
+    portfolio_run_id: Optional[str] = Field(default=None, description="The run that built `portfolio`.")
     agent_toggle_reasons: dict[str, str] = Field(
         default_factory=dict,
         description="Why a toggle was last changed from chat: agent name -> the user's exact words "
         "(e.g. news -> \"I don't care about the news\"). Lets the Explainer quote the user.",
     )
+
+    @field_validator("portfolio")
+    @classmethod
+    def _weights(cls, v: Optional[dict[str, float]]) -> Optional[dict[str, float]]:
+        if v is not None and any(not (0.0 <= w <= 1.0) for w in v.values()):
+            raise ValueError("portfolio: every weight must be between 0 and 1")
+        return v or None
 
     @field_validator("agent_toggle_reasons")
     @classmethod

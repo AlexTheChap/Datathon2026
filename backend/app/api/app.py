@@ -8,6 +8,7 @@
                             sources), nested ids included: the web app's evidence panel
     GET  /v1/runs/{run_id}/replay   → the run's portfolios replayed day by day over the 2022 crisis (dashboard)
     GET  /v1/profile        → the stored profile
+    POST /v1/profile/draft[/file] → profile fields read from the person's text or a PDF / Word file (onboarding)
     PUT  /v1/profile        → save the profile form
     GET  /v1/personas       → the brief's three example profiles (Amira, Mateo, Robert) as profile forms
     GET  /v1/me             → who is signed in (actor_id, email, demo persona)
@@ -28,7 +29,7 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import Body, Depends, FastAPI, HTTPException, Request
+from fastapi import Body, Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -40,6 +41,16 @@ from .auth import AuthError, Identity, identify
 from .service import ApiError, ApiService, MessageIn, MessageOut, RunSummary, example_personas, service_from_env
 
 FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
+
+
+class _FreshStaticFiles(StaticFiles):
+    """The web app's files with "Cache-Control: no-cache": the browser revalidates them (ETag, a 304 when unchanged)
+    on every load, so a new version of app.js or its modules is never mixed with an old cached one."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
 
 def identity_from(request: Request) -> Identity:
@@ -131,6 +142,15 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
     def put_profile(form: dict[str, Any] = Body(...), actor_id: str = Depends(current_actor)) -> Profile:
         return svc.put_profile(actor_id, form)
 
+    # Onboarding (box ③): read the person's answers or a document, return the profile fields found. Saves nothing.
+    @api.post("/v1/profile/draft")
+    def profile_draft(body: dict[str, Any] = Body(...), actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.draft_profile(actor_id, str(body.get("text") or ""))
+
+    @api.post("/v1/profile/draft/file")
+    async def profile_draft_file(file: UploadFile = File(...), actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.draft_profile_file(actor_id, file.filename or "", await file.read())
+
     @api.get("/v1/personas")
     def personas() -> list[dict[str, Any]]:
         return example_personas()
@@ -151,7 +171,7 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
                 body = "// Sign-in is off: this API does not verify Cognito tokens (AF_AUTH_MODE is not cognito).\n"
             return Response(body, media_type="application/javascript", headers={"Cache-Control": "no-store"})
 
-        api.mount("/", StaticFiles(directory=frontend, html=True), name="frontend")
+        api.mount("/", _FreshStaticFiles(directory=frontend, html=True), name="frontend")
 
     log_auth_mode()
 

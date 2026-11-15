@@ -16,7 +16,7 @@ What it creates (all names prefixed "alphaforge-quant"):
 3. IAM role "alphaforge-quant-gateway" (trusted by bedrock-agentcore, may invoke ONLY that Lambda).
 4. AgentCore Gateway "alphaforge-quant-gateway": protocol MCP, authorizer AWS_IAM (SigV4).
 5. Gateway targets on the same Lambda: metrics · risk · macro · market
-   (tool schemas from app.tools.quant_gateway.TARGETS).
+   (tool schemas from app.tools.quant_gateway.TARGETS; removed targets are pruned on redeploy).
 Market graph: when build/graph.json exists (scripts/deploy_graph.py), the Lambda runs inside the graph VPC
 (private subnets, S3 gateway endpoint) with AF_NEPTUNE_ENDPOINT and read-only neptune-db access, so
 market___screen / market___related query Neptune; otherwise they use the in-memory graph.
@@ -209,6 +209,10 @@ def ensure_targets(ac, gateway_id: str, lambda_arn: str) -> None:
                                            credentialProviderConfigurations=creds)["targetId"]
         _wait(lambda: ac.get_gateway_target(gatewayIdentifier=gateway_id, targetId=tid), f"target {name}")
         print(f"• Target ready: {name} -> {[t['name'] for t in tools]}")
+    for name, tid in existing.items():  # a target removed from TARGETS: delete it, never leave a zombie
+        if name not in TARGETS:
+            ac.delete_gateway_target(gatewayIdentifier=gateway_id, targetId=tid)
+            print(f"• Stale target removed: {name}")
 
 
 def save_url(url: str, gateway_id: str, region: str) -> None:

@@ -3,8 +3,10 @@
 // sign-in is configured (config.js from scripts/setup_cognito.py), to Amazon Cognito for the login.
 // Every piece of user or server text goes into the page as a text node (never as HTML).
 
-import { renderPortfolio, onProfileSaved } from "./portfolio.js";
+import { renderPortfolio, onProfileSaved, syncPortfolio } from "./portfolio.js";
 import { PORTFOLIO_PROMPT, RISK_PROMPT_PREFIX } from "./portfolio-data.js";
+import { renderOnboarding } from "./onboarding.js";
+import { EXPERIENCE_BANDS, RISK_BANDS, scale } from "./scale.js";
 
 const API_BASE = window.AF_API_BASE || ""; // same origin by default (the API serves this folder locally)
 const POLL_EVERY_MS = 4000;
@@ -90,6 +92,10 @@ const ICONS = {
   alert: "M12 8v5m0 3.5v.01M10.3 3.9 2.6 17.3A2 2 0 0 0 4.3 20.3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z",
   moon: "M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z",
   sun: "M12 4V2m0 20v-2m8-8h2M2 12h2m13.66-5.66 1.41-1.41M4.93 19.07l1.41-1.41m11.32 0 1.41 1.41M4.93 4.93l1.41 1.41M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10z",
+  send: "M12 19V5m0 0-6 6m6-6 6 6",
+  plus: "M12 5v14M5 12h14",
+  upload: "M12 16V4m0 0-5 5m5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3",
+  file: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zm0 0v5h5",
 };
 function icon(name, size = 16) {
   const ns = "http://www.w3.org/2000/svg";
@@ -260,9 +266,12 @@ async function api(method, path, body, retried = false) {
   let data = null;
   try { data = await res.json(); } catch { /* empty body */ }
   if (res.status === 401 && COGNITO) {
+    // Several requests can be refused at once: only the first signs out, so its precise message stays on screen.
+    if (!readSession()) throw new ApiError(401, (data && data.detail) || "Sign in to continue.");
     if (!retried && (await refreshSession())) return api(method, path, body, true);
     // A token refused minutes after signing in is not an expired session: say what really happened.
     const s = readSession();
+    if (!s) throw new ApiError(401, (data && data.detail) || "Sign in to continue."); // another request signed out first
     const fresh = s && s.signedInAt && Date.now() - s.signedInAt < 120_000;
     const reason = (data && typeof data.detail === "string" && data.detail) || "unauthorized";
     signOut(fresh
@@ -273,10 +282,36 @@ async function api(method, path, body, retried = false) {
   return { status: res.status, data };
 }
 
+/** POST a file (multipart): same sign-in as api(), the browser sets the multipart boundary. */
+async function upload(path, formData) {
+  const headers = {};
+  if (COGNITO) {
+    const token = await idToken();
+    if (!token) { signOut("Your session has expired. Sign in again."); throw new ApiError(401, "Sign in to continue."); }
+    headers.Authorization = `Bearer ${token}`;
+  } else {
+    headers["X-Actor-Id"] = actorId();
+  }
+  let res;
+  try { res = await fetch(API_BASE + path, { method: "POST", headers, body: formData }); } catch { throw new ApiError(0, "network"); }
+  let data = null;
+  try { data = await res.json(); } catch { /* empty body */ }
+  if (!res.ok) throw new ApiError(res.status, data && data.detail);
+  return { status: res.status, data };
+}
+
 function errorText(err, what) {
   if (err.status === 0) return { title: "AlphaForge isn't responding", body: "The app can't reach its server. Check that the API is running, then try again." };
   if (err.status === 401) return { title: "You're not signed in", body: "Sign in again, then try again." };
+  const detail = typeof err.detail === "string" ? err.detail : "";
+  if (err.status === 502 && /expired|security token|credentials|UnrecognizedClient|AccessDenied/i.test(detail)) {
+    return { title: "AlphaForge can't reach its AI model", body: "The server's AWS credentials have expired or were refused. Whoever runs AlphaForge needs to renew them; your text is kept, try again after that." };
+  }
+  if (err.status === 502 && /could not be reached|unreachable|Throttl/i.test(detail)) {
+    return { title: "AlphaForge can't reach its AI model right now", body: "The language model service didn't answer. Your text is kept: try again in a moment." };
+  }
   if (err.status === 502) return { title: `AlphaForge couldn't read ${what}`, body: "The language model didn't give a usable answer this time. Your text is kept: try again." };
+  if (err.status === 422 && detail) return { title: "That didn't work", body: detail };
   if (err.status === 422) return { title: "Some details aren't valid", body: "Check the highlighted fields, then try again." };
   return { title: "Something went wrong", body: `The server answered with an error (${err.status}). Try again in a moment.` };
 }
@@ -296,7 +331,9 @@ function alertBox(err, what, onRetry) {
 const state = {
   profile: undefined, // undefined = not loaded, null = none yet
   personas: null,
-  thread: [],
+  thread: [],        // the conversation on the Ask page: one turn per question
+  sessionId: null,   // the API's conversation id (AgentCore Memory), kept for the follow-up questions
+  historyLoaded: false,
   dirty: false,
   pollTimer: null,
 };
@@ -372,12 +409,21 @@ const routes = [
   { re: /^#\/signin$/, nav: null, title: "Sign in", view: renderSignIn, public: true },
   { re: /^#\/portfolio$/, nav: "portfolio", title: "Your portfolio", view: (main) => renderPortfolio(main, dashboardContext()) },
   { re: /^#\/ask$/, nav: "ask", title: "Ask", view: renderAsk },
-  { re: /^#\/profile$/, nav: "profile", title: "Your profile", view: renderProfile },
+  { re: /^#\/profile$/, nav: "profile", title: "Your profile", view: (main) => renderProfile(main, "auto") },
+  { re: /^#\/profile\/form$/, nav: "profile", title: "Your profile", view: (main) => renderProfile(main, "form") },
+  { re: /^#\/profile\/assistant$/, nav: "profile", title: "Set up your profile", view: (main) => renderOnboarding(main, onboardingContext()) },
   { re: /^#\/runs\/([\w-]+)$/, nav: "ask", title: "Analysis plan", view: renderRun },
 ];
 
 let currentHash = null;
 const HOME = "#/portfolio";
+
+/** What the profile conversation (onboarding.js) needs from the app. */
+function onboardingContext() {
+  return { h, icon, api, upload, band, alertBox, announce, money, horizonText, RISK, EXPERIENCE, LIMITS, AGENTS, AGENT_ORDER,
+    loadProfile: async (force) => loadProfile(force),
+    onSaved: (before, fresh) => { state.profile = fresh; onProfileSaved(dashboardContext(), before, fresh); } };
+}
 
 /** What the portfolio dashboard (portfolio.js) needs from the app: same API client, components and state. */
 function dashboardContext() {
@@ -406,12 +452,14 @@ function route() {
     match = routes.find((r) => r.nav === "portfolio");
   }
   document.querySelector(".nav").hidden = !signedIn;
+  document.getElementById("ask-fab").hidden = !signedIn || match.nav === "ask" || Boolean(match.public);
   setWho();
   currentHash = window.location.hash || HOME;
   for (const link of document.querySelectorAll(".nav__link")) {
     if (link.dataset.route === match.nav) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
   }
+  placeNavIndicator();
   document.title = `${match.title}, AlphaForge`;
   const main = document.getElementById("main");
   main.replaceChildren();
@@ -422,38 +470,49 @@ function route() {
   window.scrollTo(0, 0);
 }
 
-/* ---------------- Ask ---------------- */
+/** The red bar under the current nav link slides from one link to the next (a single element, moved). */
+function placeNavIndicator() {
+  const nav = document.querySelector(".nav");
+  let bar = nav.querySelector(".nav__indicator");
+  if (!bar) { bar = h("span", { class: "nav__indicator", "aria-hidden": "true" }); nav.append(bar); }
+  const current = nav.querySelector('.nav__link[aria-current="page"]');
+  if (!current || nav.hidden) { bar.style.opacity = "0"; return; }
+  const inset = parseFloat(getComputedStyle(current).paddingLeft) || 0;
+  bar.style.opacity = "1";
+  bar.style.transform = `translateX(${current.offsetLeft + inset}px) scaleX(${(current.offsetWidth - 2 * inset) / 100})`;
+  if (!bar.dataset.ready) requestAnimationFrame(() => { bar.dataset.ready = "1"; });
+}
+window.addEventListener("resize", () => placeNavIndicator());
+
+/* ---------------- Ask: a conversation with AlphaForge ---------------- */
+
+// The pipeline's stages, shown in order while an analysis runs (POST /v1/runs answers when the run is done).
+const STEPS = ["Reading your question", "Choosing what to analyse", "Running the analyses",
+  "Checking against your profile", "Writing and checking the answer"];
+const PLAN_ONLY = /stays at its plan|AF_DISPATCH=none/;
+const isFinalRun = (r) => r.status === "DONE" || r.status === "FAILED" || (r.status === "QUEUED" && PLAN_ONLY.test(r.note || ""));
 
 function renderAsk(main) {
+  const portfolioReady = syncPortfolio(dashboardContext()).then(() => { state.profile = undefined; drawSide(); }).catch(() => {});
+  const log = h("div", { class: "chat__log", role: "log", "aria-label": "Conversation with AlphaForge" });
   const textarea = h("textarea", {
-    class: "textarea", id: "question", name: "question", rows: "4", maxlength: "4000",
+    class: "chat__input", id: "question", name: "question", rows: "1", maxlength: "4000",
+    placeholder: "Ask about your portfolio…", "aria-label": "Your question",
     "aria-describedby": "question-help question-error", autocomplete: "off",
   });
   const error = h("p", { class: "field__error", id: "question-error" });
-  const submit = h("button", { class: "btn btn--primary", type: "submit" }, "Ask");
-  const pending = h("p", { class: "small muted", role: "status" });
-  const thread = h("div", { class: "thread", "aria-label": "Your questions and AlphaForge's replies" });
+  const submit = h("button", { class: "chat__send", type: "submit", "aria-label": "Ask" }, icon("send", 18));
+  const form = h("form", { class: "chat__composer", novalidate: true, onsubmit: (e) => { e.preventDefault(); send(); } },
+    h("div", { class: "chat__box" }, textarea, submit),
+    error,
+    h("p", { class: "chat__help", id: "question-help" },
+      "Enter to send, Shift+Enter for a new line. Questions about “my portfolio” use the portfolio AlphaForge built for you."));
 
-  const form = h("form", { class: "composer", novalidate: true, onsubmit: (e) => { e.preventDefault(); send(); } },
-    h("div", { class: "field" },
-      h("label", { class: "field__label", for: "question" }, "Your question"),
-      textarea,
-      h("p", { class: "field__help", id: "question-help" },
-        "Mention amounts or percentages if you have them. Press Ctrl+Enter to send."),
-      error),
-    h("div", { class: "composer__actions" }, submit, pending),
-    h("div", { class: "stack-sm" },
-      h("p", { class: "small muted", id: "examples-label" }, "Try an example. It fills the box; nothing is sent until you press Ask."),
-      h("div", { class: "examples", role: "group", "aria-labelledby": "examples-label" },
-        EXAMPLE_QUESTIONS.map((q) => h("button", {
-          class: "example", type: "button",
-          onclick: () => { textarea.value = q; clearError(); textarea.focus(); },
-        }, q)))));
-
+  const grow = () => { textarea.style.height = "auto"; textarea.style.height = `${Math.min(textarea.scrollHeight, 220)}px`; };
+  textarea.addEventListener("input", () => { clearError(); grow(); });
   textarea.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); }
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey || !e.shiftKey)) { e.preventDefault(); send(); }
   });
-  textarea.addEventListener("input", clearError);
 
   function clearError() { error.replaceChildren(); textarea.removeAttribute("aria-invalid"); }
   function showError(msg) {
@@ -462,70 +521,142 @@ function renderAsk(main) {
     textarea.focus();
   }
 
+  const welcome = () => h("div", { class: "chat__welcome" },
+    h("span", { class: "msg__avatar msg__avatar--lg", "aria-hidden": "true" }, "A"),
+    h("h2", null, "What would you like to know?"),
+    h("p", { class: "lede" }, "Ask in your own words. AlphaForge picks the analyses, checks the result against your profile, and shows every source."),
+    h("div", { class: "examples", role: "group", "aria-label": "Example questions. Picking one fills the box; nothing is sent until you press Ask." },
+      EXAMPLE_QUESTIONS.map((q) => h("button", { class: "example", type: "button",
+        onclick: () => { textarea.value = q; grow(); clearError(); textarea.focus(); } }, q))));
+
   async function send(text = textarea.value.trim(), profileForm = undefined, replaceTurn = null) {
     if (!text) { showError("Write a question first."); return; }
     if (text.length > 4000) { showError("Keep the question under 4,000 characters."); return; }
+    const turn = replaceTurn || { text };
+    Object.assign(turn, { status: "pending", error: null, reply: null, run: null, fresh: true });
+    if (!replaceTurn) state.thread.push(turn);
+    if (!profileForm) { textarea.value = ""; grow(); }
     submit.disabled = true;
-    submit.setAttribute("aria-busy", "true");
-    submit.replaceChildren(h("span", { class: "spinner", "aria-hidden": "true" }), "Asking");
-    pending.textContent = "AlphaForge reads your question, runs the analysis and writes the answer. This can take about a minute.";
+    drawThread();
     try {
+      await portfolioReady; // a portfolio built since the last visit is saved first: "my portfolio" questions use it
       const body = { text };
       if (profileForm) body.profile_form = profileForm;
+      if (state.sessionId) body.session_id = state.sessionId;
       const { data } = await api("POST", "/v1/runs", body);
-      const turn = { text, reply: data };
-      if (replaceTurn) state.thread[state.thread.indexOf(replaceTurn)] = turn; else state.thread.push(turn);
-      if (data.kind === "run") rememberRun(data.run_id, text);
-      if (!profileForm) textarea.value = "";
+      turn.reply = data;
+      if (data.session_id) state.sessionId = data.session_id;
+      if (data.kind === "run") {
+        rememberRun(data.run_id, text);
+        let run = (await api("GET", `/v1/runs/${encodeURIComponent(data.run_id)}`)).data;
+        for (let i = 0; !isFinalRun(run) && i < POLL_MAX; i += 1) { // a background dispatcher: wait for the answer
+          await new Promise((r) => { window.setTimeout(r, POLL_EVERY_MS); });
+          run = (await api("GET", `/v1/runs/${encodeURIComponent(data.run_id)}`)).data;
+        }
+        turn.run = run;
+      }
+      turn.status = "done";
       state.profile = undefined; // the intake may have saved or changed the profile
-      drawThread();
       drawSide();
-      announce(data.kind === "run" ? "Analysis planned." : data.kind === "question" ? "AlphaForge needs one detail." : "AlphaForge replied.");
+      announce(data.kind === "run" ? "AlphaForge answered." : data.kind === "question" ? "AlphaForge needs one detail." : "AlphaForge replied.");
     } catch (err) {
-      const turn = { text, error: err, retry: () => send(text, profileForm, turn) };
-      if (replaceTurn) state.thread[state.thread.indexOf(replaceTurn)] = turn; else state.thread.push(turn);
-      drawThread();
+      turn.status = "error";
+      turn.error = err;
+      turn.retry = () => send(text, profileForm, turn);
     } finally {
       submit.disabled = false;
-      submit.removeAttribute("aria-busy");
-      submit.replaceChildren("Ask");
-      pending.textContent = "";
+      renderTurn(turn);
+      scrollToEnd();
     }
   }
 
-  function drawThread() {
-    thread.replaceChildren(...state.thread.map((turn) => drawTurn(turn)));
-    const last = thread.lastElementChild;
-    if (last) last.scrollIntoView({ block: "nearest" });
+  function scrollToEnd() {
+    const last = log.lastElementChild;
+    if (last) last.scrollIntoView({ block: "end", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }
 
-  function drawTurn(turn) {
-    const you = h("p", { class: "turn__you" }, h("span", { class: "visually-hidden" }, "You asked: "), turn.text);
-    if (turn.error) {
-      return h("article", { class: "turn" }, you, alertBox(turn.error, "your question", turn.retry));
+  function drawThread() {
+    if (!state.thread.length) { log.replaceChildren(welcome()); return; }
+    if (log.querySelector(".chat__welcome")) log.replaceChildren();
+    for (const turn of state.thread) {
+      if (!turn.el) { turn.el = h("div", { class: "turn" }); renderTurn(turn); }
+      if (turn.el.parentNode !== log) log.append(turn.el);
+    }
+    scrollToEnd();
+  }
+
+  const you = (text) => h("div", { class: "msg msg--user" },
+    h("div", { class: "msg__bubble" }, h("span", { class: "visually-hidden" }, "You asked: "), text));
+  const ai = (...content) => h("div", { class: "msg msg--ai" },
+    h("span", { class: "msg__avatar", "aria-hidden": "true" }, "A"),
+    h("div", { class: "msg__body" }, h("span", { class: "visually-hidden" }, "AlphaForge: "), content));
+
+  function renderTurn(turn) {
+    window.clearInterval(turn.timer);
+    if (!turn.el) return;
+    if (turn.status === "pending") {
+      const step = h("span", { class: "thinking__step" }, `${STEPS[0]}…`);
+      let i = 0;
+      turn.timer = window.setInterval(() => {
+        i = Math.min(i + 1, STEPS.length - 1);
+        step.textContent = `${STEPS[i]}…`;
+        step.classList.remove("is-new"); void step.offsetWidth; step.classList.add("is-new");
+        if (i === STEPS.length - 1) window.clearInterval(turn.timer);
+      }, 7000);
+      turn.el.replaceChildren(you(turn.text), ai(h("div", { class: "thinking", role: "status" },
+        h("span", { class: "thinking__dots", "aria-hidden": "true" }, h("span"), h("span"), h("span")), step)));
+      return;
+    }
+    if (turn.status === "error") {
+      turn.el.replaceChildren(you(turn.text), ai(alertBox(turn.error, "your question", turn.retry)));
+      return;
     }
     const r = turn.reply;
     const parts = [];
     if (r.kind === "question") parts.push(...drawQuestion(turn));
     if (r.kind === "message") {
-      parts.push(h("p", { class: "turn__label" }, "AlphaForge"), h("p", null, r.message));
-      if (/profile/i.test(r.message || "")) {
-        parts.push(h("div", { class: "notice" },
-          h("a", { class: "link-btn", href: "#/profile" }, "Set up your profile")));
-      }
+      parts.push(h("p", null, r.message));
+      if (/profile/i.test(r.message || "")) parts.push(h("div", { class: "notice" }, h("a", { class: "btn btn--secondary btn--sm", href: "#/profile" }, "Set up your profile")));
     }
-    if (r.kind === "run") {
-      const names = (r.enabled_agents || []).map((a) => (AGENTS[a] || { name: a }).name);
-      parts.push(h("p", { class: "turn__label" }, r.run_status === "DONE" ? "Analysis ready" : "Analysis planned"));
-      parts.push(h("p", null, names.length
-        ? `AlphaForge will look at: ${names.join(", ")}.`
-        : "Nothing to analyse: this request asks for something a simulation can't do. The answer will explain why."));
-      parts.push(h("div", { class: "notice" }, h("a", { class: "link-btn", href: `#/runs/${r.run_id}` }, "See the analysis")));
-    }
+    if (r.kind === "run") parts.push(...drawRunTurn(turn));
     for (const change of r.toggle_changes || []) parts.push(drawToggleChange(change));
-    if ((r.warnings || []).length) parts.push(h("ul", { class: "warning-list" }, r.warnings.map((w) => h("li", null, w))));
-    return h("article", { class: "turn" }, you,
-      h("div", { class: `turn__reply${r.kind === "run" ? " turn__reply--run" : ""}` }, parts));
+    const notes = (r.warnings || []).filter(Boolean);
+    if (notes.length) parts.push(h("ul", { class: "warning-list" }, notes.map((w) => h("li", null, w))));
+    turn.el.replaceChildren(you(turn.text), ai(parts));
+    turn.fresh = false;
+  }
+
+  function drawRunTurn(turn) {
+    const run = turn.run;
+    const names = (turn.reply.enabled_agents || []).map((a) => (AGENTS[a] || { name: a }).name);
+    if (!run || (!run.result && run.status !== "FAILED")) { // plan only: this server doesn't run the agents
+      return [h("p", { class: "turn__label" }, "Analysis planned"),
+        h("p", null, names.length ? `AlphaForge will look at: ${names.join(", ")}.`
+          : "Nothing to analyse: this request asks for something a simulation can't do."),
+        run ? planDetails(run) : null,
+        run && run.note ? h("p", { class: "small muted" }, run.note) : null,
+        h("p", { class: "small" }, h("a", { href: `#/runs/${turn.reply.run_id}` }, "Open as a page"))];
+    }
+    return [drawAnswer(run, { scope: run.run_id, chat: true, animate: turn.fresh }), planDetails(run),
+      h("p", { class: "small" }, h("a", { href: `#/runs/${run.run_id}` }, "Open this analysis as a page"))];
+  }
+
+  /** "How AlphaForge worked on this": the plan, folded inside the message. */
+  function planDetails(run) {
+    const plan = run.execution_plan;
+    const enabled = plan.enabled_agents || [];
+    const userOff = (plan.disabled_agents || []).filter((d) => !/not needed/.test(d.reason));
+    return h("details", { class: "fold" }, h("summary", null, "How AlphaForge worked on this"),
+      h("div", { class: "stack-sm" },
+        enabled.length ? h("ul", { class: "plan plan--compact" }, enabled.map((a) => h("li", { class: "plan__item" },
+          h("span", { class: "plan__mark" }, icon("check", 20)),
+          h("span", { class: "plan__name" }, (AGENTS[a.agent] || { name: a.agent }).name),
+          h("p", { class: "plan__why" }, whyEnabled(a, plan.task))))) : null,
+        userOff.length ? h("ul", { class: "plan plan--compact" }, userOff.map((d) => h("li", { class: "plan__item" },
+          h("span", { class: "plan__mark plan__mark--off" }, icon("minus", 20)),
+          h("span", { class: "plan__name" }, (AGENTS[d.agent] || { name: d.agent }).name),
+          h("p", { class: "plan__why" }, whyDisabled(d))))) : null,
+        h("p", { class: "small muted" }, `Explained for ${titleOf(EXPERIENCE, run.prompt_ref.experience).toLowerCase()} investors${run.prompt_ref.style === "learning" ? ", so you learn" : ""}. Data up to ${plan.as_of || "the latest date"}.`)));
   }
 
   function drawQuestion(turn) {
@@ -535,7 +666,7 @@ function renderAsk(main) {
     if (!missing.length) {
       out.push(h("div", { class: "notice" },
         h("button", { class: "link-btn", type: "button",
-          onclick: () => { textarea.value = turn.text; textarea.focus(); } }, "Edit my question")));
+          onclick: () => { textarea.value = turn.text; grow(); textarea.focus(); } }, "Edit my question")));
       return out;
     }
     const answer = {};
@@ -582,27 +713,57 @@ function renderAsk(main) {
     return h("div", { class: "notice" }, line, undo);
   }
 
-  /* Side column: profile summary + recent analyses */
-  const side = h("aside", { class: "stack", "aria-label": "Your profile and recent analyses" });
+  /** The last few questions of this user, as the start of the conversation (once per visit). */
+  async function loadHistory() {
+    if (state.historyLoaded || state.thread.length) return;
+    state.historyLoaded = true;
+    let runs;
+    try { runs = (await api("GET", "/v1/runs?limit=30")).data; } catch { return; }
+    const own = runs.filter((r) => r.question !== PORTFOLIO_PROMPT && !r.question.startsWith(RISK_PROMPT_PREFIX)).slice(0, 5).reverse();
+    const turns = (await Promise.all(own.map(async (r) => {
+      try {
+        const run = (await api("GET", `/v1/runs/${encodeURIComponent(r.run_id)}`)).data;
+        return { text: r.question, status: "done", run, reply: { kind: "run", run_id: r.run_id, enabled_agents: r.enabled_agents } };
+      } catch { return null; }
+    }))).filter(Boolean);
+    if (!turns.length || state.thread.length) return;
+    state.thread.push(...turns);
+    log.replaceChildren(h("p", { class: "chat__divider" }, "Earlier questions"));
+    drawThread();
+  }
+
+  /* Side column: the profile behind the answers */
+  const side = h("aside", { class: "stack chat__side", "aria-label": "Your profile" });
   async function drawSide() {
     side.replaceChildren(h("section", { class: "panel" }, skeleton(4)));
     let profile;
     try {
       profile = await loadProfile();
     } catch (err) {
-      side.replaceChildren(alertBox(err, "your profile", drawSide), drawRecent());
+      side.replaceChildren(alertBox(err, "your profile", drawSide));
       return;
     }
-    side.replaceChildren(profile ? profileSummary(profile) : noProfile(), drawRecent());
+    side.replaceChildren(profile ? profileSummary(profile) : noProfile());
   }
 
+  const newChat = h("button", { class: "btn btn--secondary btn--sm", type: "button", onclick: () => {
+    state.thread.forEach((t) => window.clearInterval(t.timer));
+    state.thread = []; state.sessionId = null; state.historyLoaded = true;
+    drawThread(); textarea.focus(); announce("New conversation.");
+  } }, icon("plus", 16), "New conversation");
+
   main.append(
-    band("head", h("div", { class: "page-head" },
-      h("h1", null, "Ask about your portfolio"),
-      h("p", null, "Write your question the way you would say it. AlphaForge works out what to analyse and shows you why."))),
-    band("body", h("div", { class: "columns" }, h("section", { "aria-label": "Ask a question" }, form, thread), side)));
+    band("head", h("div", { class: "page-head page-head--split" },
+      h("div", { class: "stack-sm" },
+        h("h1", null, "Ask AlphaForge"),
+        h("p", null, "Ask about your portfolio the way you would say it. Each answer shows what was analysed, the checks against your profile, and its sources.")),
+      newChat)),
+    band("body", h("div", { class: "columns chat" },
+      h("section", { class: "chat__main", "aria-label": "Conversation" }, log, form), side)));
   drawThread();
   drawSide();
+  loadHistory();
+  textarea.focus({ preventScroll: true });
 }
 
 function profileSummary(p) {
@@ -616,6 +777,9 @@ function profileSummary(p) {
       h("dt", null, "Experience"), h("dd", null, titleOf(EXPERIENCE, p.experience)),
       h("dt", null, "Answers"), h("dd", null, p.wants_to_learn ? "Explained so you learn" : "Straight to the point"),
       p.capital ? [h("dt", null, "Capital"), h("dd", { class: "num" }, money(p.capital))] : null,
+      h("dt", null, "Portfolio"), h("dd", null, p.portfolio
+        ? Object.entries(p.portfolio).sort((a, b) => b[1] - a[1]).map(([t, w]) => `${t} ${Math.round(w * 100)}%`).join(", ")
+        : "Not built yet"),
       h("dt", null, "Limits"), h("dd", null, limits.length ? limits.join(", ") : "None"),
       h("dt", null, "Analyses off"), h("dd", null, off.length ? off.join(", ") : "None")),
     h("div", { class: "notice" }, h("a", { class: "link-btn", href: HOME }, "My portfolio"),
@@ -627,16 +791,6 @@ function noProfile() {
     h("h2", { id: "summary-title", class: "section-title" }, "No profile yet"),
     h("p", { class: "lede" }, "AlphaForge needs your risk level and experience before it can analyse anything."),
     h("a", { class: "btn btn--secondary", href: "#/profile" }, "Set up your profile"));
-}
-
-function drawRecent() {
-  const runs = recentRuns();
-  return h("section", { class: "panel panel--plain", "aria-labelledby": "recent-title" },
-    h("h2", { id: "recent-title", class: "section-title" }, "Recent analyses"),
-    runs.length
-      ? h("ul", { class: "plain-list" }, runs.map((r) => h("li", null, h("a", { href: `#/runs/${r.id}` },
-        h("span", { class: "recent__q" }, r.q), h("span", { class: "small muted" }, timeText(r.at))))))
-      : h("p", { class: "muted" }, "Your analyses will appear here once you ask a question."));
 }
 
 // A full-width row: "head" (white, page title) or "body" (warm grey, the content), like a bank site's sections.
@@ -652,18 +806,20 @@ function skeleton(lines = 3) {
 
 /* ---------------- Profile ---------------- */
 
-function renderProfile(main) {
+function renderProfile(main, mode = "auto") {
   const body = h("div", null, h("div", { class: "panel" }, skeleton(6)));
-  main.append(
-    band("head", h("div", { class: "page-head" },
+  const head = band("head", h("div", { class: "page-head page-head--split" },
+    h("div", { class: "stack-sm" },
       h("h1", null, "Your investor profile"),
-      h("p", null, "AlphaForge uses it to decide what to analyse and how to explain the results. Only your risk level and experience are required."))),
-    band("body", body));
+      h("p", null, "AlphaForge uses it to decide what to analyse and how to explain the results. Only your risk level and experience are required.")),
+    h("a", { class: "btn btn--secondary btn--sm", href: "#/profile/assistant" }, "Set it up as a conversation")));
 
   Promise.all([loadProfile(true), loadPersonas()]).then(([profile]) => {
+    if (!profile && mode === "auto") { renderOnboarding(main, onboardingContext()); return; } // first time: the conversation
+    main.append(head, band("body", body));
     body.replaceChildren(profileForm(profile));
   }).catch((err) => {
-    body.replaceChildren(alertBox(err, "your profile", () => { body.replaceChildren(); renderProfile(main); }));
+    main.replaceChildren(head, band("body", alertBox(err, "your profile", () => { main.replaceChildren(); renderProfile(main, mode); })));
   });
 }
 
@@ -678,16 +834,6 @@ function profileForm(saved, initialStatus = null) {
   const status = h("p", { class: "small muted", role: "status" }, initialStatus || (saved ? "" : "Not saved yet."));
   const errors = {};
 
-  function radioGroup(name, legend, help, options) {
-    return h("fieldset", { "aria-describedby": `${name}-help ${name}-error` },
-      h("legend", null, legend, " ", h("span", { class: "optional" }, "(required)")),
-      h("p", { class: "legend-help", id: `${name}-help` }, help),
-      h("div", { class: "choices choices--grid" }, options.map((o) => h("label", { class: "choice" },
-        h("input", { type: "radio", name, value: o.value, required: true, "aria-required": "true" }),
-        h("span", { class: "choice__title" }, o.title),
-        h("span", { class: "choice__desc" }, o.desc)))),
-      errors[name] = h("p", { class: "field__error", id: `${name}-error` }));
-  }
   function textField(name, label, { help, type = "text", inputmode, suffix, optional = true, attrs = {} } = {}) {
     const input = h("input", { class: "input", id: name, name, type, inputmode, autocomplete: "off",
       "aria-describedby": `${name}-help ${name}-error`, ...attrs });
@@ -697,6 +843,15 @@ function profileForm(saved, initialStatus = null) {
       h("p", { class: "field__help", id: `${name}-help` }, help || ""),
       errors[name] = h("p", { class: "field__error", id: `${name}-error` }));
   }
+
+  const riskScale = scale(h, { id: "risk_band", name: "risk_band", label: "Risk level (required)", bands: RISK_BANDS, options: RISK,
+    help: "How much ups and downs you can live with: 1 = no loss at all, 10 = big swings are fine." });
+  const expScale = scale(h, { id: "experience", name: "experience", label: "Experience (required)", bands: EXPERIENCE_BANDS, options: EXPERIENCE,
+    help: "1 = new to investing, 10 = you follow the markets closely. It changes how answers are explained, not what is analysed." });
+  const scaleField = (sc, name) => {
+    sc.input.setAttribute("aria-describedby", `${sc.input.getAttribute("aria-describedby")} ${name}-error`);
+    return h("div", { class: "field" }, sc, errors[name] = h("p", { class: "field__error", id: `${name}-error` }));
+  };
 
   const personas = state.personas || [];
   const examples = personas.length ? h("section", { class: "panel stack-sm", "aria-labelledby": "examples-title" },
@@ -717,8 +872,8 @@ function profileForm(saved, initialStatus = null) {
   });
 
   form.append(
-    radioGroup("risk_band", "Risk level", "How much ups and downs you can live with.", RISK),
-    radioGroup("experience", "Experience", "This changes how answers are explained, not what is analysed.", EXPERIENCE),
+    scaleField(riskScale, "risk_band"),
+    scaleField(expScale, "experience"),
     h("div", { class: "panel panel--plain" }, h("div", { class: "switch-row" },
       h("div", { class: "switch-row__text" },
         h("label", { for: "wants_to_learn", class: "choice__title" }, "Explain things so I learn"),
@@ -782,7 +937,8 @@ function profileForm(saved, initialStatus = null) {
   /* fill + read */
   function fill(p) {
     const set = (name, v) => { const el = form.elements.namedItem(name); if (el) el.value = v ?? ""; };
-    for (const el of form.querySelectorAll('input[type="radio"]')) el.checked = (p[el.name] === el.value);
+    riskScale.setCategory(p.risk_band || null);
+    expScale.setCategory(p.experience || null);
     set("horizon_min", p.horizon_years ? p.horizon_years.min : "");
     set("horizon_max", p.horizon_years ? p.horizon_years.max : "");
     set("capital", p.capital ?? "");
@@ -797,10 +953,9 @@ function profileForm(saved, initialStatus = null) {
   }
   function num(name) { const v = form.elements.namedItem(name).value.trim(); return v === "" ? null : Number(v); }
   function read() {
-    const v = (name) => { const el = form.querySelector(`input[name="${name}"]:checked`); return el ? el.value : null; };
     const out = {
-      risk_band: v("risk_band"),
-      experience: v("experience"),
+      risk_band: riskScale.value(),
+      experience: expScale.value(),
       language: "en",
       horizon_years: { min: num("horizon_min"), max: num("horizon_max") },
       capital: num("capital"),
@@ -932,14 +1087,18 @@ const VERDICTS = {
 };
 const toolName = (t) => TOOL_NAMES[t] || (String(t || "").endsWith(" detail") ? "Profile rules check, detail" : t);
 
-function drawAnswer(run) {
+/** The Explainer's answer. `scope` keeps ids unique when several answers share a page (the chat);
+ * in the chat (`chat: true`) the evidence opens in place and loads when first needed. */
+function drawAnswer(run, { scope = "page", chat = false, animate = false } = {}) {
   const a = run.result && run.result.answer;
-  const section = h("section", { class: "panel answer", "aria-labelledby": "answer-title" }, h("h2", { id: "answer-title" }, "Answer"));
+  const titleId = `answer-title-${scope}`;
+  const section = h(chat ? "div" : "section", { class: chat ? "answer answer--chat" : "panel answer", "aria-labelledby": titleId },
+    h(chat ? "h3" : "h2", { id: titleId, class: chat ? "visually-hidden" : null }, "Answer"));
   if (!a) {
     const waiting = run.status === "QUEUED" || run.status === "RUNNING";
-    section.append(h("div", { class: "empty" },
+    section.append(h("div", { class: chat ? "stack-sm" : "empty" },
       h("p", null, run.status === "FAILED" ? "No answer: the analysis stopped before the end." : "The answer will appear here."),
-      run.status === "QUEUED" && run.note ? h("p", { class: "muted small" }, "The analysis agents aren't connected to this app, so for now an analysis stops at this plan.") : null,
+      run.status === "QUEUED" && run.note ? h("p", { class: "muted small" }, "The analysis agents aren't running on this server, so the analysis stops at its plan.") : null,
       run.status === "RUNNING" ? h("p", { class: "muted small" }, "Working on it: the agents gather the evidence, then the answer is written and checked.") : null,
       !waiting && run.result && run.result.answer_error ? h("p", { class: "muted small" }, "The explanation could not be written this time.") : null));
     return section;
@@ -950,12 +1109,17 @@ function drawAnswer(run) {
   const cite = (ids) => (ids || []).forEach((id) => { if (!order.includes(id)) order.push(id); });
   cite(a.short_answer_evidence); a.checks.forEach((c) => cite(c.evidence)); a.key_points.forEach((p) => cite(p.evidence));
   a.limitations.forEach((p) => cite(p.evidence));
+
+  const evidenceBox = h("div", { class: "answer__section" });
+  let loading = null;
+  const ensureEvidence = () => (loading ||= loadEvidence(run.run_id, order, evidenceBox, scope));
   const chips = (ids) => (ids || []).length ? h("span", { class: "chips" }, ids.map((id) => h("button", {
     class: "chip", type: "button", "aria-label": `Evidence ${order.indexOf(id) + 1}`, title: id,
-    onclick: () => focusEvidence(id),
+    onclick: async () => { await ensureEvidence(); focusEvidence(id, scope); },
   }, String(order.indexOf(id) + 1)))) : null;
 
-  section.append(h("p", { class: "answer__short" }, a.short_answer, " ", chips(a.short_answer_evidence)));
+  const shortText = h("span", { class: "answer__text" }, a.short_answer);
+  section.append(h("p", { class: "answer__short" }, shortText, " ", chips(a.short_answer_evidence)));
   if (a.kind !== "explained" && a.note) section.append(h("p", { class: "notice" }, a.note));
   if (a.clarifying_question) section.append(h("p", { class: "notice" }, h("strong", null, "One question for you: "), a.clarifying_question));
 
@@ -994,26 +1158,78 @@ function drawAnswer(run) {
   }
   section.append(h("p", { class: "small muted" }, a.disclaimer));
 
-  const evidence = h("div", { class: "answer__section", id: "evidence-section" }, h("h3", { id: "evidence-title" }, "Evidence"),
-    h("p", { class: "small muted" }, "Loading the evidence\u2026"));
-  section.append(evidence);
-  loadEvidence(run.run_id, order, evidence);
+  if (chat) {
+    evidenceBox.append(h("p", { class: "small muted" }, "Loading the evidence…"));
+    section.append(h("details", { class: "fold", ontoggle: (e) => { if (e.currentTarget.open) ensureEvidence(); } },
+      h("summary", null, `Evidence${order.length ? ` (${order.length} cited)` : ""}`), evidenceBox));
+  } else {
+    evidenceBox.id = "evidence-section";
+    evidenceBox.append(h("h3", { id: `evidence-title-${scope}` }, "Evidence"), h("p", { class: "small muted" }, "Loading the evidence…"));
+    section.append(evidenceBox);
+    ensureEvidence();
+  }
+  if (animate) streamIn(section);
   return section;
 }
 
-async function loadEvidence(runId, order, box) {
+/** Write an answer out word by word, in reading order, like a model streaming it: each part appears when the text
+ * reaches it. About 4-5 s whatever the length; instant with reduced motion; aria-busy until done so screen readers
+ * read the finished answer once. Chips, verdict pills and folded parts are shown as they are. */
+function streamIn(root) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const blocks = [...root.children].filter((el) => !el.classList.contains("visually-hidden"));
+  const nodes = [];
+  for (const block of blocks) {
+    const walk = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, { acceptNode: (n) =>
+      (!n.textContent.trim() || n.parentElement.closest(".chip, summary, details, .visually-hidden, .verdict"))
+        ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+    while (walk.nextNode()) nodes.push({ node: walk.currentNode, text: walk.currentNode.textContent, block });
+  }
+  if (!nodes.length) return;
+  const words = nodes.map((n) => n.text.split(/(\s+)/));
+  const perTick = Math.max(2, Math.ceil(words.reduce((s, w) => s + w.length, 0) / 160));
+  nodes.forEach((n) => { n.node.textContent = ""; });
+  blocks.forEach((b) => b.classList.add("is-pending"));
+  root.setAttribute("aria-busy", "true");
+  root.classList.add("is-streaming");
+  let i = 0; let j = 0;
+  const finish = () => {
+    nodes.forEach((n) => { n.node.textContent = n.text; });
+    blocks.forEach((b) => b.classList.remove("is-pending"));
+    root.removeAttribute("aria-busy");
+    root.classList.remove("is-streaming");
+  };
+  const tick = () => {
+    if ((i || j) && !root.isConnected) { finish(); return; }
+    let budget = perTick;
+    while (budget > 0 && i < nodes.length) {
+      const n = nodes[i];
+      n.block.classList.remove("is-pending");
+      const take = words[i].slice(j, j + budget);
+      n.node.textContent += take.join("");
+      budget -= take.length; j += take.length;
+      if (j >= words[i].length) { i += 1; j = 0; }
+    }
+    if (i < nodes.length) window.setTimeout(tick, 28); else finish();
+  };
+  tick();
+}
+
+async function loadEvidence(runId, order, box, scope = "page") {
   let items;
+  // The page shows an "Evidence" heading; in the chat the fold's summary names it. Never a null child (it prints "null").
+  const title = () => (scope === "page" ? [h("h3", { id: `evidence-title-${scope}` }, "Evidence")] : []);
   try {
     items = (await api("GET", `/v1/runs/${encodeURIComponent(runId)}/evidence/catalog`)).data;
   } catch (err) {
-    box.replaceChildren(h("h3", { id: "evidence-title" }, "Evidence"), alertBox(err, "the evidence", () => loadEvidence(runId, order, box)));
+    box.replaceChildren(...title(), alertBox(err, "the evidence", () => loadEvidence(runId, order, box, scope)));
     return;
   }
   const byId = Object.fromEntries(items.map((i) => [i.id, i]));
   const cited = order.filter((id) => byId[id]);
   const item = (id, n) => {
     const e = byId[id];
-    return h("li", { class: "evidence-item", id: `evidence-${id}`, tabindex: "-1" },
+    return h("li", { class: "evidence-item", id: `evidence-${scope}-${id}`, tabindex: "-1" },
       h("div", { class: "evidence-item__head" },
         n ? h("span", { class: "evidence-item__num" }, String(n)) : null,
         h("span", { class: "evidence-item__tool" }, toolName(e.tool)),
@@ -1025,19 +1241,19 @@ async function loadEvidence(runId, order, box) {
         h("ul", { class: "warning-list" }, e.assumptions.map((x) => h("li", null, x)))) : null);
   };
   const rest = items.filter((i) => !cited.includes(i.id));
-  box.replaceChildren(h("h3", { id: "evidence-title" }, "Evidence"),
+  box.replaceChildren(...title(),
     h("p", { class: "small muted" }, "What the analysis tools found, with their sources. The numbers match the answer above."),
     h("ol", { class: "evidence-list" }, cited.map((id) => item(id, order.indexOf(id) + 1))),
-    rest.length ? h("details", null, h("summary", null, `All other evidence from this analysis (${rest.length})`),
-      h("ol", { class: "evidence-list" }, rest.map((e) => item(e.id, null)))) : null);
+    ...(rest.length ? [h("details", null, h("summary", null, `All other evidence from this analysis (${rest.length})`),
+      h("ol", { class: "evidence-list" }, rest.map((e) => item(e.id, null))))] : []));
 }
 
-function focusEvidence(id) {
-  const el = document.getElementById(`evidence-${id}`);
+function focusEvidence(id, scope = "page") {
+  const el = document.getElementById(`evidence-${scope}-${id}`);
   if (!el) return;
-  const details = el.closest("details");
-  if (details) details.open = true;
-  el.scrollIntoView({ block: "center" });
+  let d = el.closest("details");
+  while (d) { d.open = true; d = d.parentElement && d.parentElement.closest("details"); }
+  el.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   el.focus({ preventScroll: true });
   el.classList.add("is-focus");
   window.setTimeout(() => el.classList.remove("is-focus"), 2500);
@@ -1109,7 +1325,7 @@ function renderRun(main, runId) {
         h("span", { class: "on-page__label" }, "On this page"),
         h("button", { type: "button", onclick: jump("plan-title") }, "What AlphaForge will look at"),
         h("button", { type: "button", onclick: jump("left-title") }, "Left out"),
-        h("button", { type: "button", onclick: jump("answer-title") }, "Answer"),
+        h("button", { type: "button", onclick: jump("answer-title-page") }, "Answer"),
         h("button", { type: "button", onclick: jump("details-title") }, "Details")));
 
     const lookedAt = h("section", { class: "plan-panel", "aria-labelledby": "plan-title" },
@@ -1131,7 +1347,7 @@ function renderRun(main, runId) {
       notNeeded.length ? h("p", { class: "muted" }, `Not needed for this question: ${notNeeded.map((d) => (AGENTS[d.agent] || { name: d.agent }).name).join(", ")}.`) : null,
       !userOff.length && !notNeeded.length ? h("p", { class: "muted" }, "Nothing was left out.") : null);
 
-    const answer = drawAnswer(run);
+    const answer = drawAnswer(run, { scope: "page" });
 
     const req = run.request;
     const details = h("details", null,
@@ -1255,13 +1471,8 @@ function renderSignIn(main) {
       });
       fillBox(
         h("div", { class: "page-head" }, h("h2", null, "Sign in to AlphaForge"),
-          h("p", null, "Explore with a demo investor, or use your own account. Simulation only: nothing here is investment advice.")),
+          h("p", null, "Use your account, or explore with a demo investor. Simulation only: nothing here is investment advice.")),
         status,
-        demos.length ? h("section", { class: "stack-sm", "aria-labelledby": "demo-title" },
-          h("h2", { id: "demo-title", class: "section-title" }, "Try a demo account"),
-          h("p", { class: "small muted" }, "Each one comes with the profile of an investor from the challenge brief. Demo accounts are shared."),
-          h("div", { class: "demo-accounts" }, demos)) : null,
-        demos.length ? h("p", { class: "divider" }, "or with your email") : null,
         h("form", { class: "auth-form", novalidate: true, onsubmit: async (e) => {
           e.preventDefault();
           formError.replaceChildren();
@@ -1278,7 +1489,12 @@ function renderSignIn(main) {
         } }, email.el, pw.el, formError, submit),
         h("div", { class: "auth-links" },
           h("button", { class: "link-btn", type: "button", onclick: () => go("signup") }, "Create an account"),
-          h("button", { class: "link-btn", type: "button", onclick: () => go("forgot") }, "Forgot password?")));
+          h("button", { class: "link-btn", type: "button", onclick: () => go("forgot") }, "Forgot password?")),
+        demos.length ? h("p", { class: "divider" }, "or try a demo investor") : null,
+        demos.length ? h("section", { class: "stack-sm", "aria-labelledby": "demo-title" },
+          h("h2", { id: "demo-title", class: "section-title" }, "Try a demo account"),
+          h("p", { class: "small muted" }, "Each one comes with the profile of an investor from the challenge brief. Demo accounts are shared."),
+          h("div", { class: "demo-accounts" }, demos)) : null);
     }
 
     if (flow.mode === "signup") {

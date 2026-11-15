@@ -131,7 +131,7 @@ def main() -> int:
     for r in make_ledger(s).records(out.run_id):
         caller = r.get("agent") or "orchestrator"
         print(f"  {r['seq']} [{caller}] {r['tool']}")
-    return 0 if v.get("ok", True) else 1     # an answer with an unknown citation is a failed smoke test
+    return 0 if getattr(v, "ok", True) else 1     # an answer with an unknown citation is a failed smoke test
 
 
 if __name__ == "__main__":

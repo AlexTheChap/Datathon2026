@@ -262,3 +262,11 @@ def test_graph_mode_synthesis_verdict_is_the_final_one():
                                             "ledger_mateo_portfolio.jsonl").read_text().splitlines()]
     final = _final_verdicts(build_catalog(ledger))
     assert [g.agent for g in final] == ["synthesis"] and final[0].verdict == "PASS"
+
+
+def test_the_explainer_sees_the_holdings_analysed(make_profile):
+    """A question about "my portfolio" carries the saved holdings: the Explainer gets them with the reader."""
+    client = FakeClient(draft())
+    run_explain(make_run(make_profile), client)
+    reader = json.loads(client.calls[0]["messages"][0]["content"])["reader"]
+    assert reader["portfolio"] == [{"ticker": "NVDA", "weight": 0.2}]
