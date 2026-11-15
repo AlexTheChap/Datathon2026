@@ -47,7 +47,7 @@ flowchart TB
   %%      On AWS: scripts/deploy_frontend.py → private S3 bucket read by CloudFront only (Origin Access Control),
   %%      managed security headers; with --api-url, CloudFront also routes /v1/* to the API Gateway (same origin:
   %%      no CORS, the Cognito Bearer token is forwarded). config.js = the Cognito settings from setup_cognito.py.
-  UI["① Frontend — web app (HTML/CSS/JS) on S3 + CloudFront · Cognito login<br/>my portfolio (built from the profile) · ask (chat) · profile set-up chat (questions or a PDF / Word file) · profile form · analysis plan"]
+  UI["① Frontend — web app (HTML/CSS/JS) on S3 + CloudFront · Cognito login<br/>my portfolio (built from the profile) · ask (chat) · profile form, one question at a time (or filled from a PDF / Word file) · analysis plan"]
 
   %% ===== 2. API =====
   %% AWS: API Gateway (HTTP API + Cognito JWT authorizer) · Lambda (FastAPI + Mangum)
