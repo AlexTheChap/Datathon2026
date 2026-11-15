@@ -8,6 +8,7 @@
                             sources), nested ids included: the web app's evidence panel
     GET  /v1/runs/{run_id}/replay   → the run's portfolios replayed day by day over the 2022 crisis (dashboard)
     GET  /v1/profile        → the stored profile
+    POST /v1/profile/draft[/file] → profile fields read from the person's text or a PDF / Word file (onboarding)
     PUT  /v1/profile        → save the profile form
     GET  /v1/personas       → the brief's three example profiles (Amira, Mateo, Robert) as profile forms
     GET  /v1/me             → who is signed in (actor_id, email, demo persona)
@@ -28,7 +29,7 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import Body, Depends, FastAPI, HTTPException, Request
+from fastapi import Body, Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -130,6 +131,15 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
     @api.put("/v1/profile", response_model=Profile)
     def put_profile(form: dict[str, Any] = Body(...), actor_id: str = Depends(current_actor)) -> Profile:
         return svc.put_profile(actor_id, form)
+
+    # Onboarding (box ③): read the person's answers or a document, return the profile fields found. Saves nothing.
+    @api.post("/v1/profile/draft")
+    def profile_draft(body: dict[str, Any] = Body(...), actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.draft_profile(actor_id, str(body.get("text") or ""))
+
+    @api.post("/v1/profile/draft/file")
+    async def profile_draft_file(file: UploadFile = File(...), actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.draft_profile_file(actor_id, file.filename or "", await file.read())
 
     @api.get("/v1/personas")
     def personas() -> list[dict[str, Any]]:
