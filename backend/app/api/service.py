@@ -122,6 +122,14 @@ class RateExposureIn(BaseModel):
     weights: dict[str, float] | None = Field(default=None, description="Default: the saved portfolio.")
 
 
+class FitScoreIn(BaseModel):
+    """POST /v1/fit-score: how well these weights fit the caller's saved profile; default is the saved portfolio."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    weights: dict[str, float] | None = Field(default=None, description="Default: the saved portfolio.")
+
+
 class ProjectionIn(BaseModel):
     """POST /v1/projection: ad-hoc weights. Missing start_value / horizon_years come from the caller's profile
     (simulated capital; horizon upper bound). n_paths is capped server-side."""
@@ -364,6 +372,28 @@ class ApiService:
         return {"evidence_id": ev["evidence_id"], "say": ev["say"], "as_of": ev["as_of"], "inputs": ev["inputs"],
                 "method": ev["method"], "assumptions": ev["assumptions"], "data_sources": ev["data_sources"],
                 **ev["output"]}
+    def fit_score(self, actor_id: str, body: FitScoreIn) -> dict[str, Any]:
+        """How well the weights fit the saved profile, out of 100 (deterministic, no LLM; rules.yaml fit_score)."""
+        from app.agents.governance.fit_score import fit_score
+        from app.core.config import get_settings
+        from app.tools.context import default_as_of
+        from app.tools.risk_tools import RiskTools
+        profile = self.profiles.get(actor_id)
+        if profile is None:
+            raise ApiError(404, "Save your profile first.")
+        weights = body.weights or profile.portfolio
+        if not weights:
+            raise ApiError(422, "Give weights, or save a portfolio first.")
+        settings = get_settings()
+        as_of = default_as_of()
+        try:
+            rt = RiskTools(settings.abs_path(settings.curated_dir)).at(as_of)
+            out = fit_score(weights, profile.model_dump(mode="json"), settings.abs_path(settings.rules_path), rt,
+                            str(settings.abs_path(settings.curated_dir).parent))
+        except (KeyError, ValueError) as e:
+            raise ApiError(422, str(e).strip("'\"")) from e
+        return {"as_of": as_of, **out}
+
     def vol_forecast(self, actor_id: str, tickers: list[str]) -> dict[str, Any]:
         from app.tools.context import default_as_of
         from app.tools.vol_forecast_tool import vol_forecast

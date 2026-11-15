@@ -81,3 +81,42 @@ justifications:
   max_crypto: "Extreme volatility (maximum loss of about -73% for BTC over the period); excluded for low-risk profiles."
   exclusions: "Explicit user preferences (ESG, asset classes): constraints set the limits."
   esg_index_screen: "Declared ESG preference (brief): flags positions that a recognized ESG index left out. The index composition does not say why; this is a signal to discuss, not a prohibition."
+
+# Fit score (fit_score.py): how well a portfolio fits THIS profile, out of 100. Deterministic, no LLM.
+# Every point lost names its reason, the measured value and the target. Thresholds are team ASSUMPTIONS.
+fit_score:
+  version: 1
+  points:                      # 100 in all
+    rules: 30                  # every governance check above (pass, warning, unverified, block)
+    risk_level: 20             # annualised volatility vs the range of the risk band
+    asset_mix: 20              # share of growth assets (stocks, equity funds, crypto) vs the range of the risk band
+    loss: 15                   # worst historical drop vs the loss the person accepts
+    horizon: 5                 # time spent below the previous high after that drop vs the horizon
+    diversification: 10        # effective number of companies in the stock part (ETFs looked through)
+  rules:
+    kept_share: {PASS: 1.0, WARN: 0.4, UNVERIFIED: 0.5, BLOCK: 0.0}   # share of a check's points kept
+    near_limit_from: 0.8       # a PASS above 80% of its limit starts losing points...
+    near_limit_max_loss: 0.3   # ...up to 30% of that check's points at the limit itself
+    block_caps_total_at: 49    # a portfolio that breaks a rule can never read as a fit
+  risk_level:                  # annualised volatility range per risk band (CAD, 5 years of daily returns). Set from the
+    low: [0.03, 0.075]         # data: the Canadian bond index alone ~6.6%, a 70/30 stock/bond mix ~11%, US stocks ~16%.
+    low_moderate: [0.06, 0.095]
+    moderate: [0.08, 0.13]
+    high: [0.11, 0.20]
+    zero_at_distance: 0.5      # all points lost when outside the range by half its width (too bold OR too cautious)
+  asset_mix:                   # growth-asset share per risk band (usual balanced-portfolio practice; indicative)
+    low: [0.0, 0.30]
+    low_moderate: [0.20, 0.50]
+    moderate: [0.40, 0.70]
+    high: [0.60, 1.00]
+    zero_at_distance: 0.30     # all points lost 30 percentage points outside the range
+  loss:
+    typical_by_band: {low: 0.10, low_moderate: 0.15, moderate: 0.25, high: 0.40}  # if the profile gives no loss_capacity
+    zero_at_ratio: 2.0         # all points lost when the worst drop is twice the accepted loss...
+    stated_double_caps_total_at: 49   # ...and, if the person STATED that loss, the total is capped like a broken rule
+  horizon:
+    full_until_share: 0.5      # full points while recovering took at most half the (shortest) horizon...
+    zero_at_share: 1.0         # ...none when it took the whole horizon or more (or never recovered within it)
+  diversification:
+    full_from: 30              # effective companies in the stock part: 30 or more = full points
+    zero_at: 3                 # 3 or fewer = none (log scale in between)

@@ -333,7 +333,6 @@ function heroCard(view) {
   const { ctx, h, p, risk, level } = view;
   const v = (p.governance && p.governance.verdict) || "UNVERIFIED";
   const vs = ctx.VERDICTS[v] || ctx.VERDICTS.UNVERIFIED;
-  const fit = D.fitScore(p.governance, risk.contribution);
   // Written here from the page's own numbers, so it follows the level and "wants to learn" (the Explainer's text,
   // written once at build time, is under "Why this portfolio").
   const summary = D.heroSummary({ level, learn: view.learn, weights: p.weights, universe: view.uni, governance: p.governance,
@@ -346,13 +345,49 @@ function heroCard(view) {
       summary.learn ? learnNote(view, summary.learn) : null,
       h("p", { class: "small muted" }, `Built from your profile on ${ctx.timeText(p.builtAt)} \u00B7 `,
         h("a", { href: `#/runs/${p.runId}` }, "See how it was built and its sources"))),
-    h("div", { class: "hero-card__score" },
-      h("p", { class: "kpi__label" }, "Fit with your rules"),
-      h("p", { class: "hero-card__figure" }, countUp(h("span", null, `${fit.score}`), fit.score), h("span", { class: "hero-card__of" }, " / 10")),
-      meter({ value: fit.score, max: 10, label: "Fit with your rules", display: `${fit.score} out of 10`, tone: fit.score >= 8.5 ? "good" : fit.score >= 6.5 ? "ok" : "bad" }),
-      h("p", { class: "small" }, fit.band),
-      level !== "simple" && fit.why.length ? h("ul", { class: "small plain-list" }, fit.why.map((w) => h("li", null, `${w.reason} (${w.points})`))) : null,
-      level !== "simple" && !fit.why.length ? h("p", { class: "small muted" }, "No rule warns or blocks: no point is taken off.") : null));
+    fitCard(view));
+}
+
+/* ---------- Fit with the profile (POST /v1/fit-score): out of 100, measured on the server, every point explained ---------- */
+
+const fitCache = new Map(); // weights + profile -> the server's answer (the level only changes how it is shown)
+
+function fitCard(view) {
+  const { ctx, h, p, level, profile } = view;
+  const box = h("div", { class: "hero-card__score", "aria-live": "polite" },
+    h("p", { class: "kpi__label" }, "Fit with your profile"), h("p", { class: "small muted" }, "Measuring the fit…"));
+  const key = JSON.stringify([p.weights, profile.risk_band, profile.horizon_years, profile.loss_capacity, profile.exclusions, profile.preferences]);
+  // replaceChildren writes a null as the text "null": drop the parts left out at this level.
+  const show = (fit) => box.replaceChildren(...fitBody(view, fit).filter(Boolean));
+  const load = () => {
+    if (!fitCache.has(key)) fitCache.set(key, ctx.api("POST", "/v1/fit-score", { weights: p.weights }).then((r) => r.data));
+    fitCache.get(key).then(show).catch((err) => {
+      fitCache.delete(key);
+      box.replaceChildren(h("p", { class: "kpi__label" }, "Fit with your profile"), ctx.alertBox(err, "the fit with your profile", load));
+    });
+  };
+  load();
+  return box;
+}
+
+function fitBody(view, fit) {
+  const { h, level } = view;
+  const lines = D.fitLines(fit, level);
+  const caps = (fit.caps || []).map((c) => h("p", { class: "small" }, h("strong", null, `Capped at ${c.at}%: `), `${c.why}.`));
+  return [
+    h("p", { class: "kpi__label" }, "Fit with your profile"),
+    h("p", { class: "hero-card__figure" }, countUp(h("span", null, `${fit.score}`), fit.score), h("span", { class: "hero-card__of" }, "%")),
+    meter({ value: fit.score, max: 100, label: "Fit with your profile", display: `${fit.score}%`, tone: D.fitTone(fit.score) }),
+    h("p", { class: "small" }, fit.band),
+    ...caps,
+    lines.length ? h("ul", { class: "small plain-list fit-lines" }, lines.map((l) => h("li", null,
+      h("strong", null, level === "simple" ? l.title : `${l.title}: ${l.points} / ${l.max}`),
+      l.reasons.length ? h("span", { class: "fit-lines__why" }, ` ${l.reasons.join("; ")}.`) : null)))
+      : h("p", { class: "small muted" }, "Every part of your profile is met: no point is taken off."),
+    level !== "simple" ? h("details", { class: "fold small" }, h("summary", null, "How this score is measured"),
+      h("p", null, `${fit.method} Data ${fit.period.replace("/", " to ")}.`),
+      h("ul", { class: "plain-list" }, fit.assumptions.map((a) => h("li", null, a)))) : null,
+  ];
 }
 
 function kpis(view) {

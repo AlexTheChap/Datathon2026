@@ -395,9 +395,13 @@ def test_detail_level_follows_experience_and_can_be_changed(page, base_url):
     assert page.locator("text=Each holding's history").count() == 0
     simple = page.inner_text(".hero-card__answer")
     assert simple.startswith("Your money is spread over 4 investments") and "SPY" not in simple
+    page.wait_for_selector(".hero-card__score .hero-card__figure")
+    assert "null" not in page.inner_text(".hero-card__score")                    # parts left out in Simple leave no trace
     page.click("label.seg-control__option:has-text('Detailed')")
     page.wait_for_selector("text=Each holding's history")
-    assert page.locator("text=Largest single position").count() == 1             # technical names when detailed
+    assert page.locator("text=Largest single position").count() >= 1            # technical names when detailed
+    page.wait_for_selector(".fit-lines")                                          # the fit, every part with its points
+    assert page.inner_text(".hero-card__score").count("%") >= 1 and "/ 30" in page.inner_text(".fit-lines")
     assert page.inner_text(".hero-card__answer").startswith("Weights: SPY 34.8%")   # the summary follows the level
     page.click("a.nav__link:has-text('Ask a question')")
     page.click("a.nav__link:has-text('My portfolio')")

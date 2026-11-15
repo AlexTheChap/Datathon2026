@@ -740,6 +740,8 @@ summary { cursor: pointer; font-weight: var(--weight-mid); min-height: 44px; dis
 .hero-card__score { display: grid; gap: var(--space-xs); padding: var(--space-md); border-radius: var(--radius-card); background: var(--color-surface-2); color: var(--color-ink); }
 .hero-card__figure { font-size: var(--text-4xl); font-weight: var(--weight-strong); line-height: 1; color: var(--color-ink); }
 .hero-card__of { font-size: var(--text-lg); font-weight: var(--weight-body); color: var(--color-ink-2); }
+.fit-lines { display: grid; gap: var(--space-xs); margin: 0; }
+.fit-lines__why { color: var(--color-ink-2); }
 
 .kpis { display: grid; gap: var(--space-md); grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }
 .kpi { background: var(--color-surface); border-radius: var(--radius-card); padding: var(--space-md) var(--space-lg); display: grid; gap: var(--space-2xs); align-content: start; }
