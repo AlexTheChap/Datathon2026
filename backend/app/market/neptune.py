@@ -49,7 +49,7 @@ class NeptuneGraph:
             self._session = boto3.Session()
         return self._session.get_credentials().get_frozen_credentials()
 
-    def query(self, cypher: str, params: dict | None = None) -> list[dict]:
+    def _post(self, cypher: str, params: dict | None = None) -> list[dict]:
         from botocore.auth import SigV4Auth
         from botocore.awsrequest import AWSRequest
 
@@ -63,6 +63,18 @@ class NeptuneGraph:
                 return json.loads(r.read())["results"]
         except urllib.error.HTTPError as e:
             raise OSError(f"Neptune HTTP {e.code}: {e.read()[:500].decode(errors='replace')}") from e
+
+    def query(self, cypher: str, params: dict | None = None, retries: int = 6) -> list[dict]:
+        """One openCypher call; conflicting concurrent writes (ConcurrentModificationException) are retried
+        with exponential backoff, as Neptune recommends."""
+        for attempt in range(retries):
+            try:
+                return self._post(cypher, params)
+            except OSError as e:
+                if "ConcurrentModificationException" not in str(e) or attempt == retries - 1:
+                    raise
+                time.sleep(min(0.2 * 2 ** attempt, 5))
+        return []
 
     def _batched(self, cypher: str, rows: list[dict], **params) -> int:
         for i in range(0, len(rows), BATCH):

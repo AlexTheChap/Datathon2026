@@ -166,7 +166,7 @@ def ensure_neptune(nep, net: dict) -> dict:
     except nep.exceptions.DBClusterNotFoundFault:
         nep.create_db_cluster(DBClusterIdentifier=CLUSTER, Engine="neptune", DBSubnetGroupName=SUBNET_GROUP,
                               VpcSecurityGroupIds=[net["sg_neptune"]], StorageEncrypted=True,
-                              IAMDatabaseAuthenticationEnabled=True, DeletionProtection=False,
+                              EnableIAMDatabaseAuthentication=True, DeletionProtection=False,
                               BackupRetentionPeriod=7, Tags=tags,
                               ServerlessV2ScalingConfiguration={"MinCapacity": NCU_MIN, "MaxCapacity": NCU_MAX})
         print(f"• Neptune Serverless cluster created: {CLUSTER} ({NCU_MIN:g}-{NCU_MAX:g} NCU)")
@@ -334,7 +334,7 @@ def invoke(lam, name: str, payload: dict) -> dict:
 def run_now(session) -> None:
     lam = session.client("lambda")
     print("• Close refresh now (Yahoo -> S3)...")
-    m = invoke(lam, REFRESH, {"mode": "close"})
+    m = invoke(lam, REFRESH, {"mode": "close", "load": False})  # one load only: the synchronous one below
     print(f"  as_of {m.get('as_of')}  prices {m.get('tickers_with_prices')}/{m.get('tickers_requested')}  "
           f"metrics {m.get('tickers_with_metrics')}  correlation edges {m.get('correlation_edges')}  "
           f"missing {m.get('missing')[:10]}")

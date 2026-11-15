@@ -207,7 +207,7 @@ def handler(event: dict | None, context: Any = None) -> dict:
         raise RuntimeError(f"no price downloaded, nothing published: {manifest}")  # Lambda retries / alarm
     manifest["published"] = upload_dir(out, os.environ["AF_MARKET_S3"])
     loader = os.environ.get("AF_GRAPH_LOADER")
-    if loader:
+    if loader and (event or {}).get("load", True):  # {"load": false}: the caller loads Neptune itself
         boto3.client("lambda").invoke(FunctionName=loader, InvocationType="Event",
                                       Payload=json.dumps({"mode": mode}).encode())
         manifest["graph_loader"] = loader

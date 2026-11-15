@@ -274,3 +274,32 @@ def test_build_curated_uses_the_shared_metrics():
     from app.market import metrics
 
     assert mod.asset_metrics is metrics.asset_metrics
+
+
+def test_neptune_retries_concurrent_modifications(monkeypatch):
+    n = NeptuneGraph("graph.example", "us-east-1")
+    calls = []
+
+    def post(cypher, params=None):
+        calls.append(cypher)
+        if len(calls) < 3:
+            raise OSError('Neptune HTTP 500: {"code":"ConcurrentModificationException"}')
+        return [{"ok": 1}]
+
+    monkeypatch.setattr(n, "_post", post)
+    monkeypatch.setattr("app.market.neptune.time.sleep", lambda s: None)
+    assert n.query("RETURN 1") == [{"ok": 1}] and len(calls) == 3
+    monkeypatch.setattr(n, "_post", lambda c, p=None: (_ for _ in ()).throw(OSError("Neptune HTTP 400: bad")))
+    with pytest.raises(OSError):
+        n.query("RETURN 1")
+
+
+def test_refresh_can_skip_the_async_load(monkeypatch):
+    import boto3
+    monkeypatch.setattr(boto3, "client", lambda *a, **k: pytest.fail("loader must not be invoked"))
+    monkeypatch.setattr(refresh, "RUNS", {"close": lambda c, o: {"tickers_with_prices": 3}})
+    monkeypatch.setattr(refresh, "upload_dir", lambda d, uri: ["k"])
+    monkeypatch.setenv("AF_MARKET_S3", "s3://b/market/")
+    monkeypatch.setenv("AF_GRAPH_LOADER", "loader-fn")
+    monkeypatch.delenv("AF_CURATED_S3", raising=False)
+    assert "graph_loader" not in refresh.handler({"mode": "close", "load": False})
