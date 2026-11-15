@@ -1,7 +1,10 @@
 """Box ② API (FastAPI): routes of docs/architecture.mmd, link L1 (frontend → API Gateway → Lambda).
 
     POST /v1/runs           {text, profile_form?, portfolio_ref?} → 200 question/message, or 202 {run_id}
+    GET  /v1/runs           → the user's runs, newest first (dashboard history)
     GET  /v1/runs/{run_id}  → the run (status, plan, result once box ⑤ writes it)
+    GET  /v1/runs/{run_id}/evidence → the run's evidence ledger (every tool call: inputs, output, source)
+    GET  /v1/runs/{run_id}/replay   → the run's portfolios replayed day by day over the 2022 crisis (dashboard)
     GET  /v1/profile        → the stored profile
     PUT  /v1/profile        → save the profile form
     GET  /health
@@ -22,7 +25,7 @@ from fastapi.responses import JSONResponse
 from app.schemas import Profile
 from app.store.runs import RunRecord
 
-from .service import ApiError, ApiService, MessageIn, MessageOut, service_from_env
+from .service import ApiError, ApiService, MessageIn, MessageOut, RunSummary, service_from_env
 
 
 def actor_id_from(request: Request) -> str:
@@ -52,6 +55,18 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
     def post_run(body: MessageIn, actor_id: str = Depends(actor_id_from)) -> JSONResponse:
         status, out = svc.post_message(actor_id, body)
         return JSONResponse(status_code=status, content=out.model_dump(mode="json", exclude_none=True))
+
+    @api.get("/v1/runs", response_model=list[RunSummary])
+    def list_runs(limit: int = 50, actor_id: str = Depends(actor_id_from)) -> list[RunSummary]:
+        return svc.list_runs(actor_id, max(1, min(limit, 200)))
+
+    @api.get("/v1/runs/{run_id}/replay")
+    def get_replay(run_id: str, actor_id: str = Depends(actor_id_from)) -> dict[str, Any]:
+        return svc.get_replay(actor_id, run_id)
+
+    @api.get("/v1/runs/{run_id}/evidence")
+    def get_evidence(run_id: str, actor_id: str = Depends(actor_id_from)) -> list[dict[str, Any]]:
+        return svc.get_evidence(actor_id, run_id)
 
     @api.get("/v1/runs/{run_id}", response_model=RunRecord)
     def get_run(run_id: str, actor_id: str = Depends(actor_id_from)) -> RunRecord:

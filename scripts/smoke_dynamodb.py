@@ -45,6 +45,7 @@ from app.store.runs import DynamoDBRunStore  # noqa: E402
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--persona", choices=list(MESSAGES), default="robert")
+    ap.add_argument("--text", help="question to ask (default: the persona's demo message)")
     args = ap.parse_args()
 
     import boto3
@@ -65,7 +66,7 @@ def main() -> int:
     profile = svc.put_profile(actor, persona_form(persona))
     print(f"[L3 profile]  PUT  ACTOR#{actor} / PROFILE#current  risk={profile.risk_band}")
 
-    status, out = svc.post_message(actor, MessageIn(text=MESSAGES[args.persona]))
+    status, out = svc.post_message(actor, MessageIn(text=args.text or MESSAGES[args.persona]))
     print(f"[L6 run]      POST -> HTTP {status} kind={out.kind} run_id={out.run_id} agents={out.enabled_agents}")
     if out.kind != "run":
         print(out.model_dump_json(indent=2))

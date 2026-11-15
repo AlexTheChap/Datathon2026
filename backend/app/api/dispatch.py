@@ -35,9 +35,11 @@ class InlineDispatcher:
     note = None
 
     def __init__(self, runs: RunStore, portfolio_weights: Optional[dict[str, float]] = None,
-                 run_fn: Optional[Callable[[OrchestratorInput], Any]] = None):
+                 run_fn: Optional[Callable[[OrchestratorInput], Any]] = None,
+                 portfolio_for: Optional[Callable[[str], Optional[dict[str, float]]]] = None):
         self.runs = runs
         self.portfolio_weights = portfolio_weights
+        self.portfolio_for = portfolio_for  # actor_id -> current weights (until portfolio upload exists)
         self._run_fn = run_fn  # injectable for tests (no Bedrock)
 
     def dispatch(self, run: RunRecord) -> None:
@@ -48,7 +50,10 @@ class InlineDispatcher:
                 from app.agents.orchestrator import run_orchestrator
 
                 self._run_fn = run_orchestrator
-            out = self._run_fn(orchestrator_input(run, self.portfolio_weights))
+            weights = self.portfolio_weights
+            if weights is None and self.portfolio_for:
+                weights = self.portfolio_for(run.actor_id)
+            out = self._run_fn(orchestrator_input(run, weights))
             run.status = out.status
             run.result = out.model_dump(mode="json")
             run.error = out.error

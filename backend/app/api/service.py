@@ -53,6 +53,26 @@ class MessageIn(BaseModel):
     portfolio_ref: Optional[PortfolioRef] = None
 
 
+class RunSummary(BaseModel):
+    """One line of GET /v1/runs."""
+
+    run_id: str
+    status: str
+    task: str
+    created_at: str
+    updated_at: str
+    question: str
+    enabled_agents: list[str]
+    n_evidence: int = 0
+
+    @classmethod
+    def from_run(cls, run: RunRecord) -> "RunSummary":
+        return cls(run_id=run.run_id, status=run.status, task=run.request.task, created_at=run.created_at,
+                   updated_at=run.updated_at, question=run.request.user_message[:200],
+                   enabled_agents=run.execution_plan.enabled_names,
+                   n_evidence=len((run.result or {}).get("evidence_ids") or []))
+
+
 class MessageOut(BaseModel):
     """One shape for every answer to POST /v1/runs; `kind` tells the frontend what to show."""
 
@@ -80,6 +100,15 @@ class ApiService:
     runs: RunStore = field(default_factory=InMemoryRunStore)
     dispatcher: Dispatcher = field(default_factory=NoDispatcher)
     intake_backend: Optional[IntakeBackend] = None
+    ledger: Optional[Any] = None   # EvidenceLedger; None -> chosen from the settings (JSONL or DynamoDB)
+
+    def _ledger(self):
+        if self.ledger is None:
+            from app.core.config import get_settings
+            from app.store.ledger import make_ledger
+
+            self.ledger = make_ledger(get_settings())
+        return self.ledger
 
     def _backend(self) -> IntakeBackend:
         self.intake_backend = self.intake_backend or get_backend()
@@ -122,6 +151,24 @@ class ApiService:
             raise ApiError(404, "Run not found.")
         return run
 
+    # ----- GET /v1/runs (history for the dashboard) -----
+    def list_runs(self, actor_id: str, limit: int = 50) -> list[RunSummary]:
+        return [RunSummary.from_run(r) for r in self.runs.list_for_actor(actor_id, limit)]
+
+    # ----- GET /v1/runs/{run_id}/replay (dashboard "if 2022 happened again" chart) -----
+    def get_replay(self, actor_id: str, run_id: str) -> dict[str, Any]:
+        run = self.get_run(actor_id, run_id)
+        from app.api.replay import replay
+        from app.tools.quant_gateway import tools
+
+        capital = run.request.capital or run.profile.capital
+        return replay(self._ledger().records(run_id), capital, tools())
+
+    # ----- GET /v1/runs/{run_id}/evidence (ledger L15/L16: what the dashboard charts) -----
+    def get_evidence(self, actor_id: str, run_id: str) -> list[dict[str, Any]]:
+        self.get_run(actor_id, run_id)  # same ownership check: 404 for someone else's run
+        return self._ledger().records(run_id)
+
     # ----- GET / PUT /v1/profile -----
     def get_profile(self, actor_id: str) -> Profile:
         profile = self.profiles.get(actor_id)
@@ -152,17 +199,25 @@ class ApiService:
 
 
 def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
-    """AF_STORE=memory (default, local) | dynamodb (AF_TABLE, default "alphaforge")."""
+    """AF_STORE=memory (default, local) | dynamodb (AF_TABLE, default "alphaforge").
+    AF_DISPATCH=inline runs box ⑤ in-process right after the run is queued (app.api.dispatch); default: none."""
     env = os.environ if env is None else env
     kind = env.get("AF_STORE", "memory").lower()
     if kind == "memory":
-        return ApiService()
-    if kind == "dynamodb":
+        svc = ApiService()
+    elif kind == "dynamodb":
         import boto3
 
         from app.store.profiles import DynamoDBProfileStore
         from app.store.runs import DynamoDBRunStore
 
-        table = boto3.resource("dynamodb").Table(env.get("AF_TABLE", "alphaforge"))
-        return ApiService(profiles=DynamoDBProfileStore(table), runs=DynamoDBRunStore(table))
-    raise ValueError(f"Unknown AF_STORE: {kind!r} (expected: memory or dynamodb)")
+        table = boto3.resource("dynamodb", region_name=env.get("AWS_REGION", "us-east-1")).Table(
+            env.get("AF_TABLE", "alphaforge"))
+        svc = ApiService(profiles=DynamoDBProfileStore(table), runs=DynamoDBRunStore(table))
+    else:
+        raise ValueError(f"Unknown AF_STORE: {kind!r} (expected: memory or dynamodb)")
+    if env.get("AF_DISPATCH", "none").lower() == "inline":
+        from app.api.dispatch import InlineDispatcher
+
+        svc.dispatcher = InlineDispatcher(svc.runs)
+    return svc

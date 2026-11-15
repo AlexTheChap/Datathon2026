@@ -57,6 +57,13 @@ class RunStore(Protocol):
 
     def get(self, run_id: str) -> Optional[RunRecord]: ...
 
+    def list_for_actor(self, actor_id: str, limit: int = 50) -> list[RunRecord]: ...
+
+
+def actor_run_key(actor_id: str, run: RunRecord) -> dict[str, str]:
+    """Pointer item for GET /v1/runs: PK "ACTOR#<id>", SK "RUN#<created_at>#<run_id>" (newest last)."""
+    return {"PK": f"ACTOR#{actor_id}", "SK": f"RUN#{run.created_at}#{run.run_id}"}
+
 
 class InMemoryRunStore:
     def __init__(self) -> None:
@@ -69,6 +76,11 @@ class InMemoryRunStore:
         raw = self._items.get(run_id)
         return RunRecord.model_validate_json(raw) if raw else None
 
+    def list_for_actor(self, actor_id: str, limit: int = 50) -> list[RunRecord]:
+        runs = [RunRecord.model_validate_json(r) for r in self._items.values()]
+        runs = sorted((r for r in runs if r.actor_id == actor_id), key=lambda r: r.created_at, reverse=True)
+        return runs[:limit]
+
 
 class DynamoDBRunStore:
     """`table` is a boto3 DynamoDB Table resource (injectable for tests)."""
@@ -79,7 +91,17 @@ class DynamoDBRunStore:
     def put(self, run: RunRecord) -> None:
         self.table.put_item(Item={**run_key(run.run_id), "actor_id": run.actor_id, "status": run.status,
                                   "updated_at": run.updated_at, "data": run.model_dump_json()})
+        # pointer for GET /v1/runs (one Query on the actor, no table scan)
+        self.table.put_item(Item={**actor_run_key(run.actor_id, run), "run_id": run.run_id, "status": run.status,
+                                  "task": run.request.task, "updated_at": run.updated_at})
 
     def get(self, run_id: str) -> Optional[RunRecord]:
         item = self.table.get_item(Key=run_key(run_id)).get("Item")
         return RunRecord.model_validate(json.loads(item["data"])) if item else None
+
+    def list_for_actor(self, actor_id: str, limit: int = 50) -> list[RunRecord]:
+        page = self.table.query(KeyConditionExpression="PK = :pk AND begins_with(SK, :sk)",
+                                ExpressionAttributeValues={":pk": f"ACTOR#{actor_id}", ":sk": "RUN#"},
+                                ScanIndexForward=False, Limit=limit)
+        runs = (self.get(i["run_id"]) for i in page.get("Items", []))
+        return [r for r in runs if r is not None and r.actor_id == actor_id]

@@ -44,7 +44,10 @@ class Settings(BaseSettings):
 
     # Bedrock models — node ⑤: Sonnet for the orchestrator (and the Explainer later),
     # Haiku for the sub-agents.
-    model_orchestrator: str = "anthropic.claude-sonnet-4-5-v1:0"
+    # Must be a valid Bedrock id/inference profile in the account: this one is also the Strands default,
+    # i.e. what every run used before AF_MODEL_ORCHESTRATOR was wired in (05f9697). The old default
+    # "anthropic.claude-sonnet-4-5-v1:0" does not exist on Bedrock (ValidationException).
+    model_orchestrator: str = "global.anthropic.claude-sonnet-4-6"
     model_subagent: str = "us.anthropic.claude-haiku-5-5"
     aws_region: str = "us-east-1"
 
