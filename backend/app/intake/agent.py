@@ -185,6 +185,15 @@ def run_intake(
     store: Optional[ProfileStore] = None,
 ) -> IntakeResult:
     backend = backend or get_backend()
+    # A request just reached the intaker: warm the market path (cache sync + Neptune wake via one
+    # probe invoke) on a daemon thread while the intake LLM call runs, so the sub-agents' first
+    # tool calls land warm. Idempotent per process; never raises.
+    try:
+        from app.tools.market_store import kick_off_market_warmup
+
+        kick_off_market_warmup()
+    except Exception:  # noqa: BLE001  packaging without app.tools: warm-up is optional
+        pass
     stored = store.get(actor_id) if store else None
     known = _known_profile(stored, profile_form)
 

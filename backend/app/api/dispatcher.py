@@ -58,6 +58,12 @@ class LocalDispatcher:
         run = self.runs.get(run_id)
         if run is None:
             return
+        try:  # warm the market path for runs that skipped intake in this process (idempotent)
+            from app.tools.market_store import kick_off_market_warmup
+
+            kick_off_market_warmup()
+        except Exception:  # noqa: BLE001  warm-up is optional, never blocks a run
+            pass
         run = self._save(run, status="RUNNING")
         try:
             out = self.runner(payload_from_run(run))
