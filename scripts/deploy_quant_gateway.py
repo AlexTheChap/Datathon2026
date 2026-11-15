@@ -47,7 +47,9 @@ DEPS = ["numpy", "pandas", "python-dateutil<3", "fastparquet"]  # dateutil<3: sa
 CSVS = ["returns_daily_cad.csv", "prices_cad.csv", "assets_universe.csv", "etf_holdings.csv",
         "fx_usdcad_filled.csv", "macro_daily_asof.csv",   # bundled only when the S3 data layer is absent
         "esg_index_screen.csv", "controversies.csv", "asset_risk_metrics.csv"]   # in-memory market graph
-OPTIONAL_CSVS = ["vol_forecast.csv"]   # GARCH job output (scripts/run_garch_sagemaker.py): bundled when present
+OPTIONAL_CSVS = ["vol_forecast.csv",   # GARCH job output (scripts/run_garch_sagemaker.py): bundled when present
+                 # S&P 500 extension (scripts/build_extended_universe.py): bundled when built
+                 "assets_universe_ext.csv", "returns_daily_cad_ext.csv"]
 DATA_LAYER = BUILD / "data_layer.json"   # written by scripts/deploy_data_layer.py (S3 curated Parquet, L14)
 GRAPH = BUILD / "graph.json"             # written by scripts/deploy_graph.py (VPC + Neptune)
 

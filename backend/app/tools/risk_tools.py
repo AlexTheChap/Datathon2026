@@ -40,6 +40,14 @@ BASE_ASSUMPTIONS = [
     "Crypto sampled on this calendar (weekend moves included on Monday).",
     "Past returns do not predict future returns. Universe chosen in 2026 (survivorship bias).",
 ]
+EXT_SOURCE = ("returns_daily_cad_ext.csv (S&P 500 constituents, Yahoo Finance via yfinance, "
+              "scripts/build_extended_universe.py)")
+
+
+def _ext_assumption(tickers: list[str]) -> str:
+    return (f"{', '.join(tickers)}: S&P 500 extension (current constituents, so a strong survivorship bias; "
+            "Yahoo Finance, unlicensed). No fundamentals, ESG detail or 10-K excerpts for them.")
+
 
 def _eid(tool: str, inputs: dict) -> str:
     h = hashlib.sha1(json.dumps([tool, inputs], sort_keys=True, default=str).encode()).hexdigest()
@@ -60,13 +68,15 @@ class RiskTools:
         from app.tools import curated_store as cs
 
         d = Path(curated_dir)
-        self.rets = cs.read(d, "returns_daily_cad")
+        # The 31 curated assets + the S&P 500 extension when built (scripts/build_extended_universe.py).
+        self.rets = cs.read_extended(d, "returns_daily_cad")
         self.prices = cs.read(d, "prices_cad")
         if universe_csv:
             self.universe = pd.read_csv(universe_csv).set_index("ticker")
         else:
-            self.universe = cs.read(d, "assets_universe").set_index("ticker") if cs.exists(d, "assets_universe") \
-                else None
+            self.universe = cs.read_extended(d, "assets_universe").set_index("ticker") \
+                if cs.exists(d, "assets_universe") else None
+        self.extended = cs.extended_tickers(d)
         self.holdings = self._load_holdings(cs.read(d, "etf_holdings")) if cs.exists(d, "etf_holdings") else None
 
     @staticmethod
@@ -175,13 +185,17 @@ class RiskTools:
         }
 
     def _evidence(self, tool, inputs, output, say, r_index, method, extra_assumptions=()):
+        named = inputs.get("tickers") or list(inputs.get("weights") or {})
+        ext = sorted(set(named) & getattr(self, "extended", set()))
+        if ext:
+            extra_assumptions = [*extra_assumptions, _ext_assumption(ext)]
         return {
             "evidence_id": _eid(tool, inputs), "tool": tool, "inputs": inputs, "output": output,
             "say": say, "currency": "CAD",
             "as_of": inputs.get("as_of") or str(r_index.max().date()),
             "period": f"{r_index.min().date()}/{r_index.max().date()}",
             "method": method, "assumptions": BASE_ASSUMPTIONS + list(extra_assumptions),
-            "data_sources": SOURCES,
+            "data_sources": SOURCES + ([EXT_SOURCE] if ext else []),
         }
 
     # ---------- tools ----------

@@ -32,6 +32,7 @@ mapping:                   # how tickers are assigned; explicit list beats rules
     equity_NYSE: us_equities
     equity_NYSE Arca: us_equities
     equity_Cboe BZX: us_equities
+    equity_US: us_equities          # S&P 500 extension (assets_universe_ext.csv: exchange not recorded)
 ewma_lambda: 0.94          # EWMA (RiskMetrics) decay, used when a GARCH fit is rejected
 max_forecast_age_days: 7   # vol_forecast.csv older than this (vs the requested as_of) -> historical volatility
 risk_trend:

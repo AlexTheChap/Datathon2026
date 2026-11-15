@@ -92,7 +92,7 @@ flowchart TB
     GW["AgentCore Gateway (MCP) → quant tools Lambda<br/>metrics · concentration · correlation · risk_contribution<br/>macro_snapshot · fx_usdcad · market screen / related · esg_screen<br/>(in-process: rate_sensitivity · company_fundamentals · optimize · governance_check<br/>projection (Monte Carlo, planning guidelines) · vol_forecast (GARCH trend))"]
     NEP[("Neptune Serverless market graph<br/>31 core assets + S&P 500 · ESG · holdings · correlations<br/>refreshed 11:00 / 17:00 ET")]
     KB["Bedrock Knowledge Base<br/>news & docs · S3 Vectors"]
-    S3[("S3 curated Parquet<br/>prices · FX · macro · point-in-time")]
+    S3[("S3 curated Parquet<br/>prices · FX · macro · point-in-time<br/>31 curated assets + S&P 500 extension (prices only)")]
     SM["SageMaker AI Processing (batch, no endpoint)<br/>GARCH(1,1) volatility job → vol_forecast.csv"]
     DDB[("DynamoDB<br/>profiles · runs · evidence ledger · alert contacts")]
   end
@@ -219,10 +219,14 @@ flowchart TB
   %% L14 Tools → Data: the quant tools Lambda reads the curated Parquet on S3 (AF_CURATED_S3, written by
   %%      scripts/deploy_data_layer.py; pandas + fastparquet, point-in-time as-of filter). In-process tools read the
   %%      same tables through app/tools/curated_store.py (S3 Parquet or the repo CSVs; the API image bakes data/ in).
+  %%      curated_store.read_extended() appends the S&P 500 extension (assets_universe_ext / returns_daily_cad_ext,
+  %%      scripts/build_extended_universe.py: Yahoo Finance on the curated calendar, in CAD) to the 31 curated
+  %%      assets: risk, governance, optimizer and projection accept any constituent; evidence names the source.
   GW --> S3
   GW -->|"screen · related · esg (freshness-gated)"| NEP
   %% L20 GARCH job ↔ curated data: scripts/run_garch_sagemaker.py runs sagemaker/garch_job/processing.py
-  %%      (FrameworkProcessor, SKLearn image, app/quant/garch.py) on returns_daily_cad.csv ≤ as_of; outputs
+  %%      (FrameworkProcessor, SKLearn image, app/quant/garch.py) on returns_daily_cad.csv (+ the S&P 500
+  %%      extension returns_daily_cad_ext.csv when built; --backtest-core-only limits the backtest) ≤ as_of; outputs
   %%      vol_forecast.csv + garch_backtest.csv + manifest.json under s3://$AF_DATA_BUCKET/quant/garch/as_of=…/,
   %%      downloaded to data/curated/. Risk (volatility) forecast only, never returns. --local runs the same code
   %%      without AWS. Details: docs/garch_job.md.

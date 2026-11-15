@@ -123,9 +123,11 @@ def test_learning_switch_is_saved_and_picks_the_learning_template(page):
     assert page.errors == []
 
 
-def test_profile_validation_and_example_persona(page):
+def test_profile_validation_without_example_personas(page):
     page.goto(page.url.split("#")[0] + "#/profile")
-    page.wait_for_selector("text=Start from an example")
+    page.wait_for_selector("button[aria-label='Skip age']")
+    assert page.locator("text=Start from an example").count() == 0   # personas: demo accounts at sign-in only
+    assert page.locator("button.example").count() == 0
     page.click("button[aria-label='Skip age']")
     page.click("button[aria-label='Save risk level']")  # nothing chosen yet
     page.wait_for_selector("text=Pick the risk level that fits you best.")
@@ -138,11 +140,9 @@ def test_profile_validation_and_example_persona(page):
     page.fill("#q-horizon_max", "3")
     page.click("button[aria-label='Save investment horizon']")
     page.wait_for_selector("text=The end can't be before the start.")
-    page.click("button.example:has-text('Robert')")          # fills every question, unsaved
-    page.click("button[aria-label='Save all answers']")
-    page.wait_for_selector("#q-card-limits.q-card--locked")
-    assert page.is_checked("input[name='limit-crypto']")
-    assert page.input_value("#q-age") == "59"
+    page.fill("#q-horizon_max", "15")
+    page.click("button[aria-label='Save investment horizon']")
+    page.wait_for_selector("#q-card-horizon.q-card--locked")
     assert page.errors == []
 
 
@@ -532,7 +532,7 @@ def test_my_portfolio_questions_know_the_portfolio_without_opening_the_dashboard
 def test_profile_page_is_drawn_once_when_the_user_navigates_during_its_load(page, base_url):
     """Leaving and coming back while the profile loads used to add the form twice (Hard limits, Analyses twice)."""
     page.add_init_script("""const f = window.fetch; window.fetch = async (u, o) => {
-      if (String(u).includes('/v1/personas')) await new Promise((r) => setTimeout(r, 700)); return f(u, o); };""")
+      if (String(u).includes('/v1/profile')) await new Promise((r) => setTimeout(r, 700)); return f(u, o); };""")
     fill_profile_form(page, risk=6, experience=5)
     page.goto(page.url.split("#")[0] + "#/portfolio")
     for h in ("#/profile", "#/ask", "#/profile"):

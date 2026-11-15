@@ -4,7 +4,8 @@
 
 The browser cannot read data/curated, so the portfolio dashboard gets this small copy: ticker, name, asset class,
 currency, sector, and for funds a plain description a beginner understands ("500 large US companies"). Run it again
-whenever data/curated/assets_universe.csv changes; tests/unit/test_frontend_universe.py fails if the copy is stale.
+whenever data/curated/assets_universe.csv or assets_universe_ext.csv changes; tests/unit/test_frontend_universe.py
+fails if the copy is stale.
 """
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "data" / "curated" / "assets_universe.csv"
+EXTENSION = ROOT / "data" / "curated" / "assets_universe_ext.csv"   # S&P 500 constituents (build_extended_universe.py)
 TARGET = ROOT / "frontend" / "assets" / "universe.json"
 
 # What a fund holds, in everyday words. Companies and crypto are described by their own name.
@@ -31,9 +33,12 @@ PLAIN = {
 
 
 def build() -> dict:
-    with SOURCE.open(encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
-    return {"source": "data/curated/assets_universe.csv",
+    rows = []
+    for src in (SOURCE, EXTENSION):   # curated assets first, then the S&P 500 extension when built
+        if src.exists():
+            with src.open(encoding="utf-8") as f:
+                rows += [r for r in csv.DictReader(f) if r["ticker"] not in {x["ticker"] for x in rows}]
+    return {"source": "data/curated/assets_universe.csv (+ assets_universe_ext.csv)",
             "assets": {r["ticker"]: {"name": r["name"], "class": r["asset_class"], "currency": r["currency"],
                                      "sector": r["sector"], "plain": PLAIN.get(r["ticker"], r["name"])}
                        for r in rows}}

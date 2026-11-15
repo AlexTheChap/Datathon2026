@@ -68,8 +68,8 @@ def load_inputs(curated_dir: str | Path | None = None) -> MarketInputs:
     from app.tools import curated_store as cs
 
     d = Path(curated_dir or curated_dir_default())
-    uni = cs.read(d, "assets_universe").set_index("ticker")
-    rets = cs.read(d, "returns_daily_cad")
+    uni = cs.read_extended(d, "assets_universe").set_index("ticker")   # + S&P 500 extension when built
+    rets = cs.read_extended(d, "returns_daily_cad")
     m = cs.read(d, "asset_risk_metrics")
     if "end" in m:                       # several windows per ticker (full period, 2022): keep the full one
         m = m.sort_values(["ticker", "end", "n_obs"]).groupby("ticker").tail(1)

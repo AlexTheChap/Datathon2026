@@ -55,6 +55,9 @@ def build_zip() -> Path:
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".gitkeep"))
     (pkg / "data").mkdir()
     shutil.copy(ROOT / "data" / "curated" / "assets_universe.csv", pkg / "data" / "assets_universe.csv")
+    ext = ROOT / "data" / "curated" / "assets_universe_ext.csv"   # S&P 500 extension, read next to it
+    if ext.exists():
+        shutil.copy(ext, pkg / "data" / ext.name)
 
     return zip_dir(pkg, BUILD / "intake_lambda.zip")
 

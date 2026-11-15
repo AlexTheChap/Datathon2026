@@ -21,7 +21,7 @@ from app.schemas import Exclusion, Position
 from app.schemas.profile import Language
 
 from .schemas import AgentToggleChange, IntakeDraft, ProfileDraft, RequestDraft
-from .universe import Asset, aliases, load_universe, match_symbol, universe_for_prompt
+from .universe import COMMON_WORDS, Asset, aliases, load_universe, match_symbol, universe_for_prompt
 
 PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "intake.md"
 # Inference profile ("us." prefix): on Bedrock, Haiku 5.5 can only be called through an inference profile.
@@ -330,6 +330,8 @@ class MockBackend:
         for tok in _TICKER_TOKEN.finditer(text):
             t = tok.group(0)
             ticker = match_symbol(t, self.universe)
+            if ticker and self.universe[ticker].extended and t in COMMON_WORDS:
+                continue                      # "ALL in", "IT sector": a word, not an S&P 500 holding
             if ticker and ticker != benchmark:
                 found.setdefault(ticker, (tok.start(), tok.end()))
         low = text.lower()

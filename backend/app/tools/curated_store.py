@@ -38,7 +38,13 @@ TABLES: dict[str, dict[str, Any]] = {
     # projections (app.quant.projection): correlations + the GARCH job's output (sagemaker/garch_job)
     "correlation_full": {"index_col": "ticker"},
     "vol_forecast": {"dtype": {"ticker": str, "model": str, "fallback_reason": str, "job_name": str}},
+    # extended universe (scripts/build_extended_universe.py): S&P 500 constituents beyond the 31 curated assets
+    "assets_universe_ext": {},
+    "returns_daily_cad_ext": {"index_col": "date", "parse_dates": True},
 }
+
+# Tables that have an "_ext" companion: read_extended() appends it (curated assets first, extension after).
+EXTENSION = {"assets_universe": "assets_universe_ext", "returns_daily_cad": "returns_daily_cad_ext"}
 
 
 def path_for(curated_dir: str | Path, name: str) -> Path:
@@ -62,6 +68,31 @@ def read(curated_dir: str | Path, name: str) -> pd.DataFrame:
             df.index = df.index.astype("str")
         return df
     return pd.read_csv(p, **TABLES.get(name, {}))
+
+
+def read_extended(curated_dir: str | Path, name: str) -> pd.DataFrame:
+    """`name` plus its S&P 500 extension when present: universe rows appended (with in_core_universe), return
+    columns appended on the same dates. A ticker already curated is never overridden by the extension."""
+    df = read(curated_dir, name)
+    ext_name = EXTENSION.get(name)
+    if name == "assets_universe":
+        df = df.assign(in_core_universe=True)
+    if not ext_name or not exists(curated_dir, ext_name):
+        return df
+    ext = read(curated_dir, ext_name)
+    if name == "assets_universe":
+        ext = ext[~ext["ticker"].isin(df["ticker"])].assign(in_core_universe=False)
+        return pd.concat([df, ext], ignore_index=True)
+    ext = ext.drop(columns=[c for c in ext.columns if c in df.columns])
+    return df.join(ext.reindex(df.index))
+
+
+def extended_tickers(curated_dir: str | Path) -> set[str]:
+    """Tickers that come from the S&P 500 extension (no fundamentals, ESG detail, 10-K or GARCH for them)."""
+    if not exists(curated_dir, "assets_universe_ext"):
+        return set()
+    core = set(read(curated_dir, "assets_universe")["ticker"])
+    return set(read(curated_dir, "assets_universe_ext")["ticker"]) - core
 
 
 def csv_to_parquet(src_dir: str | Path, out_dir: str | Path) -> dict[str, int]:

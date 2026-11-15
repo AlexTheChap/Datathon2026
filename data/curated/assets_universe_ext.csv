@@ -1,0 +1,490 @@
+asset_id,ticker,name,asset_class,market,currency,sector
+E001,A,Agilent Technologies Inc,equity,US,USD,Health Care
+E002,ABBV,Abbvie Inc,equity,US,USD,Health Care
+E003,ABNB,Airbnb Inc Class A,equity,US,USD,Consumer Discretionary
+E004,ABT,Abbott Laboratories,equity,US,USD,Health Care
+E005,ACGL,Arch Capital Group Ltd,equity,US,USD,Financials
+E006,ACN,Accenture Plc Cl A,equity,US,USD,Information Technology
+E007,ADBE,Adobe Inc,equity,US,USD,Information Technology
+E008,ADI,Analog Devices Inc,equity,US,USD,Information Technology
+E009,ADM,Archer Daniels Midland Co,equity,US,USD,Consumer Staples
+E010,ADP,Automatic Data Processing,equity,US,USD,Industrials
+E011,ADSK,Autodesk Inc,equity,US,USD,Information Technology
+E012,AEE,Ameren Corporation,equity,US,USD,Utilities
+E013,AEP,American Electric Power,equity,US,USD,Utilities
+E014,AES,Aes Corp,equity,US,USD,Utilities
+E015,AFL,Aflac Inc,equity,US,USD,Financials
+E016,AIG,American International Group,equity,US,USD,Financials
+E017,AIZ,Assurant Inc,equity,US,USD,Financials
+E018,AJG,Arthur J Gallagher + Co,equity,US,USD,Financials
+E019,AKAM,Akamai Technologies Inc,equity,US,USD,Information Technology
+E020,ALB,Albemarle Corp,equity,US,USD,Materials
+E021,ALGN,Align Technology Inc,equity,US,USD,Health Care
+E022,ALL,Allstate Corp,equity,US,USD,Financials
+E023,ALLE,Allegion Plc,equity,US,USD,Industrials
+E024,AMAT,Applied Materials Inc,equity,US,USD,Information Technology
+E025,AMCR,Amcor Plc,equity,US,USD,Materials
+E026,AMD,Advanced Micro Devices,equity,US,USD,Information Technology
+E027,AME,Ametek Inc,equity,US,USD,Industrials
+E028,AMGN,Amgen Inc,equity,US,USD,Health Care
+E029,AMP,Ameriprise Financial Inc,equity,US,USD,Financials
+E030,AMT,American Tower Corp,equity,US,USD,Real Estate
+E031,ANET,Arista Networks Inc,equity,US,USD,Information Technology
+E032,AON,Aon Plc Class A,equity,US,USD,Financials
+E033,AOS,Smith (A.O.) Corp,equity,US,USD,Industrials
+E034,APA,Apa Corp,equity,US,USD,Energy
+E035,APD,Air Products + Chemicals Inc,equity,US,USD,Materials
+E036,APH,Amphenol Corp Cl A,equity,US,USD,Information Technology
+E037,APO,Apollo Global Management Inc,equity,US,USD,Financials
+E038,APP,Applovin Corp Class A,equity,US,USD,Communication Services
+E039,APTV,Aptiv Plc,equity,US,USD,Consumer Discretionary
+E040,ARE,Alexandria Real Estate Equit,equity,US,USD,Real Estate
+E041,ARES,Ares Management Corp   A,equity,US,USD,Financials
+E042,ATO,Atmos Energy Corp,equity,US,USD,Utilities
+E043,AVGO,Broadcom Inc,equity,US,USD,Information Technology
+E044,AVY,Avery Dennison Corp,equity,US,USD,Materials
+E045,AWK,American Water Works Co Inc,equity,US,USD,Utilities
+E046,AXON,Axon Enterprise Inc,equity,US,USD,Industrials
+E047,AXP,American Express Co,equity,US,USD,Financials
+E048,AZO,Autozone Inc,equity,US,USD,Consumer Discretionary
+E049,BA,Boeing Co/The,equity,US,USD,Industrials
+E050,BAC,Bank Of America Corp,equity,US,USD,Financials
+E051,BALL,Ball Corp,equity,US,USD,Materials
+E052,BAX,Baxter International Inc,equity,US,USD,Health Care
+E053,BBY,Best Buy Co Inc,equity,US,USD,Consumer Discretionary
+E054,BDX,Becton Dickinson And Co,equity,US,USD,Health Care
+E055,BE,Bloom Energy Corp  A,equity,US,USD,Industrials
+E056,BEN,Franklin Templeton Inc,equity,US,USD,Financials
+E057,BF-B,Brown Forman Corp Class B,equity,US,USD,Consumer Staples
+E058,BG,Bunge Global Sa,equity,US,USD,Consumer Staples
+E059,BIIB,Biogen Inc,equity,US,USD,Health Care
+E060,BKNG,Booking Holdings Inc,equity,US,USD,Consumer Discretionary
+E061,BKR,Baker Hughes Co,equity,US,USD,Energy
+E062,BLK,Blackrock Inc,equity,US,USD,Financials
+E063,BMY,Bristol Myers Squibb Co,equity,US,USD,Health Care
+E064,BNY,Bank Of New York Mellon Corp,equity,US,USD,Financials
+E065,BR,Broadridge Financial Solutio,equity,US,USD,Industrials
+E066,BRK-B,Berkshire Hathaway Inc Cl B,equity,US,USD,Financials
+E067,BRO,Brown + Brown Inc,equity,US,USD,Financials
+E068,BSX,Boston Scientific Corp,equity,US,USD,Health Care
+E069,BX,Blackstone Inc,equity,US,USD,Financials
+E070,BXP,Bxp Inc,equity,US,USD,Real Estate
+E071,C,Citigroup Inc,equity,US,USD,Financials
+E072,CAH,Cardinal Health Inc,equity,US,USD,Health Care
+E073,CARR,Carrier Global Corp,equity,US,USD,Industrials
+E074,CASY,Casey S General Stores Inc,equity,US,USD,Consumer Staples
+E075,CAT,Caterpillar Inc,equity,US,USD,Industrials
+E076,CB,Chubb Ltd,equity,US,USD,Financials
+E077,CBOE,Cboe Global Markets Inc,equity,US,USD,Financials
+E078,CBRE,Cbre Group Inc   A,equity,US,USD,Real Estate
+E079,CCI,Crown Castle Inc,equity,US,USD,Real Estate
+E080,CCL,Carnival Corp Ltd,equity,US,USD,Consumer Discretionary
+E081,CDNS,Cadence Design Sys Inc,equity,US,USD,Information Technology
+E082,CDW,Cdw Corp/De,equity,US,USD,Information Technology
+E083,CEG,Constellation Energy,equity,US,USD,Utilities
+E084,CF,Cf Industries Holdings Inc,equity,US,USD,Materials
+E085,CFG,Citizens Financial Group,equity,US,USD,Financials
+E086,CHD,Church + Dwight Co Inc,equity,US,USD,Consumer Staples
+E087,CHRW,C.H. Robinson Worldwide Inc,equity,US,USD,Industrials
+E088,CHTR,Charter Communications Inc A,equity,US,USD,Communication Services
+E089,CI,The Cigna Group,equity,US,USD,Health Care
+E090,CIEN,Ciena Corp,equity,US,USD,Information Technology
+E091,CINF,Cincinnati Financial Corp,equity,US,USD,Financials
+E092,CL,Colgate Palmolive Co,equity,US,USD,Consumer Staples
+E093,CLX,Clorox Company,equity,US,USD,Consumer Staples
+E094,CMCSA,Comcast Corp Class A,equity,US,USD,Communication Services
+E095,CME,Cme Group Inc,equity,US,USD,Financials
+E096,CMG,Chipotle Mexican Grill Inc,equity,US,USD,Consumer Discretionary
+E097,CMI,Cummins Inc,equity,US,USD,Industrials
+E098,CMS,Cms Energy Corp,equity,US,USD,Utilities
+E099,CNC,Centene Corp,equity,US,USD,Health Care
+E100,CNP,Centerpoint Energy Inc,equity,US,USD,Utilities
+E101,COF,Capital One Financial Corp,equity,US,USD,Financials
+E102,COHR,Coherent Corp,equity,US,USD,Information Technology
+E103,COIN,Coinbase Global Inc  Class A,equity,US,USD,Financials
+E104,COO,Cooper Cos Inc/The,equity,US,USD,Health Care
+E105,COP,Conocophillips,equity,US,USD,Energy
+E106,COR,Cencora Inc,equity,US,USD,Health Care
+E107,COST,Costco Wholesale Corp,equity,US,USD,Consumer Staples
+E108,CPAY,Corpay Inc,equity,US,USD,Financials
+E109,CPRT,Copart Inc,equity,US,USD,Industrials
+E110,CPT,Camden Property Trust,equity,US,USD,Real Estate
+E111,CRH,Crh Plc,equity,US,USD,Materials
+E112,CRL,Charles River Laboratories,equity,US,USD,Health Care
+E113,CRM,Salesforce Inc,equity,US,USD,Information Technology
+E114,CRWD,Crowdstrike Holdings Inc   A,equity,US,USD,Information Technology
+E115,CSCO,Cisco Systems Inc,equity,US,USD,Information Technology
+E116,CSGP,Costar Group Inc,equity,US,USD,Real Estate
+E117,CSX,Csx Corp,equity,US,USD,Industrials
+E118,CTAS,Cintas Corp,equity,US,USD,Industrials
+E119,CTSH,Cognizant Tech Solutions A,equity,US,USD,Information Technology
+E120,CVNA,Carvana Co,equity,US,USD,Consumer Discretionary
+E121,CVS,Cvs Health Corp,equity,US,USD,Health Care
+E122,CVX,Chevron Corp,equity,US,USD,Energy
+E123,D,Dominion Energy Inc,equity,US,USD,Utilities
+E124,DAL,Delta Air Lines Inc,equity,US,USD,Industrials
+E125,DASH,Doordash Inc   A,equity,US,USD,Consumer Discretionary
+E126,DD,Dupont De Nemours Inc,equity,US,USD,Industrials
+E127,DDOG,Datadog Inc   Class A,equity,US,USD,Information Technology
+E128,DE,Deere + Co,equity,US,USD,Industrials
+E129,DECK,Deckers Outdoor Corp,equity,US,USD,Consumer Discretionary
+E130,DELL,Dell Technologies  C,equity,US,USD,Information Technology
+E131,DG,Dollar General Corp,equity,US,USD,Consumer Staples
+E132,DGX,Quest Diagnostics Inc,equity,US,USD,Health Care
+E133,DHI,Dr Horton Inc,equity,US,USD,Consumer Discretionary
+E134,DHR,Danaher Corp,equity,US,USD,Health Care
+E135,DIS,Walt Disney Co/The,equity,US,USD,Communication Services
+E136,DLR,Digital Realty Trust Inc,equity,US,USD,Real Estate
+E137,DLTR,Dollar Tree Inc,equity,US,USD,Consumer Staples
+E138,DOC,Healthpeak Properties Inc,equity,US,USD,Real Estate
+E139,DOV,Dover Corp,equity,US,USD,Industrials
+E140,DOW,Dow Inc,equity,US,USD,Materials
+E141,DPZ,Domino S Pizza Inc,equity,US,USD,Consumer Discretionary
+E142,DRI,Darden Restaurants Inc,equity,US,USD,Consumer Discretionary
+E143,DTE,Dte Energy Company,equity,US,USD,Utilities
+E144,DUK,Duke Energy Corp,equity,US,USD,Utilities
+E145,DVA,Davita Inc,equity,US,USD,Health Care
+E146,DVN,Devon Energy Corp,equity,US,USD,Energy
+E147,DXCM,Dexcom Inc,equity,US,USD,Health Care
+E148,EBAY,Ebay Inc,equity,US,USD,Consumer Discretionary
+E149,ECHO,Echostar Corp A,equity,US,USD,Communication Services
+E150,ECL,Ecolab Inc,equity,US,USD,Materials
+E151,ED,Consolidated Edison Inc,equity,US,USD,Utilities
+E152,EFX,Equifax Inc,equity,US,USD,Industrials
+E153,EG,Everest Group Ltd,equity,US,USD,Financials
+E154,EIX,Edison International,equity,US,USD,Utilities
+E155,EL,Estee Lauder Companies Cl A,equity,US,USD,Consumer Staples
+E156,ELV,Elevance Health Inc,equity,US,USD,Health Care
+E157,EME,Emcor Group Inc,equity,US,USD,Industrials
+E158,EMR,Emerson Electric Co,equity,US,USD,Industrials
+E159,EOG,Eog Resources Inc,equity,US,USD,Energy
+E160,EQIX,Equinix Inc,equity,US,USD,Real Estate
+E161,EQT,Eqt Corp,equity,US,USD,Energy
+E162,ERIE,Erie Indemnity Company Cl A,equity,US,USD,Financials
+E163,ES,Eversource Energy,equity,US,USD,Utilities
+E164,ESS,Essex Property Trust Inc,equity,US,USD,Real Estate
+E165,ETN,Eaton Corp Plc,equity,US,USD,Industrials
+E166,ETR,Entergy Corp,equity,US,USD,Utilities
+E167,EVRG,Evergy Inc,equity,US,USD,Utilities
+E168,EW,Edwards Lifesciences Corp,equity,US,USD,Health Care
+E169,EXC,Exelon Corp,equity,US,USD,Utilities
+E170,EXE,Expand Energy Corp,equity,US,USD,Energy
+E171,EXPD,Expeditors Intl Wash Inc,equity,US,USD,Industrials
+E172,EXPE,Expedia Group Inc,equity,US,USD,Consumer Discretionary
+E173,EXR,Extra Space Storage Inc,equity,US,USD,Real Estate
+E174,F,Ford Motor Co,equity,US,USD,Consumer Discretionary
+E175,FANG,Diamondback Energy Inc,equity,US,USD,Energy
+E176,FAST,Fastenal Co,equity,US,USD,Industrials
+E177,FCX,Freeport Mcmoran Inc,equity,US,USD,Materials
+E178,FDS,Factset Research Systems Inc,equity,US,USD,Financials
+E179,FDX,Fedex Corp,equity,US,USD,Industrials
+E180,FE,Firstenergy Corp,equity,US,USD,Utilities
+E181,FERG,Ferguson Enterprises Inc,equity,US,USD,Industrials
+E182,FFIV,F5 Inc,equity,US,USD,Information Technology
+E183,FICO,Fair Isaac Corp,equity,US,USD,Information Technology
+E184,FIS,Fidelity National Info Serv,equity,US,USD,Financials
+E185,FISV,Fiserv Inc,equity,US,USD,Financials
+E186,FITB,Fifth Third Bancorp,equity,US,USD,Financials
+E187,FIX,Comfort Systems Usa Inc,equity,US,USD,Industrials
+E188,FLEX,Flex Ltd,equity,US,USD,Information Technology
+E189,FOX,Fox Corp   Class B,equity,US,USD,Communication Services
+E190,FOXA,Fox Corp   Class A,equity,US,USD,Communication Services
+E191,FRT,Federal Realty Invs Trust,equity,US,USD,Real Estate
+E192,FSLR,First Solar Inc,equity,US,USD,Information Technology
+E193,FTNT,Fortinet Inc,equity,US,USD,Information Technology
+E194,FTV,Fortive Corp,equity,US,USD,Industrials
+E195,GD,General Dynamics Corp,equity,US,USD,Industrials
+E196,GDDY,Godaddy Inc   Class A,equity,US,USD,Information Technology
+E197,GE,General Electric,equity,US,USD,Industrials
+E198,GEHC,Ge Healthcare Technology,equity,US,USD,Health Care
+E199,GEN,Gen Digital Inc,equity,US,USD,Information Technology
+E200,GEV,Ge Vernova Inc,equity,US,USD,Industrials
+E201,GILD,Gilead Sciences Inc,equity,US,USD,Health Care
+E202,GIS,General Mills Inc,equity,US,USD,Consumer Staples
+E203,GL,Globe Life Inc,equity,US,USD,Financials
+E204,GLW,Corning Inc,equity,US,USD,Information Technology
+E205,GM,General Motors Co,equity,US,USD,Consumer Discretionary
+E206,GNRC,Generac Holdings Inc,equity,US,USD,Industrials
+E207,GPC,Genuine Parts Co,equity,US,USD,Consumer Discretionary
+E208,GPN,Global Payments Inc,equity,US,USD,Financials
+E209,GRMN,Garmin Ltd,equity,US,USD,Consumer Discretionary
+E210,GS,Goldman Sachs Group Inc,equity,US,USD,Financials
+E211,GWW,Ww Grainger Inc,equity,US,USD,Industrials
+E212,HAL,Halliburton Co,equity,US,USD,Energy
+E213,HAS,Hasbro Inc,equity,US,USD,Consumer Discretionary
+E214,HBAN,Huntington Bancshares Inc,equity,US,USD,Financials
+E215,HCA,Hca Healthcare Inc,equity,US,USD,Health Care
+E216,HD,Home Depot Inc,equity,US,USD,Consumer Discretionary
+E217,HIG,Hartford Insurance Group Inc,equity,US,USD,Financials
+E218,HII,Huntington Ingalls Industrie,equity,US,USD,Industrials
+E219,HLT,Hilton Worldwide Holdings In,equity,US,USD,Consumer Discretionary
+E220,HON,Honeywell International Inc,equity,US,USD,Industrials
+E221,HOOD,Robinhood Markets Inc   A,equity,US,USD,Financials
+E222,HPE,Hewlett Packard Enterprise,equity,US,USD,Information Technology
+E223,HPQ,Hp Inc,equity,US,USD,Information Technology
+E224,HRL,Hormel Foods Corp,equity,US,USD,Consumer Staples
+E225,HSIC,Henry Schein Inc,equity,US,USD,Health Care
+E226,HST,Host Hotels + Resorts Inc,equity,US,USD,Real Estate
+E227,HSY,Hershey Co/The,equity,US,USD,Consumer Staples
+E228,HUBB,Hubbell Inc,equity,US,USD,Industrials
+E229,HUM,Humana Inc,equity,US,USD,Health Care
+E230,HWM,Howmet Aerospace Inc,equity,US,USD,Industrials
+E231,IBKR,Interactive Brokers Gro Cl A,equity,US,USD,Financials
+E232,IBM,Intl Business Machines Corp,equity,US,USD,Information Technology
+E233,ICE,Intercontinental Exchange In,equity,US,USD,Financials
+E234,IDXX,Idexx Laboratories Inc,equity,US,USD,Health Care
+E235,IEX,Idex Corp,equity,US,USD,Industrials
+E236,IFF,Intl Flavors + Fragrances,equity,US,USD,Materials
+E237,ILMN,Illumina Inc,equity,US,USD,Health Care
+E238,INCY,Incyte Corp,equity,US,USD,Health Care
+E239,INTC,Intel Corp,equity,US,USD,Information Technology
+E240,INTU,Intuit Inc,equity,US,USD,Information Technology
+E241,INVH,Invitation Homes Inc,equity,US,USD,Real Estate
+E242,IP,International Paper Co,equity,US,USD,Materials
+E243,IQV,Iqvia Holdings Inc,equity,US,USD,Health Care
+E244,IR,Ingersoll Rand Inc,equity,US,USD,Industrials
+E245,IRM,Iron Mountain Inc,equity,US,USD,Real Estate
+E246,ISRG,Intuitive Surgical Inc,equity,US,USD,Health Care
+E247,IT,Gartner Inc,equity,US,USD,Information Technology
+E248,ITW,Illinois Tool Works,equity,US,USD,Industrials
+E249,IVZ,Invesco Ltd,equity,US,USD,Financials
+E250,J,Jacobs Solutions Inc,equity,US,USD,Industrials
+E251,JBHT,Hunt (Jb) Transprt Svcs Inc,equity,US,USD,Industrials
+E252,JBL,Jabil Inc,equity,US,USD,Information Technology
+E253,JCI,Johnson Controls Internation,equity,US,USD,Industrials
+E254,JKHY,Jack Henry + Associates Inc,equity,US,USD,Financials
+E255,KDP,Keurig Dr Pepper Inc,equity,US,USD,Consumer Staples
+E256,KEY,Keycorp,equity,US,USD,Financials
+E257,KEYS,Keysight Technologies In,equity,US,USD,Information Technology
+E258,KHC,Kraft Heinz Co/The,equity,US,USD,Consumer Staples
+E259,KIM,Kimco Realty Corp,equity,US,USD,Real Estate
+E260,KKR,Kkr + Co Inc,equity,US,USD,Financials
+E261,KLAC,Kla Corp,equity,US,USD,Information Technology
+E262,KMB,Kimberly Clark Corp,equity,US,USD,Consumer Staples
+E263,KMI,Kinder Morgan Inc,equity,US,USD,Energy
+E264,KO,Coca Cola Co/The,equity,US,USD,Consumer Staples
+E265,KR,Kroger Co,equity,US,USD,Consumer Staples
+E266,L,Loews Corp,equity,US,USD,Financials
+E267,LDOS,Leidos Holdings Inc,equity,US,USD,Industrials
+E268,LEN,Lennar Corp A,equity,US,USD,Consumer Discretionary
+E269,LH,Labcorp Holdings Inc,equity,US,USD,Health Care
+E270,LHX,L3Harris Technologies Inc,equity,US,USD,Industrials
+E271,LII,Lennox International Inc,equity,US,USD,Industrials
+E272,LIN,Linde Plc,equity,US,USD,Materials
+E273,LITE,Lumentum Holdings Inc,equity,US,USD,Information Technology
+E274,LLY,Eli Lilly + Co,equity,US,USD,Health Care
+E275,LMT,Lockheed Martin Corp,equity,US,USD,Industrials
+E276,LNT,Alliant Energy Corp,equity,US,USD,Utilities
+E277,LOW,Lowe S Cos Inc,equity,US,USD,Consumer Discretionary
+E278,LRCX,Lam Research Corp,equity,US,USD,Information Technology
+E279,LULU,Lululemon Athletica Inc,equity,US,USD,Consumer Discretionary
+E280,LUV,Southwest Airlines Co,equity,US,USD,Industrials
+E281,LVS,Las Vegas Sands Corp,equity,US,USD,Consumer Discretionary
+E282,LYB,Lyondellbasell Indu Cl A,equity,US,USD,Materials
+E283,LYV,Live Nation Entertainment In,equity,US,USD,Communication Services
+E284,MA,Mastercard Inc   A,equity,US,USD,Financials
+E285,MAA,Mid America Apartment Comm,equity,US,USD,Real Estate
+E286,MAR,Marriott International  Cl A,equity,US,USD,Consumer Discretionary
+E287,MAS,Masco Corp,equity,US,USD,Industrials
+E288,MCD,Mcdonald S Corp,equity,US,USD,Consumer Discretionary
+E289,MCHP,Microchip Technology Inc,equity,US,USD,Information Technology
+E290,MCK,Mckesson Corp,equity,US,USD,Health Care
+E291,MCO,Moody S Corp,equity,US,USD,Financials
+E292,MDLZ,Mondelez International Inc A,equity,US,USD,Consumer Staples
+E293,MDT,Medtronic Plc,equity,US,USD,Health Care
+E294,MET,Metlife Inc,equity,US,USD,Financials
+E295,META,Meta Platforms Inc Class A,equity,US,USD,Communication Services
+E296,MGM,Mgm Resorts International,equity,US,USD,Consumer Discretionary
+E297,MKC,Mccormick + Co Non Vtg Shrs,equity,US,USD,Consumer Staples
+E298,MLM,Martin Marietta Materials,equity,US,USD,Materials
+E299,MMM,3M Co,equity,US,USD,Industrials
+E300,MNST,Monster Beverage Corp,equity,US,USD,Consumer Staples
+E301,MO,Altria Group Inc,equity,US,USD,Consumer Staples
+E302,MOS,Mosaic Co/The,equity,US,USD,Materials
+E303,MPC,Marathon Petroleum Corp,equity,US,USD,Energy
+E304,MPWR,Monolithic Power Systems Inc,equity,US,USD,Information Technology
+E305,MRK,Merck + Co. Inc.,equity,US,USD,Health Care
+E306,MRNA,Moderna Inc,equity,US,USD,Health Care
+E307,MRSH,Marsh + Mclennan Cos,equity,US,USD,Financials
+E308,MRVL,Marvell Technology Inc,equity,US,USD,Information Technology
+E309,MS,Morgan Stanley,equity,US,USD,Financials
+E310,MSCI,Msci Inc,equity,US,USD,Financials
+E311,MSI,Motorola Solutions Inc,equity,US,USD,Information Technology
+E312,MTB,M + T Bank Corp,equity,US,USD,Financials
+E313,MTD,Mettler Toledo International,equity,US,USD,Health Care
+E314,MU,Micron Technology Inc,equity,US,USD,Information Technology
+E315,NCLH,Norwegian Cruise Line Holdin,equity,US,USD,Consumer Discretionary
+E316,NDAQ,Nasdaq Inc,equity,US,USD,Financials
+E317,NDSN,Nordson Corp,equity,US,USD,Industrials
+E318,NEE,Nextera Energy Inc,equity,US,USD,Utilities
+E319,NEM,Newmont Corp,equity,US,USD,Materials
+E320,NFLX,Netflix Inc,equity,US,USD,Communication Services
+E321,NI,Nisource Inc,equity,US,USD,Utilities
+E322,NKE,Nike Inc  Cl B,equity,US,USD,Consumer Discretionary
+E323,NOC,Northrop Grumman Corp,equity,US,USD,Industrials
+E324,NOW,Servicenow Inc,equity,US,USD,Information Technology
+E325,NRG,Nrg Energy Inc,equity,US,USD,Utilities
+E326,NSC,Norfolk Southern Corp,equity,US,USD,Industrials
+E327,NTAP,Netapp Inc,equity,US,USD,Information Technology
+E328,NTRS,Northern Trust Corp,equity,US,USD,Financials
+E329,NUE,Nucor Corp,equity,US,USD,Materials
+E330,NVR,Nvr Inc,equity,US,USD,Consumer Discretionary
+E331,NWS,News Corp   Class B,equity,US,USD,Communication Services
+E332,NWSA,News Corp   Class A,equity,US,USD,Communication Services
+E333,NXPI,Nxp Semiconductors Nv,equity,US,USD,Information Technology
+E334,O,Realty Income Corp,equity,US,USD,Real Estate
+E335,ODFL,Old Dominion Freight Line,equity,US,USD,Industrials
+E336,OKE,Oneok Inc,equity,US,USD,Energy
+E337,OKTA,Okta Inc,equity,US,USD,Information Technology
+E338,OMC,Omnicom Group,equity,US,USD,Communication Services
+E339,ON,On Semiconductor,equity,US,USD,Information Technology
+E340,ORCL,Oracle Corp,equity,US,USD,Information Technology
+E341,ORLY,O Reilly Automotive Inc,equity,US,USD,Consumer Discretionary
+E342,OTIS,Otis Worldwide Corp,equity,US,USD,Industrials
+E343,OXY,Occidental Petroleum Corp,equity,US,USD,Energy
+E344,P,Everpure Inc A,equity,US,USD,Information Technology
+E345,PANW,Palo Alto Networks Inc,equity,US,USD,Information Technology
+E346,PAYX,Paychex Inc,equity,US,USD,Industrials
+E347,PCAR,Paccar Inc,equity,US,USD,Industrials
+E348,PCG,P G + E Corp,equity,US,USD,Utilities
+E349,PEG,Public Service Enterprise Gp,equity,US,USD,Utilities
+E350,PEP,Pepsico Inc,equity,US,USD,Consumer Staples
+E351,PFE,Pfizer Inc,equity,US,USD,Health Care
+E352,PFG,Principal Financial Group,equity,US,USD,Financials
+E353,PGR,Progressive Corp,equity,US,USD,Financials
+E354,PH,Parker Hannifin Corp,equity,US,USD,Industrials
+E355,PHM,Pultegroup Inc,equity,US,USD,Consumer Discretionary
+E356,PKG,Packaging Corp Of America,equity,US,USD,Materials
+E357,PLD,Prologis Inc,equity,US,USD,Real Estate
+E358,PLTR,Palantir Technologies Inc A,equity,US,USD,Information Technology
+E359,PM,Philip Morris International,equity,US,USD,Consumer Staples
+E360,PNC,Pnc Financial Services Group,equity,US,USD,Financials
+E361,PNR,Pentair Plc,equity,US,USD,Industrials
+E362,PNW,Pinnacle West Capital,equity,US,USD,Utilities
+E363,PODD,Insulet Corp,equity,US,USD,Health Care
+E364,PPG,Ppg Industries Inc,equity,US,USD,Materials
+E365,PPL,Ppl Corp,equity,US,USD,Utilities
+E366,PRU,Prudential Financial Inc,equity,US,USD,Financials
+E367,PSA,Public Storage,equity,US,USD,Real Estate
+E368,PSX,Phillips 66,equity,US,USD,Energy
+E369,PTC,Ptc Inc,equity,US,USD,Information Technology
+E370,PWR,Quanta Services Inc,equity,US,USD,Industrials
+E371,PYPL,Paypal Holdings Inc,equity,US,USD,Financials
+E372,Q,Qnity Electronics Inc,equity,US,USD,Information Technology
+E373,QCOM,Qualcomm Inc,equity,US,USD,Information Technology
+E374,RCL,Royal Caribbean Cruises Ltd,equity,US,USD,Consumer Discretionary
+E375,RDDT,Reddit Inc Cl A,equity,US,USD,Communication Services
+E376,REG,Regency Centers Corp,equity,US,USD,Real Estate
+E377,REGN,Regeneron Pharmaceuticals,equity,US,USD,Health Care
+E378,RF,Regions Financial Corp,equity,US,USD,Financials
+E379,RJF,Raymond James Financial Inc,equity,US,USD,Financials
+E380,RL,Ralph Lauren Corp,equity,US,USD,Consumer Discretionary
+E381,RMD,Resmed Inc,equity,US,USD,Health Care
+E382,ROK,Rockwell Automation Inc,equity,US,USD,Industrials
+E383,ROL,Rollins Inc,equity,US,USD,Industrials
+E384,ROP,Roper Technologies Inc,equity,US,USD,Information Technology
+E385,ROST,Ross Stores Inc,equity,US,USD,Consumer Discretionary
+E386,RSG,Republic Services Inc,equity,US,USD,Industrials
+E387,RTX,Rtx Corp,equity,US,USD,Industrials
+E388,RVTY,Revvity Inc,equity,US,USD,Health Care
+E389,SBAC,Sba Communications Corp,equity,US,USD,Real Estate
+E390,SBUX,Starbucks Corp,equity,US,USD,Consumer Discretionary
+E391,SCHW,Schwab (Charles) Corp,equity,US,USD,Financials
+E392,SHW,Sherwin Williams Co/The,equity,US,USD,Materials
+E393,SJM,Jm Smucker Co/The,equity,US,USD,Consumer Staples
+E394,SKYD,Skydance Corp,equity,US,USD,Communication Services
+E395,SLB,Slb Ltd,equity,US,USD,Energy
+E396,SMCI,Super Micro Computer Inc,equity,US,USD,Information Technology
+E397,SNA,Snap On Inc,equity,US,USD,Industrials
+E398,SNDK,Sandisk Corp,equity,US,USD,Information Technology
+E399,SNPS,Synopsys Inc,equity,US,USD,Information Technology
+E400,SO,Southern Co/The,equity,US,USD,Utilities
+E401,SOLV,Solventum Corp,equity,US,USD,Health Care
+E402,SPG,Simon Property Group Inc,equity,US,USD,Real Estate
+E403,SPGI,S+P Global Inc,equity,US,USD,Financials
+E404,SRE,Sempra,equity,US,USD,Utilities
+E405,STE,Steris Plc,equity,US,USD,Health Care
+E406,STLD,Steel Dynamics Inc,equity,US,USD,Materials
+E407,STT,State Street Corp,equity,US,USD,Financials
+E408,STX,Seagate Technology Holdings,equity,US,USD,Information Technology
+E409,STZ,Constellation Brands Inc A,equity,US,USD,Consumer Staples
+E410,SW,Smurfit Westrock Plc,equity,US,USD,Materials
+E411,SWK,Stanley Black + Decker Inc,equity,US,USD,Industrials
+E412,SWKS,Skyworks Solutions Inc,equity,US,USD,Information Technology
+E413,SYF,Synchrony Financial,equity,US,USD,Financials
+E414,SYK,Stryker Corp,equity,US,USD,Health Care
+E415,SYY,Sysco Corp,equity,US,USD,Consumer Staples
+E416,T,At+T Inc,equity,US,USD,Communication Services
+E417,TDG,Transdigm Group Inc,equity,US,USD,Industrials
+E418,TDY,Teledyne Technologies Inc,equity,US,USD,Information Technology
+E419,TECH,Bio Techne Corp,equity,US,USD,Health Care
+E420,TEL,Te Connectivity Plc,equity,US,USD,Information Technology
+E421,TER,Teradyne Inc,equity,US,USD,Information Technology
+E422,TFC,Truist Financial Corp,equity,US,USD,Financials
+E423,TGT,Target Corp,equity,US,USD,Consumer Staples
+E424,TJX,Tjx Companies Inc,equity,US,USD,Consumer Discretionary
+E425,TKO,Tko Group Holdings Inc,equity,US,USD,Communication Services
+E426,TMO,Thermo Fisher Scientific Inc,equity,US,USD,Health Care
+E427,TMUS,T Mobile Us Inc,equity,US,USD,Communication Services
+E428,TPL,Texas Pacific Land Corp,equity,US,USD,Energy
+E429,TPR,Tapestry Inc,equity,US,USD,Consumer Discretionary
+E430,TRGP,Targa Resources Corp,equity,US,USD,Energy
+E431,TRMB,Trimble Inc,equity,US,USD,Information Technology
+E432,TROW,T Rowe Price Group Inc,equity,US,USD,Financials
+E433,TRV,Travelers Cos Inc/The,equity,US,USD,Financials
+E434,TSCO,Tractor Supply Company,equity,US,USD,Consumer Discretionary
+E435,TSN,Tyson Foods Inc Cl A,equity,US,USD,Consumer Staples
+E436,TT,Trane Technologies Plc,equity,US,USD,Industrials
+E437,TTWO,Take Two Interactive Softwre,equity,US,USD,Communication Services
+E438,TWLO,Twilio Inc   A,equity,US,USD,Information Technology
+E439,TXN,Texas Instruments Inc,equity,US,USD,Information Technology
+E440,TXT,Textron Inc,equity,US,USD,Industrials
+E441,TYL,Tyler Technologies Inc,equity,US,USD,Information Technology
+E442,UAL,United Airlines Holdings Inc,equity,US,USD,Industrials
+E443,UBER,Uber Technologies Inc,equity,US,USD,Industrials
+E444,UDR,Udr Inc,equity,US,USD,Real Estate
+E445,UHS,Universal Health Services B,equity,US,USD,Health Care
+E446,ULTA,Ulta Beauty Inc,equity,US,USD,Consumer Discretionary
+E447,UNH,Unitedhealth Group Inc,equity,US,USD,Health Care
+E448,UNP,Union Pacific Corp,equity,US,USD,Industrials
+E449,UPS,United Parcel Service Cl B,equity,US,USD,Industrials
+E450,URI,United Rentals Inc,equity,US,USD,Industrials
+E451,USB,Us Bancorp,equity,US,USD,Financials
+E452,V,Visa Inc Class A Shares,equity,US,USD,Financials
+E453,VEEV,Veeva Systems Inc Class A,equity,US,USD,Health Care
+E454,VICI,Vici Properties Inc,equity,US,USD,Real Estate
+E455,VLO,Valero Energy Corp,equity,US,USD,Energy
+E456,VLTO,Veralto Corp,equity,US,USD,Industrials
+E457,VMC,Vulcan Materials Co,equity,US,USD,Materials
+E458,VMRK,Vivmark Residential,equity,US,USD,Real Estate
+E459,VRSK,Verisk Analytics Inc,equity,US,USD,Industrials
+E460,VRSN,Verisign Inc,equity,US,USD,Information Technology
+E461,VRT,Vertiv Holdings Co A,equity,US,USD,Industrials
+E462,VRTX,Vertex Pharmaceuticals Inc,equity,US,USD,Health Care
+E463,VST,Vistra Corp,equity,US,USD,Utilities
+E464,VTR,Ventas Inc,equity,US,USD,Real Estate
+E465,VTRS,Viatris Inc,equity,US,USD,Health Care
+E466,VZ,Verizon Communications Inc,equity,US,USD,Communication Services
+E467,WAB,Wabtec Corp,equity,US,USD,Industrials
+E468,WAT,Waters Corp,equity,US,USD,Health Care
+E469,WDAY,Workday Inc Class A,equity,US,USD,Information Technology
+E470,WDC,Western Digital Corp,equity,US,USD,Information Technology
+E471,WEC,Wec Energy Group Inc,equity,US,USD,Utilities
+E472,WELL,Welltower Inc,equity,US,USD,Real Estate
+E473,WFC,Wells Fargo + Co,equity,US,USD,Financials
+E474,WM,Waste Management Inc,equity,US,USD,Industrials
+E475,WMB,Williams Cos Inc,equity,US,USD,Energy
+E476,WMT,Walmart Inc,equity,US,USD,Consumer Staples
+E477,WRB,Wr Berkley Corp,equity,US,USD,Financials
+E478,WSM,Williams Sonoma Inc,equity,US,USD,Consumer Discretionary
+E479,WST,West Pharmaceutical Services,equity,US,USD,Health Care
+E480,WTW,Willis Towers Watson Plc,equity,US,USD,Financials
+E481,WY,Weyerhaeuser Co,equity,US,USD,Real Estate
+E482,WYNN,Wynn Resorts Ltd,equity,US,USD,Consumer Discretionary
+E483,XEL,Xcel Energy Inc,equity,US,USD,Utilities
+E484,XYL,Xylem Inc,equity,US,USD,Industrials
+E485,XYZ,Block Inc,equity,US,USD,Financials
+E486,YUM,Yum  Brands Inc,equity,US,USD,Consumer Discretionary
+E487,ZBH,Zimmer Biomet Holdings Inc,equity,US,USD,Health Care
+E488,ZBRA,Zebra Technologies Corp Cl A,equity,US,USD,Information Technology
+E489,ZTS,Zoetis Inc,equity,US,USD,Health Care

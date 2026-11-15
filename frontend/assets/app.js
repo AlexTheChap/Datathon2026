@@ -1,5 +1,5 @@
 // AlphaForge frontend (box ① of docs/architecture.mmd): plain ES module, no framework, no build step.
-// Talks to the box ② API (POST/GET /v1/runs, GET/PUT /v1/profile, GET /v1/personas, GET /v1/me) and, when
+// Talks to the box ② API (POST/GET /v1/runs, GET/PUT /v1/profile, GET /v1/me) and, when
 // to Amazon Cognito for the login (settings served by the API as config.js, from backend/app/core/signin.json).
 // Every piece of user or server text goes into the page as a text node (never as HTML).
 
@@ -333,7 +333,6 @@ function alertBox(err, what, onRetry) {
 
 const state = {
   profile: undefined, // undefined = not loaded, null = none yet
-  personas: null,
   thread: [],        // the conversation on the Ask page: one turn per question
   sessionId: null,   // the API's conversation id (AgentCore Memory), kept for the follow-up questions
   historyLoaded: false,
@@ -835,7 +834,7 @@ function renderProfile(main) {
       h("h1", null, "Your investor profile"),
       h("p", null, "One question at a time. AlphaForge uses your answers to decide what to analyse and how to explain the results. Only your risk level and experience are required."))));
   const seq = routeSeq;
-  Promise.all([loadProfile(true), loadPersonas()]).then(([profile]) => {
+  loadProfile(true).then((profile) => {
     if (seq !== routeSeq) return; // the person went elsewhere (or came back) meanwhile: never draw twice
     main.append(head, band("body", body));
     body.replaceChildren(profileForm(profile));
@@ -843,11 +842,6 @@ function renderProfile(main) {
     if (seq !== routeSeq) return;
     main.replaceChildren(head, band("body", alertBox(err, "your profile", () => { main.replaceChildren(); renderProfile(main); })));
   });
-}
-async function loadPersonas() {
-  if (state.personas) return state.personas;
-  try { state.personas = (await api("GET", "/v1/personas")).data; } catch { state.personas = []; }
-  return state.personas;
 }
 
 function profileForm(saved) {
@@ -873,14 +867,8 @@ function profileForm(saved) {
       return { profile: fresh, building: Boolean(building) };
     },
   }, { saved, record: store.get(recordKey, null) });
-  const personas = state.personas || [];
-  const examples = personas.length ? h("section", { class: "panel stack-sm", "aria-labelledby": "examples-title" },
-    h("h2", { id: "examples-title", class: "section-title" }, "Start from an example"),
-    h("p", { class: "lede small" }, "The three investors from the challenge brief. Picking one fills every question; nothing is saved until you press Save all."),
-    h("div", { class: "examples" }, personas.map((p) => h("button", { class: "example", type: "button",
-      onclick: () => { steps.fillAll(p.profile_form); announce(`Filled with ${p.name}'s profile. Review it, then save all.`); } },
-      `${p.name}: ${p.summary}`)))) : null;
-  const root = h("div", { class: "stack" }, examples, steps.el);
+  // The challenge's three investors (Amira, Mateo, Robert) are offered as demo accounts at sign-in only.
+  const root = h("div", { class: "stack" }, steps.el);
   state.dirty = false;
   return root;
 }
