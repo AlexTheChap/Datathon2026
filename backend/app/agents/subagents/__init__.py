@@ -27,6 +27,15 @@ REGISTRY: dict[str, Any] = {
 ALL_SUBAGENTS = list(REGISTRY.values())
 
 
+def subagents_for_plan(plan: Any) -> list:
+    """Sub-agents enabled by the box 4 ExecutionPlan (L6), in plan order.
+
+    This is what the orchestrator uses: the plan already applied the task rules AND the profile
+    toggles (including toggles it had to override, e.g. ESG for a controversy exclusion).
+    """
+    return [REGISTRY[a.agent] for a in plan.enabled_agents]
+
+
 def subagents_for_toggles(toggles: Any) -> list:
     """Sub-agents enabled by the profile's agent_toggles (all by default/None)."""
     if toggles is None:
