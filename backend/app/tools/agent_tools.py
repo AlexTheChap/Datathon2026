@@ -14,7 +14,7 @@ from strands import tool
 
 from app.agents.governance import governance_check as _gov  # alias: the @tool below is named governance_check
 from app.core.config import get_settings
-from app.tools.risk_tools import RiskTools
+from app.tools.risk_tools import RiskTools, _eid
 
 # Profile validated by the Intake, set by the orchestrator at the start of a run.
 current_profile: ContextVar[dict[str, Any] | None] = ContextVar("af_current_profile", default=None)
@@ -141,9 +141,29 @@ def governance_check(weights: dict[str, float]) -> dict:
     if isinstance(h, dict):
         profile["horizon_years"] = [h.get("min"), h.get("max")]
     s = get_settings()
-    return _guard(_gov.check, weights, profile,
-                  s.abs_path(s.rules_path), _tools(),
-                  str(s.abs_path(s.curated_dir).parent))
+    result = _guard(_gov.check, weights, profile,
+                    s.abs_path(s.rules_path), _tools(),
+                    str(s.abs_path(s.curated_dir).parent))
+    return governance_envelope(result, weights, profile.get("actor_id"))
+
+
+def governance_envelope(result: dict, weights: dict, actor_id: Any = None) -> dict:
+    """Make a governance verdict citable evidence like the other tools: a stable evidence_id, the weights it
+    judged (the tool call's input is not always kept by the ledger hook) and a plain `say` sentence."""
+    if not isinstance(result, dict) or "error" in result or "verdict" not in result:
+        return result
+    checks = result.get("checks") or []
+    blocked = [c.get("id") for c in checks if c.get("status") == "BLOCK"]
+    warned = [c.get("id") for c in checks if c.get("status") == "WARN"]
+    mix = ", ".join(f"{t} {v:.0%}" for t, v in sorted(weights.items(), key=lambda kv: -kv[1]))
+    say = f"Governance verdict {result['verdict']} for {mix}"
+    if blocked:
+        say += f"; blocked by {', '.join(blocked)}"
+    if warned:
+        say += f"; warnings: {', '.join(warned)}"
+    inputs = {"weights": weights, "actor_id": actor_id, "rules_version": result.get("rules_version")}
+    return {"evidence_id": _eid("governance_check", inputs), "tool": "governance_check",
+            "inputs": {"weights": weights}, **result, "say": say + "."}
 
 
 ALL_TOOLS = [metrics, stress, concentration, correlation, risk_contribution, max_position, governance_check]

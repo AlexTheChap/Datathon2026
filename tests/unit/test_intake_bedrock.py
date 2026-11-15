@@ -20,7 +20,7 @@ MODEL_JSON = {
         "risk_band": "low_moderate", "horizon_min_years": 3, "horizon_max_years": 5, "experience": "advanced",
         "language": "en", "objective": "Preserve capital", "preferences": ["established companies"],
         "constraints": [], "exclusions": [{"type": "asset_class", "value": "crypto", "min_severity": None}],
-        "loss_capacity": None, "capital": 400000,
+        "loss_capacity": None, "capital": 400000, "learning": "unsaid",
     },
     "request": {
         "task": "allocation_proposal", "positions": [{"ticker": "NVIDIA", "weight": 0.2}], "capital": None,

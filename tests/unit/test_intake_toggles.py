@@ -76,7 +76,7 @@ def test_invented_quote_is_dropped():
 
         def extract(self, text, known, feedback=None):
             return IntakeDraft(
-                profile=ProfileDraft(risk_band="moderate", experience="beginner", language="en",
+                profile=ProfileDraft(risk_band="moderate", experience="beginner", language="en", learning="unsaid",
                                      agent_toggle_changes=[AgentToggleChange(agent="esg", enabled=False,
                                                                              quote="I hate ESG")]),
                 request=RequestDraft(task="risk_review", intake_confidence=0.9))

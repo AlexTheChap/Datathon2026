@@ -91,7 +91,7 @@ def _merge_profile(stored: Optional[Profile], draft: IntakeDraft, form: Optional
     merged: dict[str, Any] = stored.model_dump(exclude={"actor_id", "schema_version"}) if stored else {}
     d = draft.profile
 
-    for field in ("risk_band", "experience", "language", "objective", "loss_capacity", "capital"):
+    for field in ("risk_band", "experience", "language", "objective", "loss_capacity", "capital", "wants_to_learn"):
         value = getattr(d, field)
         if value is not None:
             merged[field] = value

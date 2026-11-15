@@ -12,6 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .profile import Experience
 
+ExplainerStyle = Literal["standard", "learning"]
+
 
 class PromptRef(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -19,6 +21,7 @@ class PromptRef(BaseModel):
     schema_version: str = "1.0"
     role: Literal["explainer"] = "explainer"
     experience: Experience
+    style: ExplainerStyle = Field(default="standard", description="learning = terms defined, reasoning taught.")
     version: str = Field(description="`version` field of the template front-matter.")
     key: str = Field(description="Path relative to the templates root, e.g. explainer.advanced.md")
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$", description="Hash of the whole file (traceability).")

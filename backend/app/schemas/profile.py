@@ -61,6 +61,11 @@ class Profile(BaseModel):
     loss_capacity: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="Tolerated loss, as a fraction of capital.")
     capital: Optional[float] = Field(default=None, gt=0, description="Simulated capital, in CAD.")
     agent_toggles: AgentToggles = Field(default_factory=AgentToggles)
+    wants_to_learn: bool = Field(
+        default=False,
+        description="The person wants explanations that teach (terms defined, reasoning shown), e.g. a student. "
+        "Chosen from what they say or the profile form, never from age or other demographics.",
+    )
     agent_toggle_reasons: dict[str, str] = Field(
         default_factory=dict,
         description="Why a toggle was last changed from chat: agent name -> the user's exact words "

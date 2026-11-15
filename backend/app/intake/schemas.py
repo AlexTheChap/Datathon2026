@@ -17,6 +17,9 @@ from app.schemas.execution_plan import AgentName
 from app.schemas.profile import Experience, Language, RiskBand
 
 
+LearningChoice = Literal["learn", "just_answer", "unsaid"]
+
+
 class AgentToggleChange(BaseModel):
     """The user explicitly switched a kind of analysis on or off ("I don't care about the news").
 
@@ -45,6 +48,15 @@ class ProfileDraft(BaseModel):
     exclusions: list[Exclusion] = Field(default_factory=list)
     loss_capacity: Optional[float] = Field(default=None, description="Tolerated loss, as a fraction (0.15 = 15%).")
     capital: Optional[float] = Field(default=None, description="Total simulated capital, in CAD.")
+    # A required enum, not Optional[bool]: Bedrock structured outputs cap the optional fields and unions of a
+    # schema, and one more Optional here made the whole intake schema too complex to compile.
+    learning: LearningChoice = Field(
+        description="'learn' if they want explanations that teach (student, 'I want to understand'); "
+                    "'just_answer' if they ask for just the answer; 'unsaid' if they say nothing about it.")
+
+    @property
+    def wants_to_learn(self) -> Optional[bool]:
+        return {"learn": True, "just_answer": False}.get(self.learning)
     agent_toggle_changes: list[AgentToggleChange] = Field(
         default_factory=list, description="Only analyses the user explicitly turns on or off in this message.")
 

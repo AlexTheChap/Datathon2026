@@ -112,7 +112,8 @@ _RISK = [  # most specific first
 ]
 _EXPERIENCE = [
     ("beginner", r"beginner|novice|never\s+invested|new\s+to\s+investing"),
-    ("advanced", r"advanced|experienced|follow\s+the\s+markets?\s+(?:closely|actively)|actively\s+follow"),
+    ("advanced", r"advanced|experienced|follow\s+the\s+markets?\s+(?:closely|actively)|actively\s+follow|"
+                 r"\b(?:stock\s*)?broker\b|\btrader\b|portfolio\s+manager"),
     ("intermediate", r"intermediate|some\s+experience"),
 ]
 _TASKS = [  # priority: the first match wins
@@ -150,6 +151,9 @@ _MONEY = re.compile(
 _PCT = re.compile(r"(\d+(?:\.\d+)?)\s*%")
 _LOSS = re.compile(r"(?:lose|loss)\D{0,30}?(\d+(?:\.\d+)?)\s*%", re.I)
 _TICKER_TOKEN = re.compile(r"\b[A-Z]{2,5}(?:\.TO|-USD)?\b")
+_LEARN_ON = re.compile(r"\b(?:i'?m|i am)\s+(?:a\s+)?(?:student|learning)\b|\bwant\s+to\s+(?:learn|understand)\b|"
+                       r"\bexplain\s+(?:it|this|that|things)?\s*to\s+me\b|\bteach\s+me\b", re.I)
+_LEARN_OFF = re.compile(r"\bjust\s+(?:give\s+me\s+)?the\s+answer\b|\bkeep\s+it\s+short\b|\bno\s+explanations?\b", re.I)
 
 # Sub-agent toggles said in chat ("I don't care about the news", "bring back the ESG check").
 _AGENT_WORD = (r"(?P<word>news|headlines|esg|fundamentals|financials|scenarios?|stress[- ]tests?|macro|"
@@ -279,6 +283,7 @@ class MockBackend:
             loss_capacity=loss,
             capital=capital,
             agent_toggle_changes=toggle_changes,
+            learning="learn" if _LEARN_ON.search(text) else ("just_answer" if _LEARN_OFF.search(text) else "unsaid"),
         )
 
         task = "out_of_scope" if _OUT_OF_SCOPE.search(text) else _first(_TASKS, request_text)

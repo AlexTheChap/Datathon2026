@@ -2,10 +2,22 @@
 core/personas.json (Amira, Mateo, Robert). Run from the repo root: python -m pytest -q tests
 """
 import json
+import os
 import sys
 from pathlib import Path
 
 import pytest
+
+# Hermetic tests: app/core/config.py loads the developer's .env into os.environ on import (setdefault), which
+# would point tests at real S3 / DynamoDB / Bedrock with real keys. Pin local settings and dummy AWS credentials
+# first, so .env cannot override them and no test can reach AWS by accident.
+os.environ.update({
+    "AF_PROMPT_SOURCE": "local", "AF_STORE": "memory", "AF_DISPATCH": "none",
+    "AWS_ACCESS_KEY_ID": "testing", "AWS_SECRET_ACCESS_KEY": "testing", "AWS_SESSION_TOKEN": "testing",
+    "AWS_REGION": "us-east-1", "AWS_DEFAULT_REGION": "us-east-1",
+})
+for _key in ("AF_GATEWAY_URL", "AF_KB_ID", "AF_MEMORY_ID", "AWS_PROFILE"):
+    os.environ.pop(_key, None)
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "backend" / "app"

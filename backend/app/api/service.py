@@ -83,6 +83,7 @@ class ApiService:
     profiles: ProfileStore = field(default_factory=InMemoryProfileStore)
     runs: RunStore = field(default_factory=InMemoryRunStore)
     dispatcher: Dispatcher = field(default_factory=NoDispatcher)
+    ledger: Any = None  # evidence ledger (L15/L16); built from the settings on first use
     intake_backend: Optional[IntakeBackend] = None
 
     def _backend(self) -> IntakeBackend:
@@ -136,6 +137,19 @@ class ApiService:
             raise ApiError(404, "Run not found.")
         return run
 
+    # ----- GET /v1/runs/{run_id}/evidence -----
+    def get_evidence(self, actor_id: str, run_id: str) -> list[dict[str, Any]]:
+        """The run's evidence catalogue for the evidence panel (owner only, like the run itself)."""
+        self.get_run(actor_id, run_id)
+        if self.ledger is None:
+            from app.core.config import get_settings
+            from app.store.ledger import make_ledger
+
+            self.ledger = make_ledger(get_settings())
+        from app.agents.evidence import build_catalog
+
+        return [item.for_user() for item in build_catalog(self.ledger.records(run_id)).values()]
+
     # ----- GET / PUT /v1/profile -----
     def get_profile(self, actor_id: str) -> Profile:
         profile = self.profiles.get(actor_id)
@@ -184,17 +198,28 @@ def example_personas(path: Path = PERSONAS_PATH) -> list[dict[str, Any]]:
 
 
 def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
-    """AF_STORE=memory (default, local) | dynamodb (AF_TABLE, default "alphaforge")."""
+    """AF_STORE=memory (default, local) | dynamodb (AF_TABLE, default "alphaforge").
+    AF_DISPATCH=none (default: runs stay QUEUED) | inline (orchestrator + Explainer in a background thread;
+    calls Bedrock, needs AWS credentials)."""
     env = os.environ if env is None else env
     kind = env.get("AF_STORE", "memory").lower()
     if kind == "memory":
-        return ApiService()
-    if kind == "dynamodb":
+        svc = ApiService()
+    elif kind == "dynamodb":
         import boto3
 
         from app.store.profiles import DynamoDBProfileStore
         from app.store.runs import DynamoDBRunStore
 
         table = boto3.resource("dynamodb").Table(env.get("AF_TABLE", "alphaforge"))
-        return ApiService(profiles=DynamoDBProfileStore(table), runs=DynamoDBRunStore(table))
-    raise ValueError(f"Unknown AF_STORE: {kind!r} (expected: memory or dynamodb)")
+        svc = ApiService(profiles=DynamoDBProfileStore(table), runs=DynamoDBRunStore(table))
+    else:
+        raise ValueError(f"Unknown AF_STORE: {kind!r} (expected: memory or dynamodb)")
+    mode = env.get("AF_DISPATCH", "none").lower()
+    if mode == "inline":
+        from app.api.dispatch import BackgroundDispatcher, InlineDispatcher
+
+        svc.dispatcher = BackgroundDispatcher(InlineDispatcher(svc.runs))
+    elif mode != "none":
+        raise ValueError(f"Unknown AF_DISPATCH: {mode!r} (expected: none or inline)")
+    return svc

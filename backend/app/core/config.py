@@ -42,10 +42,13 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="AF_", env_file=str(REPO_ROOT / ".env"),
                                       env_file_encoding="utf-8", extra="ignore")
 
-    # Bedrock models — node ⑤: Sonnet for the orchestrator (and the Explainer later),
-    # Haiku for the sub-agents.
-    model_orchestrator: str = "anthropic.claude-sonnet-4-5-v1:0"
+    # Bedrock models — node ⑤: Sonnet for the orchestrator and the Explainer, Haiku for the sub-agents.
+    # On-demand Bedrock calls need an inference profile ("us." prefix): the bare
+    # "anthropic.claude-sonnet-5-5" and the old "anthropic.claude-sonnet-4-5-v1:0" are refused.
+    model_orchestrator: str = "us.anthropic.claude-sonnet-5-5"
     model_subagent: str = "us.anthropic.claude-haiku-5-5"
+    model_explainer: str = "us.anthropic.claude-sonnet-5-5"
+    explainer_effort: str = "medium"   # low | medium | high (Sonnet 5.5 effort; thinking stays adaptive)
     aws_region: str = "us-east-1"
 
     # AgentCore Memory (L17) — empty = no persistent memory (local development).

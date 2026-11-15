@@ -21,7 +21,7 @@ from app.context import (
     resolve_explainer_prompt,
     source_from_env,
 )
-from app.context.prompt_loader import PROMPTS_DIR, explainer_key
+from app.context.prompt_loader import LEARNING_LEVELS, PROMPTS_DIR, explainer_key, explainer_style
 from app.schemas.execution_plan import ExecutionPlan
 from app.schemas.profile import Experience
 from app.schemas.prompt_ref import PromptRef
@@ -61,7 +61,8 @@ def test_templates_are_ascii_english_only():
 def test_no_template_without_a_matching_experience_level():
     """Every Explainer template is reachable from the Profile.experience values (no orphan).
     Other roles' prompts (e.g. intake.md, box ③) share the folder and are ignored here."""
-    assert sorted(f.name for f in PROMPTS_DIR.glob("explainer.*.md")) == sorted(explainer_key(e) for e in EXPERIENCES)
+    expected = [explainer_key(e) for e in EXPERIENCES] + [explainer_key(e, "learning") for e in LEARNING_LEVELS]
+    assert sorted(f.name for f in PROMPTS_DIR.glob("explainer.*.md")) == sorted(expected)
 
 
 def test_personas_get_their_own_template(make_profile):
@@ -98,7 +99,7 @@ def test_bumped_version_is_refused(make_profile, local_copy):
     src = LocalPromptSource(local_copy)
     ref = resolve_explainer_prompt(make_profile("robert"), src)
     path = local_copy / ref.key
-    path.write_text(path.read_text(encoding="utf-8").replace("version: 1.0.0", "version: 1.1.0"), encoding="utf-8")
+    path.write_text(path.read_text(encoding="utf-8").replace("version: 1.1.0", "version: 1.2.0"), encoding="utf-8")
     with pytest.raises(PromptVersionMismatch):
         load_prompt(ref, src)
 
@@ -224,3 +225,34 @@ def test_handler_rejects_french_profile(example_profile, example_request):
     p = example_profile.model_dump(mode="json") | {"language": "fr"}
     with pytest.raises(ValidationError):
         handler({"profile": p, "request": example_request.model_dump(mode="json")})
+
+
+
+# ---------- Explanation style: who the reader is, not their age ----------
+
+@pytest.mark.parametrize("experience, learn, key", [
+    ("beginner", False, "explainer.beginner.md"),                  # straight to the point
+    ("beginner", True, "explainer.beginner.learning.md"),          # a student: terms defined, reasoning taught
+    ("intermediate", True, "explainer.intermediate.learning.md"),
+    ("advanced", True, "explainer.advanced.md"),                    # already in depth: no separate learning file
+    ("advanced", False, "explainer.advanced.md"),                   # a broker: technical and dense
+])
+def test_style_follows_experience_and_wish_to_learn(make_profile, experience, learn, key):
+    ref = resolve_explainer_prompt(make_profile("amira", experience=experience, wants_to_learn=learn), LocalPromptSource())
+    assert ref.key == key
+    assert ref.style == explainer_style(experience, learn)
+    tpl = load_prompt(ref, LocalPromptSource())
+    assert ("glossary" in tpl.body) and (("3 to 6 entries" in tpl.body or "4 to 8 entries" in tpl.body) == (ref.style == "learning"))
+
+
+def test_template_with_the_wrong_style_is_refused(make_profile, tmp_path):
+    text = (PROMPTS_DIR / "explainer.beginner.learning.md").read_text(encoding="utf-8").replace("style: learning", "style: standard")
+    (tmp_path / "explainer.beginner.learning.md").write_text(text, encoding="utf-8")
+    with pytest.raises(PromptFormatError):
+        resolve_explainer_prompt(make_profile("amira", experience="beginner", wants_to_learn=True), LocalPromptSource(tmp_path))
+
+
+def test_every_template_carries_the_evidence_rules():
+    for f in PROMPTS_DIR.glob("explainer.*.md"):
+        body = f.read_text(encoding="utf-8")
+        assert "Evidence only" in body and "short_answer_evidence" in body and "version: 1.1.0" in body, f.name

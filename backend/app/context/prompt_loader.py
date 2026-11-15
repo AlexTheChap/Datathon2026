@@ -3,12 +3,13 @@
 Deterministic code, no LLM. Two steps, as in the diagram:
 
 - `resolve_explainer_prompt(profile)` (context Lambda, L5) → PromptRef: keys only
-  (level, version, sha256) that travel in the InvokeAgentRuntime payload (L7);
+  (level, style, version, sha256) that travel in the InvokeAgentRuntime payload (L7);
 - `load_prompt(ref)` (AgentCore Runtime, before the Explainer) → PromptTemplate: reloads the
   template and refuses to use it if its version or content changed since resolution.
 
-Templates: backend/app/prompts/explainer.<experience>.md, with a YAML front-matter
-(role, experience, version). Source chosen by the AF_PROMPT_SOURCE variable:
+Templates: backend/app/prompts/explainer.<experience>.md, plus explainer.<experience>.learning.md for a reader who
+wants to learn (beginner and intermediate; an advanced reader already gets the in-depth one), each with a YAML
+front-matter (role, experience, style, version). Source chosen by the AF_PROMPT_SOURCE variable:
 
 - `local` (default): AF_PROMPT_DIR, otherwise backend/app/prompts/;
 - `s3`: s3://AF_PROMPT_BUCKET/AF_PROMPT_PREFIX<key> (prefix defaults to "prompts/"), requires boto3.
@@ -104,14 +105,22 @@ def source_from_env(env: Optional[dict[str, str]] = None) -> PromptSource:
 class PromptTemplate:
     role: str
     experience: str
+    style: str
     version: str
     key: str
     sha256: str
     body: str
 
 
-def explainer_key(experience: str) -> str:
-    return f"{ROLE}.{experience}.md"
+LEARNING_LEVELS = ("beginner", "intermediate")  # advanced readers already get the in-depth template
+
+
+def explainer_style(experience: str, wants_to_learn: bool) -> str:
+    return "learning" if wants_to_learn and experience in LEARNING_LEVELS else "standard"
+
+
+def explainer_key(experience: str, style: str = "standard") -> str:
+    return f"{ROLE}.{experience}.md" if style == "standard" else f"{ROLE}.{experience}.{style}.md"
 
 
 def _parse(key: str, text: str) -> tuple[dict, str]:
@@ -131,18 +140,20 @@ def _parse(key: str, text: str) -> tuple[dict, str]:
     return meta, body
 
 
-def _template(key: str, text: str, experience: str) -> PromptTemplate:
+def _template(key: str, text: str, experience: str, style: str = "standard") -> PromptTemplate:
     # Normalize line endings (and a stray BOM) before parsing AND hashing: a Windows checkout
     # (core.autocrlf=true) yields CRLF files, which would otherwise fail the "---\n" front-matter
     # check and give a different sha256 than the same template published from Linux.
     text = text.lstrip("﻿").replace("\r\n", "\n")
     meta, body = _parse(key, text)
-    for field, value in {"role": ROLE, "experience": experience}.items():
+    meta.setdefault("style", "standard")  # templates written before styles existed
+    for field, value in {"role": ROLE, "experience": experience, "style": style}.items():
         if str(meta[field]) != value:
             raise PromptFormatError(f"{key}: {field} = {meta[field]!r} in the front-matter, expected {value!r}")
     return PromptTemplate(
         role=ROLE,
         experience=experience,
+        style=style,
         version=str(meta["version"]),
         key=key,
         sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
@@ -153,15 +164,16 @@ def _template(key: str, text: str, experience: str) -> PromptTemplate:
 def resolve_explainer_prompt(profile: Profile, source: Optional[PromptSource] = None) -> PromptRef:
     """L5: Profile → PromptRef (keys only) for the Explainer template."""
     src = source or source_from_env()
-    key = explainer_key(profile.experience)
-    tpl = _template(key, src.read(key), profile.experience)
-    return PromptRef(experience=tpl.experience, version=tpl.version, key=tpl.key, sha256=tpl.sha256)
+    style = explainer_style(profile.experience, profile.wants_to_learn)
+    key = explainer_key(profile.experience, style)
+    tpl = _template(key, src.read(key), profile.experience, style)
+    return PromptRef(experience=tpl.experience, style=style, version=tpl.version, key=tpl.key, sha256=tpl.sha256)
 
 
 def load_prompt(ref: PromptRef, source: Optional[PromptSource] = None) -> PromptTemplate:
     """L7: PromptRef → template, on the Runtime side. Raises PromptVersionMismatch if the file changed."""
     src = source or source_from_env()
-    tpl = _template(ref.key, src.read(ref.key), ref.experience)
+    tpl = _template(ref.key, src.read(ref.key), ref.experience, ref.style)
     if tpl.version != ref.version or tpl.sha256 != ref.sha256:
         raise PromptVersionMismatch(
             f"{ref.key}: expected version {ref.version} / sha256 {ref.sha256[:12]}…, "

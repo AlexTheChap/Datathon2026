@@ -16,8 +16,11 @@
 %%   interface) · quant + analysis tools in-process (agent_tools.py, analysis_tools.py over
 %%   data/curated CSVs) · AgentCore entrypoint (app/entrypoint.py, not yet deployed) ·
 %%   AF_* / .env config · sub-agents chosen from the ④ ExecutionPlan (L6).
-%%   ② API (backend/app/api/: FastAPI, POST/GET /v1/runs, GET/PUT /v1/profile, DynamoDB-ready stores;
-%%   not deployed yet, runs stay QUEUED: no dispatcher to AgentCore) · ③ Intake (deployed Lambda
+%%   ② API (backend/app/api/: FastAPI, POST/GET /v1/runs, GET/PUT /v1/profile, GET /v1/runs/{id}/evidence,
+%%   DynamoDB-ready stores; not deployed yet) · L6 dispatcher in-process (AF_DISPATCH=inline: a background
+%%   thread runs ⑤ then the Explainer; default `none` leaves runs QUEUED) · ⑤ Explainer (app/agents/
+%%   explainer.py: Claude Sonnet on Bedrock, structured sections, deterministic claim check, retry once then
+%%   remove, honest fallback; style from experience × wants_to_learn) · ③ Intake (deployed Lambda
 %%   alphaforge-intake; chat toggles saved in the profile) · ④ plan resolver + Explainer prompt loader
 %%   (deployed Lambda alphaforge-context, templates in S3).
 %% DIVERGES from target (by design for the prototype): dispatch = agents-as-tools
@@ -26,8 +29,9 @@
 %%   tools called in-process (no Gateway/MCP yet) · ledger = JSONL not DynamoDB ·
 %%   news = simulated (no KB feed yet).
 %% ① + ⑦ frontend (frontend/: HTML/CSS/JS, no build step; sign-in, ask, profile form, analysis plan, light+dark;
-%%   served by the API locally, not deployed yet; result view shows the answer once ⑤ writes it).
-%% NOT BUILT: L6 dispatcher (API → AgentCore Runtime) · Explainer agent · file upload ·
+%%   served by the API locally, not deployed yet; ⑦ result view: short answer, verdicts, key points,
+%%   glossary for learners, numbered evidence chips → evidence panel, what the claim check removed).
+%% NOT BUILT: L6 dispatcher to AgentCore Runtime (Lambda) · file upload · Guardrails grounding check (L18) ·
 %%   Guardrails (wired in the Intake, needs AF_GUARDRAIL_ID) · Memory (wired, needs AF_MEMORY_ID) ·
 %%   optimizer tool.
 %% =====================================================================================
@@ -54,7 +58,7 @@ flowchart TB
   %% AWS: Lambda (plain Python code) · S3 or Bedrock Prompt Management (versioned templates)
   subgraph CTX["④ Context resolution — deterministic code, no LLM"]
     PLAN{{"Plan resolver<br/>task × profile × toggles → enabled sub-agents"}}
-    LOAD{{"Prompt loader<br/>Explainer prompt by experience level<br/>(versioned explainer.level.md templates in S3)"}}
+    LOAD{{"Prompt loader<br/>Explainer prompt by experience level × wants to learn<br/>(versioned explainer.level[.learning].md templates in S3)"}}
   end
 
   %% ===== 5. Agents =====
@@ -71,7 +75,7 @@ flowchart TB
       ALLOC["Allocation<br/>(self-verifies via GOV)"]
     end
     GOV["Governance check — deterministic<br/>rules.yaml → PASS / WARN / BLOCK"]
-    EXP["Explainer agent · Claude Sonnet<br/>cites evidence only + claim verifier"]
+    EXP["Explainer agent · Claude Sonnet<br/>cites evidence only + deterministic claim check (retry once, then remove)"]
   end
 
   %% ===== 6. Tools & data =====
@@ -117,15 +121,18 @@ flowchart TB
   %%      (backend/app/core/plan_registry.yaml, or AWS AppConfig as an option). Output: ExecutionPlan.
   PROF --> PLAN
   REQ --> PLAN
-  %% L5  Profile → Prompt loader: Lambda; picks the Explainer template (experience level). Source: Git
-  %%      (backend/app/prompts/explainer.<level>.md), published to S3 by scripts/deploy_context_lambda.py
-  %%      (AF_PROMPT_SOURCE=s3); option: Bedrock Prompt Management. Output: PromptRef (level, version, sha256).
+  %% L5  Profile → Prompt loader: Lambda; picks the Explainer template from experience × wants_to_learn
+  %%      (5 templates: beginner/intermediate get a ".learning" variant with a glossary; advanced has one).
+  %%      wants_to_learn comes from the profile form or from what the user says ("I'm a student"), never from
+  %%      age or other demographics. Source: Git (backend/app/prompts/explainer.<level>[.learning].md),
+  %%      published to S3 by scripts/deploy_context_lambda.py (AF_PROMPT_SOURCE=s3); option: Bedrock Prompt
+  %%      Management. Output: PromptRef (level, style, version, sha256).
   PROF --> LOAD
   %% L6  Plan → Orchestrator: DynamoDB (run QUEUED) → "dispatcher" Lambda (asynchronous invocation)
   %%      → AgentCore Runtime (InvokeAgentRuntime). API / agents boundary; IAM for the call.
   PLAN -->|"ExecutionPlan"| ORCH
-  %% L7  Prompt loader → Explainer: only keys travel (level, version) in the payload
-  %%      InvokeAgentRuntime; the Runtime loads the template from S3 / Prompt Management.
+  %% L7  Prompt loader → Explainer: only keys travel (level, style, version, sha256) in the run record; the
+  %%      Explainer loads the template and refuses it if its version or sha256 changed since planning.
   LOAD -.->|"prompts"| EXP
   %% L8  Orchestrator → Sub-agents: TARGET: Strands graph in AgentCore Runtime, plan-driven
   %%      parallel nodes. CURRENT: agents-as-tools — ORCH calls each <domain>_subagent
@@ -141,7 +148,8 @@ flowchart TB
   %% L10 Governance → caller: the verdict returns to whoever called the tool (ORCH or ALLOC);
   %%      max 2 loops implemented inside ALLOC's iterate-to-PASS.
   GOV -->|"verdict (PASS / WARN / BLOCK)"| ORCH
-  %% L11 Governance → Explainer: inside the Runtime; coded findings + checks + disabled agents.
+  %% L11 Governance → Explainer: the orchestrator's own governance verdicts (from the ledger) + the plan's
+  %%      disabled agents; each written check must match its verdict's evidence, else the verdict is shown as is.
   GOV -->|"PASS / WARN"| EXP
   %% L12 Sub-agents → Tools: TARGET: AgentCore Gateway (MCP, SigV4/OAuth auth, optional Cedar
   %%      Policy) → quant tool Lambdas. CURRENT: direct in-process calls — sub-agents own their
@@ -163,13 +171,15 @@ flowchart TB
   %%      one record (seq, caller agent tag, tool, inputs, envelope), incl. nested sub-agent
   %%      calls and failures. Viewer: scripts/show_run.py.
   GW -->|"each call = 1 evidence"| DDB
-  %% L16 DynamoDB → Explainer: reads (Query) the evidence ledger via the get_evidence tool.
+  %% L16 DynamoDB → Explainer: reads the run's ledger (EvidenceLedger.records) and builds an evidence catalogue
+  %%      (every evidence_id, nested ones linked to their parent); the claim check compares each stated
+  %%      number with the evidence it cites. Same catalogue served by GET /v1/runs/{id}/evidence.
   DDB -.->|"evidence ledger"| EXP
   %% L17 Orchestrator ↔ Memory: AgentCore Memory (short term: session; long term: preferences
   %%      per actorId) via the Strands session manager.
   ORCH <-.-> MEM
-  %% L18 Explainer → DynamoDB: RunResult written (S3 if > 400 KB); Guardrails grounding check
-  %%      on the short answer.
+  %% L18 Explainer → DynamoDB: RunRecord.result["answer"] (RunAnswer: sections, citations, verification,
+  %%      model, PromptRef) via the RunStore. Target: S3 if > 400 KB; Guardrails grounding check (not built).
   EXP -->|"RunResult"| DDB
   %% L19 Explainer → Result view: in practice the frontend polls GET /v1/runs/{id} (API Gateway + Lambda
   %%      that reads DynamoDB). Option: API Gateway REST with response streaming (SSE) for progress.

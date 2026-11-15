@@ -1,0 +1,213 @@
+"""Explainer (box ⑤ EXP): evidence catalogue, claim check, answer paths. No AWS: a fake client plays Bedrock,
+the evidence is a real run's ledger (Robert, "20% in Nvidia") saved in tests/fixtures."""
+import json
+import types
+from pathlib import Path
+
+import pytest
+
+from app.agents.claim_check import check, context_numbers, stated_numbers
+from app.agents.evidence import build_catalog, governance_items
+from app.agents.explainer import SHORT_ANSWER_REMOVED, explain
+from app.context import resolve_context
+from app.context.prompt_loader import LocalPromptSource
+from app.core.config import Settings
+from app.schemas import Request
+from app.schemas.execution_plan import ExecutionPlan
+from app.schemas.prompt_ref import PromptRef
+from app.schemas.run_result import ExplainerDraft
+
+LEDGER = [json.loads(line) for line in
+          (Path(__file__).resolve().parents[1] / "fixtures" / "ledger_robert_nvda.jsonl").read_text().splitlines()]
+SETTINGS = Settings(model_explainer="test-model", explainer_effort="low")
+
+
+@pytest.fixture(scope="module")
+def catalog():
+    return build_catalog(LEDGER)
+
+
+def make_run(make_profile, task="allocation_proposal", **profile_overrides):
+    profile = make_profile("robert", **profile_overrides)
+    request = Request(request_id="req-x", actor_id=profile.actor_id, task=task,
+                      user_message="I'm thinking of putting 20% in Nvidia, everyone is talking about it.",
+                      positions=[{"ticker": "NVDA", "weight": 0.2}], toggles={"include_rag": True},
+                      as_of="2026-11-12", intake_confidence=0.9)
+    ctx = resolve_context(profile, request, LocalPromptSource())
+    return types.SimpleNamespace(profile=profile, request=request, execution_plan=ExecutionPlan(**ctx["execution_plan"]),
+                                 prompt_ref=PromptRef(**ctx["prompt_ref"]))
+
+
+GOOD = {
+    "short_answer": "A 20% Nvidia position is blocked: the 2022 replay's worst point is -24.2%, past the -15% limit.",
+    "short_answer_evidence": ["ev-c5f01b9379", "ev-9de6c73e44"],
+    "key_points": [{"text": "Nvidia is 20% of the weight but about 78% of the risk.", "evidence": ["ev-4a54cab2ec"]},
+                   {"text": "That mix would have lost about $96,712 on $400,000 at its worst point.", "evidence": ["ev-c5f01b9379"]}],
+    "checks": [{"allocation": "Your idea: Nvidia at 20%", "verdict": "BLOCK", "text": "Stress loss -21.1% vs -15%.",
+                "evidence": ["ev-9de6c73e44"]}],
+    "limitations": [{"text": "Only one crisis, 2022, is in the data.", "evidence": []}],
+    "glossary": [{"term": "Maximum drawdown", "meaning": "The biggest fall from a peak."}],
+    "clarifying_question": None,
+}
+
+
+def draft(**changes):
+    return ExplainerDraft(**{**GOOD, **changes})
+
+
+class FakeClient:
+    """messages.parse returns the queued drafts (or raises), and records every request."""
+
+    def __init__(self, *answers):
+        self.answers, self.calls = list(answers), []
+        self.messages = self
+
+    def parse(self, **kwargs):
+        self.calls.append(kwargs)
+        a = self.answers.pop(0)
+        if isinstance(a, Exception):
+            raise a
+        if a == "refusal":
+            return types.SimpleNamespace(stop_reason="refusal", parsed_output=None)
+        return types.SimpleNamespace(stop_reason="end_turn", parsed_output=a)
+
+
+def run_explain(run, client, orchestrator=None, records=LEDGER):
+    return explain(run, orchestrator or {"status": "DONE", "summary": "draft notes"}, records, client=client,
+                   settings=SETTINGS, prompt_source=LocalPromptSource())
+
+
+# ---------- Evidence catalogue ----------
+
+def test_catalogue_finds_nested_ids_the_ledger_list_misses(catalog):
+    for cited in ("ev-9de6c73e44", "ev-aae1dc8931", "ev-5173e5ad06"):  # cited by the real answer, only nested
+        assert cited in catalog and "MAX_STRESS_LOSS" in catalog[cited].say
+    assert catalog["ev-9de6c73e44"].parent == "E-015" or catalog["ev-9de6c73e44"].parent  # linked to its verdict
+    assert {g.verdict for g in governance_items(catalog)} >= {"BLOCK", "PASS"}
+
+
+def test_model_view_has_no_raw_series(catalog):
+    view = json.dumps([i.for_model() for i in catalog.values()])
+    assert len(view) < 40_000 and "ev-c5f01b9379" in view
+
+
+# ---------- Claim check ----------
+
+def test_numbers_in_text_are_read_with_their_units():
+    found = {(s.raw, s.kind) for s in stated_numbers("lost -24% (-$97k on $400,000) in 2022 from 2021-11-29; 3 checks; ratio 1.33")}
+    assert found == {("-24%", "pct"), ("-$97k", "money"), ("$400,000", "money"), ("1.33", "plain")}
+
+
+def test_backed_claims_pass_and_invented_ones_fail(catalog):
+    ctx = context_numbers({"capital": 400000}, {"user_message": "20% in Nvidia"})
+    issues, unknown = check(draft(), catalog, ctx)
+    assert issues == [] and unknown == 0
+    bad = draft(key_points=[{"text": "Nvidia returned +35% in 2022.", "evidence": ["ev-c5f01b9379"]}])
+    issues, _ = check(bad, catalog, ctx)
+    assert [i.section for i in issues] == ["key_points"] and "35%" in issues[0].reason
+
+
+def test_unknown_ids_and_wrong_verdicts_are_caught(catalog):
+    d = draft(key_points=[{"text": "Volatility is 51% a year.", "evidence": ["ev-0000000000"]}],
+              checks=[{"allocation": "Your idea", "verdict": "PASS", "text": "Fine.", "evidence": ["ev-9de6c73e44"]}])
+    issues, unknown = check(d, catalog, set())
+    reasons = " | ".join(i.reason for i in issues)
+    assert unknown == 1 and "does not exist" in reasons and "51%" in reasons and "says PASS" in reasons
+
+
+def test_a_check_citing_a_detail_inherits_its_verdict(catalog):
+    """Citing the stress check inside a governance result counts as citing that result's verdict."""
+    issues, _ = check(draft(), catalog, set())
+    assert not [i for i in issues if i.section == "checks"]
+
+
+# ---------- Answer paths ----------
+
+def test_out_of_scope_is_declined_without_a_model_call(make_profile):
+    client = FakeClient()
+    answer = run_explain(make_run(make_profile, task="out_of_scope"), client)
+    assert answer.kind == "declined" and "never places real trades" in answer.short_answer and client.calls == []
+
+
+def test_failed_analysis_gives_an_evidence_only_fallback(make_profile):
+    answer = run_explain(make_run(make_profile), FakeClient(), orchestrator={"status": "FAILED", "error": "boom"})
+    assert answer.kind == "fallback" and "boom" in answer.note
+    assert all(p.evidence for p in answer.key_points)  # every sentence is an evidence `say`, cited
+
+
+def test_clean_answer_in_one_call(make_profile):
+    client = FakeClient(draft())
+    answer = run_explain(make_run(make_profile), client)
+    assert answer.kind == "explained" and len(client.calls) == 1
+    assert answer.verification.claims_checked == 5 and answer.verification.removed == [] and not answer.verification.retried
+    assert answer.prompt.key == "explainer.advanced.md" and answer.model == "test-model"
+
+
+def test_request_sent_to_bedrock(make_profile):
+    client = FakeClient(draft())
+    run_explain(make_run(make_profile), client)
+    call = client.calls[0]
+    assert call["model"] == "test-model" and call["output_format"] is ExplainerDraft
+    assert call["output_config"] == {"effort": "low"}
+    assert call["system"][0]["cache_control"] == {"type": "ephemeral"} and "Explainer" in call["system"][0]["text"]
+    payload = json.loads(call["messages"][0]["content"])
+    assert payload["question"].startswith("I'm thinking of putting 20%") and payload["reader"]["experience"] == "advanced"
+    assert {g["verdict"] for g in payload["governance"]} == {"BLOCK", "PASS"}  # the orchestrator's final verdicts only
+
+
+def test_retry_fixes_the_answer(make_profile):
+    bad = draft(key_points=[{"text": "Nvidia returned +35% in 2022.", "evidence": ["ev-c5f01b9379"]}])
+    client = FakeClient(bad, draft())
+    answer = run_explain(make_run(make_profile), client)
+    assert len(client.calls) == 2 and answer.verification.retried and answer.verification.removed == []
+    feedback = client.calls[1]["messages"][-1]["content"]
+    assert "35%" in feedback and "Return the whole answer again" in feedback
+
+
+def test_what_still_fails_after_the_retry_is_removed(make_profile):
+    bad = draft(short_answer="Nvidia soared in 2022, up 312%.",
+                key_points=GOOD["key_points"] + [{"text": "It returned +35%.", "evidence": ["ev-c5f01b9379"]}])
+    answer = run_explain(make_run(make_profile), FakeClient(bad, bad))
+    assert answer.short_answer == SHORT_ANSWER_REMOVED
+    assert [p.text for p in answer.key_points] == [p["text"] for p in GOOD["key_points"]]
+    assert {r.section for r in answer.verification.removed} == {"short_answer", "key_points"}
+
+
+def test_verdicts_never_disappear(make_profile):
+    """If every written check fails, the verdicts come straight from the governance evidence."""
+    bad = draft(checks=[{"allocation": "x", "verdict": "PASS", "text": "Fine.", "evidence": ["ev-9de6c73e44"]}])
+    answer = run_explain(make_run(make_profile), FakeClient(bad, bad))
+    assert {c.verdict for c in answer.checks} == {"BLOCK", "PASS"}
+
+
+def test_inline_ids_are_moved_out_of_the_text(make_profile):
+    d = draft(short_answer="Blocked: worst point -24.2% vs -15% [ev-c5f01b9379] (ev-9de6c73e44).")
+    answer = run_explain(make_run(make_profile), FakeClient(d))
+    assert answer.short_answer == "Blocked: worst point -24.2% vs -15%."
+
+
+@pytest.mark.parametrize("failure", [RuntimeError("bedrock down"), "refusal"])
+def test_api_error_or_refusal_falls_back(make_profile, failure):
+    answer = run_explain(make_run(make_profile), FakeClient(failure))
+    assert answer.kind == "fallback" and "unavailable" in answer.note
+
+
+def test_template_changed_since_planning_falls_back(make_profile):
+    run = make_run(make_profile)
+    run.prompt_ref = run.prompt_ref.model_copy(update={"sha256": "0" * 64})
+    client = FakeClient(draft())
+    answer = run_explain(run, client)
+    assert answer.kind == "fallback" and "template" in answer.note and client.calls == []
+
+
+def test_glossary_only_for_readers_who_want_to_learn(make_profile):
+    standard = run_explain(make_run(make_profile, experience="beginner"), FakeClient(draft()))
+    learning = run_explain(make_run(make_profile, experience="beginner", wants_to_learn=True), FakeClient(draft()))
+    assert standard.glossary == [] and [g.term for g in learning.glossary] == ["Maximum drawdown"]
+    assert learning.prompt.key == "explainer.beginner.learning.md"
+
+
+def test_what_the_user_switched_off_is_listed(make_profile):
+    answer = run_explain(make_run(make_profile, agent_toggles={"news": False},
+                                  agent_toggle_reasons={"news": "I don't care about the news"}), FakeClient(draft()))
+    assert any("I don't care about the news" in line for line in answer.not_analysed)

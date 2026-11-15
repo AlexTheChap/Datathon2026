@@ -4,8 +4,8 @@
 // Every piece of user or server text goes into the page as a text node (never as HTML).
 
 const API_BASE = window.AF_API_BASE || ""; // same origin by default (the API serves this folder locally)
-const POLL_EVERY_MS = 5000;
-const POLL_MAX = 6;
+const POLL_EVERY_MS = 4000;
+const POLL_MAX = 45; // ~3 minutes: a real analysis (agents + Explainer) takes about a minute
 
 /* ---------------- Vocabulary: one plain name per thing, used everywhere ---------------- */
 
@@ -514,7 +514,7 @@ function renderAsk(main) {
       parts.push(h("p", null, names.length
         ? `AlphaForge will look at: ${names.join(", ")}.`
         : "Nothing to analyse: this request asks for something a simulation can't do. The answer will explain why."));
-      parts.push(h("div", { class: "notice" }, h("a", { class: "link-btn", href: `#/runs/${r.run_id}` }, "See the plan")));
+      parts.push(h("div", { class: "notice" }, h("a", { class: "link-btn", href: `#/runs/${r.run_id}` }, "See the analysis")));
     }
     for (const change of r.toggle_changes || []) parts.push(drawToggleChange(change));
     if ((r.warnings || []).length) parts.push(h("ul", { class: "warning-list" }, r.warnings.map((w) => h("li", null, w))));
@@ -608,6 +608,7 @@ function profileSummary(p) {
       h("dt", null, "Risk level"), h("dd", null, titleOf(RISK, p.risk_band)),
       h("dt", null, "Horizon"), h("dd", null, horizonText(p.horizon_years)),
       h("dt", null, "Experience"), h("dd", null, titleOf(EXPERIENCE, p.experience)),
+      h("dt", null, "Answers"), h("dd", null, p.wants_to_learn ? "Explained so you learn" : "Straight to the point"),
       p.capital ? [h("dt", null, "Capital"), h("dd", { class: "num" }, money(p.capital))] : null,
       h("dt", null, "Limits"), h("dd", null, limits.length ? limits.join(", ") : "None"),
       h("dt", null, "Analyses off"), h("dd", null, off.length ? off.join(", ") : "None")),
@@ -711,6 +712,11 @@ function profileForm(saved, initialStatus = null) {
   form.append(
     radioGroup("risk_band", "Risk level", "How much ups and downs you can live with.", RISK),
     radioGroup("experience", "Experience", "This changes how answers are explained, not what is analysed.", EXPERIENCE),
+    h("div", { class: "panel panel--plain" }, h("div", { class: "switch-row" },
+      h("div", { class: "switch-row__text" },
+        h("label", { for: "wants_to_learn", class: "choice__title" }, "Explain things so I learn"),
+        h("span", { class: "small muted", id: "wants_to_learn-help" }, "Answers explain the terms they use and why the numbers matter. For beginner and intermediate levels; advanced answers already assume the terms.")),
+      h("input", { class: "switch", type: "checkbox", role: "switch", id: "wants_to_learn", name: "wants_to_learn", "aria-describedby": "wants_to_learn-help" }))),
     h("fieldset", null,
       h("legend", null, "Investment horizon ", h("span", { class: "optional" }, "(optional)")),
       h("p", { class: "legend-help" }, "When you expect to need the money. Leave the second box empty for “or more”."),
@@ -778,6 +784,7 @@ function profileForm(saved, initialStatus = null) {
     set("preferences", (p.preferences || []).join("\n"));
     for (const l of LIMITS) form.elements.namedItem(`limit-${l.key}`).checked = (p.exclusions || []).some((e) => e.type === l.exclusion.type);
     for (const a of AGENT_ORDER) form.elements.namedItem(`toggle-${a}`).checked = !p.agent_toggles || p.agent_toggles[a] !== false;
+    form.elements.namedItem("wants_to_learn").checked = !!p.wants_to_learn;
     form._otherExclusions = (p.exclusions || []).filter((e) => !LIMITS.some((l) => l.exclusion.type === e.type));
     clearErrors();
   }
@@ -795,6 +802,7 @@ function profileForm(saved, initialStatus = null) {
       preferences: form.elements.namedItem("preferences").value.split("\n").map((s) => s.trim()).filter(Boolean),
       exclusions: [...LIMITS.filter((l) => form.elements.namedItem(`limit-${l.key}`).checked).map((l) => l.exclusion), ...(form._otherExclusions || [])],
       agent_toggles: Object.fromEntries(AGENT_ORDER.map((a) => [a, form.elements.namedItem(`toggle-${a}`).checked])),
+      wants_to_learn: form.elements.namedItem("wants_to_learn").checked,
     };
     return out;
   }
@@ -897,6 +905,131 @@ function profileForm(saved, initialStatus = null) {
 
 /* ---------------- Run (the plan) ---------------- */
 
+/* ---------------- The answer (box ⑤ Explainer) ---------------- */
+
+const TOOL_NAMES = {
+  stress: "Crisis replay", metrics: "Risk measures", max_position: "Largest safe position", risk_contribution: "Risk contribution",
+  correlation: "Correlations", concentration: "Concentration", governance_check: "Profile rules check",
+  risk_subagent: "Risk analysis summary", macro_subagent: "Scenario analysis summary", esg_subagent: "ESG summary",
+  fundamentals_subagent: "Company facts summary", news_subagent: "News summary (simulated)", allocation_subagent: "Allocation summary",
+};
+const VERDICTS = {
+  BLOCK: { word: "Blocked", cls: "block", icon: "alert" }, PASS: { word: "Passes", cls: "pass", icon: "check" },
+  WARN: { word: "Warning", cls: "warn", icon: "alert" }, NON_VERIFIE: { word: "Not verified", cls: "unverified", icon: "alert" },
+};
+const toolName = (t) => TOOL_NAMES[t] || (String(t || "").endsWith(" detail") ? "Profile rules check, detail" : t);
+
+function drawAnswer(run) {
+  const a = run.result && run.result.answer;
+  const section = h("section", { class: "panel answer", "aria-labelledby": "answer-title" }, h("h2", { id: "answer-title" }, "Answer"));
+  if (!a) {
+    const waiting = run.status === "QUEUED" || run.status === "RUNNING";
+    section.append(h("div", { class: "empty" },
+      h("p", null, run.status === "FAILED" ? "No answer: the analysis stopped before the end." : "The answer will appear here."),
+      run.status === "QUEUED" && run.note ? h("p", { class: "muted small" }, "The analysis agents aren't connected to this app, so for now an analysis stops at this plan.") : null,
+      run.status === "RUNNING" ? h("p", { class: "muted small" }, "Working on it: the agents gather the evidence, then the answer is written and checked.") : null,
+      !waiting && run.result && run.result.answer_error ? h("p", { class: "muted small" }, "The explanation could not be written this time.") : null));
+    return section;
+  }
+
+  // Number the evidence in order of first citation: [1], [2]... (ids stay in the evidence list)
+  const order = [];
+  const cite = (ids) => (ids || []).forEach((id) => { if (!order.includes(id)) order.push(id); });
+  cite(a.short_answer_evidence); a.checks.forEach((c) => cite(c.evidence)); a.key_points.forEach((p) => cite(p.evidence));
+  a.limitations.forEach((p) => cite(p.evidence));
+  const chips = (ids) => (ids || []).length ? h("span", { class: "chips" }, ids.map((id) => h("button", {
+    class: "chip", type: "button", "aria-label": `Evidence ${order.indexOf(id) + 1}`, title: id,
+    onclick: () => focusEvidence(id),
+  }, String(order.indexOf(id) + 1)))) : null;
+
+  section.append(h("p", { class: "answer__short" }, a.short_answer, " ", chips(a.short_answer_evidence)));
+  if (a.kind !== "explained" && a.note) section.append(h("p", { class: "notice" }, a.note));
+  if (a.clarifying_question) section.append(h("p", { class: "notice" }, h("strong", null, "One question for you: "), a.clarifying_question));
+
+  if (a.checks.length) {
+    section.append(h("div", { class: "answer__section" }, h("h3", null, "Profile checks"),
+      h("div", null, a.checks.map((c) => {
+        const v = VERDICTS[c.verdict] || VERDICTS.NON_VERIFIE;
+        return h("div", { class: "check-row" },
+          h("span", { class: `verdict verdict--${v.cls}` }, icon(v.icon, 14), v.word),
+          h("span", { class: "check-row__what" }, c.allocation),
+          h("p", { class: "check-row__text" }, c.text, " ", chips(c.evidence)));
+      }))));
+  }
+  const list = (title, items) => items.length ? h("div", { class: "answer__section" }, h("h3", null, title),
+    h("ul", { class: "answer-list" }, items.map((p) => h("li", null, h("span", null, p.text, " ", chips(p.evidence)))))) : null;
+  section.append(...[list("Key points", a.key_points)].filter(Boolean));
+  if (a.glossary && a.glossary.length) {
+    section.append(h("div", { class: "answer__section" }, h("h3", null, "Words used in this answer"),
+      h("dl", { class: "glossary" }, a.glossary.map((g) => [h("dt", null, g.term), h("dd", null, g.meaning)]))));
+  }
+  section.append(...[list("Limits to keep in mind", a.limitations)].filter(Boolean));
+  if (a.not_analysed && a.not_analysed.length) {
+    section.append(h("div", { class: "answer__section" }, h("h3", null, "Not analysed"),
+      h("ul", { class: "answer-list" }, a.not_analysed.map((t) => h("li", null, t)))));
+  }
+
+  const v = a.verification;
+  if (v) {
+    const removed = v.removed.length;
+    section.append(h("div", { class: "verification" }, icon(removed ? "alert" : "check", 16), h("div", { class: "stack-sm" },
+      h("p", null, removed
+        ? `${v.claims_checked - removed} of ${v.claims_checked} statements were checked against the evidence. ${removed} could not be matched to it and ${removed === 1 ? "was" : "were"} removed.`
+        : `All ${v.claims_checked} statements were checked against the evidence: every figure comes from a cited source.`),
+      removed ? h("details", null, h("summary", null, "What was removed"),
+        h("ul", { class: "warning-list" }, v.removed.map((r) => h("li", null, `${r.text} (${r.reason})`)))) : null)));
+  }
+  section.append(h("p", { class: "small muted" }, a.disclaimer));
+
+  const evidence = h("div", { class: "answer__section", id: "evidence-section" }, h("h3", { id: "evidence-title" }, "Evidence"),
+    h("p", { class: "small muted" }, "Loading the evidence\u2026"));
+  section.append(evidence);
+  loadEvidence(run.run_id, order, evidence);
+  return section;
+}
+
+async function loadEvidence(runId, order, box) {
+  let items;
+  try {
+    items = (await api("GET", `/v1/runs/${encodeURIComponent(runId)}/evidence`)).data;
+  } catch (err) {
+    box.replaceChildren(h("h3", { id: "evidence-title" }, "Evidence"), alertBox(err, "the evidence", () => loadEvidence(runId, order, box)));
+    return;
+  }
+  const byId = Object.fromEntries(items.map((i) => [i.id, i]));
+  const cited = order.filter((id) => byId[id]);
+  const item = (id, n) => {
+    const e = byId[id];
+    return h("li", { class: "evidence-item", id: `evidence-${id}`, tabindex: "-1" },
+      h("div", { class: "evidence-item__head" },
+        n ? h("span", { class: "evidence-item__num" }, String(n)) : null,
+        h("span", { class: "evidence-item__tool" }, toolName(e.tool)),
+        e.verdict ? h("span", { class: `verdict verdict--${(VERDICTS[e.verdict] || VERDICTS.NON_VERIFIE).cls}` }, (VERDICTS[e.verdict] || VERDICTS.NON_VERIFIE).word) : null),
+      h("p", null, e.say || "No summary sentence."),
+      h("p", { class: "evidence-item__meta" }, [e.period ? `Period ${e.period}` : null, `Id ${e.id}`].filter(Boolean).join(". ") + "."),
+      (e.data_sources || []).length ? h("p", { class: "evidence-item__meta" }, `Sources: ${e.data_sources.join("; ")}`) : null,
+      (e.assumptions || []).length ? h("details", null, h("summary", null, "Assumptions"),
+        h("ul", { class: "warning-list" }, e.assumptions.map((x) => h("li", null, x)))) : null);
+  };
+  const rest = items.filter((i) => !cited.includes(i.id));
+  box.replaceChildren(h("h3", { id: "evidence-title" }, "Evidence"),
+    h("p", { class: "small muted" }, "What the analysis tools found, with their sources. The numbers match the answer above."),
+    h("ol", { class: "evidence-list" }, cited.map((id) => item(id, order.indexOf(id) + 1))),
+    rest.length ? h("details", null, h("summary", null, `All other evidence from this analysis (${rest.length})`),
+      h("ol", { class: "evidence-list" }, rest.map((e) => item(e.id, null)))) : null);
+}
+
+function focusEvidence(id) {
+  const el = document.getElementById(`evidence-${id}`);
+  if (!el) return;
+  const details = el.closest("details");
+  if (details) details.open = true;
+  el.scrollIntoView({ block: "center" });
+  el.focus({ preventScroll: true });
+  el.classList.add("is-focus");
+  window.setTimeout(() => el.classList.remove("is-focus"), 2500);
+}
+
 function renderRun(main, runId) {
   const back = h("p", null, h("a", { class: "link-btn", href: "#/ask" }, "All questions"));
   const headSlot = h("div", { class: "stack-sm" }, h("div", { class: "skeleton" }, h("div", { class: "skeleton__bar skeleton__bar--title" })));
@@ -946,7 +1079,7 @@ function renderRun(main, runId) {
     const notNeeded = (plan.disabled_agents || []).filter((d) => /not needed/.test(d.reason));
     const statusLine = {
       QUEUED: "Waiting for the analysis agents.",
-      RUNNING: "The agents are working on it. This page updates by itself.",
+      RUNNING: "AlphaForge is analysing and writing your answer. This takes about a minute; the page updates by itself.",
       DONE: "The analysis is complete.",
       FAILED: run.error || "The analysis stopped with an error.",
     }[run.status];
@@ -983,14 +1116,7 @@ function renderRun(main, runId) {
       notNeeded.length ? h("p", { class: "muted" }, `Not needed for this question: ${notNeeded.map((d) => (AGENTS[d.agent] || { name: d.agent }).name).join(", ")}.`) : null,
       !userOff.length && !notNeeded.length ? h("p", { class: "muted" }, "Nothing was left out.") : null);
 
-    const answer = h("section", { class: "panel stack-sm", "aria-labelledby": "answer-title" },
-      h("h2", { id: "answer-title" }, "Answer"),
-      run.result && run.result.summary
-        ? h("div", { class: "result-text" }, String(run.result.summary).split(/\n{2,}/).map((para) => h("p", null, para)),
-          (run.result.evidence_ids || []).length ? h("p", { class: "small muted" }, `Backed by ${run.result.evidence_ids.length} pieces of evidence.`) : null)
-        : h("div", { class: "empty" },
-          h("p", null, run.status === "FAILED" ? "No answer: the analysis stopped before the end." : "The answer will appear here."),
-          run.status === "QUEUED" ? h("p", { class: "muted small" }, "The analysis agents aren't connected to the app yet, so for now an analysis stops at this plan.") : null));
+    const answer = drawAnswer(run);
 
     const req = run.request;
     const details = h("details", null,
@@ -1001,7 +1127,7 @@ function renderRun(main, runId) {
           req.positions.map((p) => p.weight == null ? p.ticker : `${p.ticker} ${Math.round(p.weight * 100)}%`).join(", "))] : null,
         h("dt", null, "Data up to"), h("dd", { class: "num" }, plan.as_of || "Latest available"),
         h("dt", null, "How sure the reading is"), h("dd", { class: "num" }, `${Math.round(plan.intake_confidence * 100)}%`),
-        h("dt", null, "Explained for"), h("dd", null, `${titleOf(EXPERIENCE, run.prompt_ref.experience)} investors (template ${run.prompt_ref.version})`),
+        h("dt", null, "Explained for"), h("dd", null, `${titleOf(EXPERIENCE, run.prompt_ref.experience)} investors${run.prompt_ref.style === "learning" ? ", explained so you learn" : ""} (template ${run.prompt_ref.version})`),
         (plan.warnings || []).map(plainNote).filter(Boolean).length ? [h("dt", null, "Notes"), h("dd", null,
           h("ul", { class: "warning-list" }, plan.warnings.map(plainNote).filter(Boolean).map((w) => h("li", null, w))))] : null,
         h("dt", null, "Run"), h("dd", { class: "code" }, run.run_id),

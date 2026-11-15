@@ -1,7 +1,8 @@
 """Box ② API (FastAPI): routes of docs/architecture.mmd, link L1 (frontend → API Gateway → Lambda).
 
     POST /v1/runs           {text, profile_form?, portfolio_ref?} → 200 question/message, or 202 {run_id}
-    GET  /v1/runs/{run_id}  → the run (status, plan, result once box ⑤ writes it)
+    GET  /v1/runs/{run_id}  → the run (status, plan, result once box ⑤ writes it, incl. the Explainer's answer)
+    GET  /v1/runs/{run_id}/evidence → the run's evidence catalogue (each item: id, tool, say, period, sources)
     GET  /v1/profile        → the stored profile
     PUT  /v1/profile        → save the profile form
     GET  /v1/personas       → the brief's three example profiles (Amira, Mateo, Robert) as profile forms
@@ -98,6 +99,10 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
     @api.get("/v1/runs/{run_id}", response_model=RunRecord)
     def get_run(run_id: str, actor_id: str = Depends(current_actor)) -> RunRecord:
         return svc.get_run(actor_id, run_id)
+
+    @api.get("/v1/runs/{run_id}/evidence")
+    def get_evidence(run_id: str, actor_id: str = Depends(current_actor)) -> list[dict[str, Any]]:
+        return svc.get_evidence(actor_id, run_id)
 
     @api.get("/v1/profile", response_model=Profile)
     def get_profile(actor_id: str = Depends(current_actor)) -> Profile:
