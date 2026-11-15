@@ -90,6 +90,7 @@ function h(tag, props, ...children) {
 
 const ICONS = {
   check: "M5 12.5l4.5 4.5L19 7.5",
+  user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7.5 8a7.5 7.5 0 0 1 15 0",
   minus: "M6 12h12",
   alert: "M12 8v5m0 3.5v.01M10.3 3.9 2.6 17.3A2 2 0 0 0 4.3 20.3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z",
   moon: "M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z",
@@ -166,13 +167,13 @@ class CognitoError extends Error {
   constructor(type, message) { super(message); this.type = type; }
 }
 
-async function cognito(action, body) {
+async function cognito(action, body, { withClient = true } = {}) {
   let res;
   try {
     res = await fetch(`https://cognito-idp.${CONFIG.region}.amazonaws.com/`, {
       method: "POST",
       headers: { "Content-Type": "application/x-amz-json-1.1", "X-Amz-Target": `AWSCognitoIdentityProviderService.${action}` },
-      body: JSON.stringify({ ClientId: CONFIG.clientId, ...body }),
+      body: JSON.stringify(withClient ? { ClientId: CONFIG.clientId, ...body } : body),
     });
   } catch {
     throw new CognitoError("Network", "AlphaForge can't reach the sign-in service. Check your connection, then try again.");
@@ -197,6 +198,7 @@ function cognitoMessage(err) {
     TooManyRequestsException: TOO_MANY,
     TooManyFailedAttemptsException: TOO_MANY,
     InvalidParameterException: "Check the email address, then try again.",
+    AliasExistsException: "An account already uses this email.",
     CodeDeliveryFailureException: "The email with your code couldn't be sent. Check the address.",
   }[err.type] || "Sign-in didn't work this time. Try again in a moment.";
 }
@@ -204,6 +206,7 @@ function cognitoMessage(err) {
 function setSession(result, email, { keepRefresh = null, reset = true, signedInAt = Date.now() } = {}) {
   store.set(SESSION_KEY, {
     idToken: result.IdToken,
+    accessToken: result.AccessToken, // My profile settings: change email / password, delete the account
     refreshToken: result.RefreshToken || keepRefresh,
     expiresAt: Date.now() + (result.ExpiresIn || 3600) * 1000,
     signedInAt,
@@ -228,6 +231,13 @@ async function refreshSession() {
   } catch { return false; }
 }
 
+/** The Cognito access token (account changes in My profile settings), refreshed when close to expiry. */
+async function accessToken() {
+  const s = readSession();
+  if (!s) return null;
+  if ((Date.now() > s.expiresAt - 60_000 || !s.accessToken) && !(await refreshSession())) return null;
+  return readSession().accessToken;
+}
 async function idToken() {
   const s = readSession();
   if (!s) return null;
@@ -423,6 +433,7 @@ const routes = [
   { re: /^#\/profile$/, nav: "profile", title: "Your profile", view: (main) => renderProfile(main, "auto") },
   { re: /^#\/profile\/form$/, nav: "profile", title: "Your profile", view: (main) => renderProfile(main, "form") },
   { re: /^#\/profile\/assistant$/, nav: "profile", title: "Set up your profile", view: (main) => renderOnboarding(main, onboardingContext()) },
+  { re: /^#\/settings$/, nav: "settings", title: "My profile settings", view: renderSettings },
   { re: /^#\/runs\/([\w-]+)$/, nav: "ask", title: "Analysis plan", view: renderRun },
 ];
 
@@ -480,10 +491,11 @@ function route() {
   document.getElementById("ask-fab").hidden = !signedIn || match.nav === "ask" || Boolean(match.public);
   setWho();
   currentHash = window.location.hash || HOME;
-  for (const link of document.querySelectorAll(".nav__link")) {
-    if (link.dataset.route === match.nav) link.setAttribute("aria-current", "page");
+  for (const link of document.querySelectorAll(".nav__link, .usermenu__item")) {
+    if ((link.dataset.route || "").split(" ").includes(match.nav)) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
   }
+  closeUserMenu();
   placeNavIndicator();
   document.title = `${match.title}, AlphaForge`;
   const main = document.getElementById("main");
@@ -505,10 +517,12 @@ function placeNavIndicator() {
   if (!current || nav.hidden) { bar.style.opacity = "0"; return; }
   const inset = parseFloat(getComputedStyle(current).paddingLeft) || 0;
   bar.style.opacity = "1";
-  bar.style.transform = `translateX(${current.offsetLeft + inset}px) scaleX(${(current.offsetWidth - 2 * inset) / 100})`;
+  const left = current.getBoundingClientRect().left - nav.getBoundingClientRect().left; // the user button sits in its own box
+  bar.style.transform = `translateX(${left + inset}px) scaleX(${(current.offsetWidth - 2 * inset) / 100})`;
   if (!bar.dataset.ready) requestAnimationFrame(() => { bar.dataset.ready = "1"; });
 }
 window.addEventListener("resize", () => placeNavIndicator());
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => placeNavIndicator()); // widths change once the font loads
 
 /* ---------------- Ask: a conversation with AlphaForge ---------------- */
 
@@ -1097,7 +1111,7 @@ function profileForm(saved, initialStatus = null) {
 
   fill(saved || {});
   state.dirty = false;
-  const root = h("div", { class: "columns" }, h("div", { class: "stack" }, examples, form), h("aside", { class: "stack" }, account, smsPanel()));
+  const root = h("div", { class: "columns" }, h("div", { class: "stack" }, examples, form), h("aside", { class: "stack" }, account, settingsPointer()));
   return root;
 }
 
@@ -1415,8 +1429,7 @@ function renderRun(main, runId) {
 
 /* ---------------- News alerts by text (GET / PUT /v1/notifications/sms) ---------------- */
 
-const SMS_WHAT = "At most one text a day with news about the stocks you hold (company filings with the SEC). Facts only, never advice. Reply STOP to any text to stop them.";
-const SMS_PENDING = "af.sms.pending"; // the choice made at sign-up, saved once the new account is signed in
+const SMS_PENDING = "af.sms.pending"; // what older pages stored at sign-up (texts only); read once by flushNotifyChoice
 
 /** Canadian or U.S. mobile number: 10 digits, or 11 starting with 1. The API checks it again. */
 function phoneProblem(v) {
@@ -1425,59 +1438,327 @@ function phoneProblem(v) {
   return "Enter a Canadian or U.S. mobile number, like 514 555 0123.";
 }
 
-/** Saves the choice made on the sign-up form, once the new account has a session. */
-async function flushSmsChoice() {
+/* ---------------- Notifications ("Inform me when…") and My profile settings ---------------- */
+
+const NOTIFY_PENDING = "af.notify.pending"; // the sign-up choice, saved once the new account is signed in
+const ALERT_CHOICES = [
+  { id: "up", label: "A stock I hold goes up" },
+  { id: "down", label: "A stock I hold goes down" },
+  { id: "news", label: "There is news about a stock I hold" },
+];
+const NOTIFY_WHAT = "Only about stocks you hold. Facts only, never advice. You can change this at any time in My profile settings.";
+
+/** The "Inform me when…" fields: which alerts, then how (email or text, with the mobile number).
+ * allowOff adds "Don't notify me" (My profile settings). read() -> { prefs, problem } where problem = { field, message }. */
+function notifyChoiceFields(prefix, { email = () => "", allowOff = false } = {}) {
+  const boxes = ALERT_CHOICES.map((a) => ({ id: a.id, input: h("input", { type: "checkbox", id: `${prefix}-alert-${a.id}`, name: `${prefix}-alerts`, value: a.id }), label: a.label }));
+  const channels = [
+    { id: "email", title: "By email", desc: () => (email() ? `To ${email()}.` : "To the email address of your account.") },
+    { id: "sms", title: "By text message", desc: () => "To a Canadian or U.S. mobile number. Standard text message rates may apply." },
+    ...(allowOff ? [{ id: "off", title: "Don't notify me", desc: () => "No alerts at all. Your mobile number is deleted." }] : []),
+  ].map((c) => ({ ...c, input: h("input", { type: "radio", name: `${prefix}-channel`, id: `${prefix}-channel-${c.id}`, value: c.id }), descEl: h("span", { class: "choice__desc" }) }));
+  const phoneInput = h("input", { class: "input", id: `${prefix}-phone`, name: "phone", type: "tel", inputmode: "tel", autocomplete: "tel-national",
+    placeholder: "514 555 0123", "aria-describedby": `${prefix}-phone-help ${prefix}-phone-error` });
+  const phoneError = h("p", { class: "field__error", id: `${prefix}-phone-error` });
+  const phoneEl = h("div", { class: "field" }, h("label", { class: "field__label", for: `${prefix}-phone` }, "Mobile number"), phoneInput,
+    h("p", { class: "field__help", id: `${prefix}-phone-help` }, "Canada or U.S."), phoneError);
+  phoneInput.addEventListener("input", () => { phoneError.replaceChildren(); phoneInput.removeAttribute("aria-invalid"); });
+  const alertsError = h("p", { class: "field__error", id: `${prefix}-alerts-error` });
+  const how = h("fieldset", { class: "stack-sm notify__how" },
+    h("legend", { class: "field__label" }, "How should we tell you?"),
+    h("div", { class: "choices" }, channels.map((c) => h("label", { class: "choice" }, c.input,
+      h("span", { class: "choice__title" }, c.title), c.descEl))),
+    phoneEl);
+  const channel = () => (channels.find((c) => c.input.checked) || {}).id || null;
+  const sync = () => {
+    const any = boxes.some((b) => b.input.checked);
+    for (const c of channels) c.descEl.textContent = c.desc();
+    how.hidden = !allowOff && !any;
+    if (!channel()) channels[0].input.checked = true;
+    phoneEl.hidden = channel() !== "sms";
+  };
+  for (const b of boxes) b.input.addEventListener("change", () => {
+    alertsError.replaceChildren();
+    if (b.input.checked && channel() === "off") channels[0].input.checked = true; // ticking an alert turns them on
+    sync();
+  });
+  for (const c of channels) c.input.addEventListener("change", () => { sync(); if (channel() === "sms") phoneInput.focus(); });
+  const el = h("fieldset", { class: "stack-sm notify" },
+    h("legend", { class: "field__label" }, "Inform me when… ", allowOff ? null : h("span", { class: "optional" }, "(optional)")),
+    h("div", { class: "choices" }, boxes.map((b) => h("label", { class: "choice" }, b.input, h("span", { class: "choice__title" }, b.label)))),
+    alertsError,
+    h("p", { class: "field__help" }, allowOff ? "Only about stocks you hold. Facts only, never advice." : NOTIFY_WHAT),
+    how);
+  sync();
+  return {
+    el,
+    refresh: sync,
+    set(prefs) {
+      const on = Boolean(prefs && prefs.opt_in);
+      for (const b of boxes) b.input.checked = on && (prefs.alerts || []).includes(b.id);
+      const pick = on ? prefs.channel : allowOff ? "off" : "email";
+      for (const c of channels) c.input.checked = c.id === pick;
+      phoneInput.value = (on && prefs.phone) || "";
+      sync();
+    },
+    read() {
+      const alerts = boxes.filter((b) => b.input.checked).map((b) => b.id);
+      const ch = channel();
+      if (ch === "off" || (!allowOff && !alerts.length)) return { prefs: { opt_in: false }, problem: null };
+      const alertsField = { input: boxes[0].input, error: alertsError };
+      if (!alerts.length) return { prefs: null, problem: { field: alertsField, message: "Pick at least one alert, or choose \u201CDon't notify me\u201D." } };
+      if (ch === "sms") {
+        const problem = phoneProblem(phoneInput.value);
+        if (problem) return { prefs: null, problem: { field: { input: phoneInput, error: phoneError }, message: problem } };
+        return { prefs: { opt_in: true, channel: "sms", phone: phoneInput.value, alerts }, problem: null };
+      }
+      return { prefs: { opt_in: true, channel: "email", alerts }, problem: null };
+    },
+  };
+}
+
+/** Saves the choice made on the sign-up form, once the new account has a session (older pages saved texts only). */
+async function flushNotifyChoice() {
   let pending = null;
-  try { pending = JSON.parse(sessionStorage.getItem(SMS_PENDING) || "null"); sessionStorage.removeItem(SMS_PENDING); } catch { /* ignore */ }
+  try {
+    pending = JSON.parse(sessionStorage.getItem(NOTIFY_PENDING) || "null");
+    const oldSms = JSON.parse(sessionStorage.getItem(SMS_PENDING) || "null");
+    if (!pending && oldSms) pending = { opt_in: true, channel: "sms", phone: oldSms.phone, alerts: ["news"] };
+    sessionStorage.removeItem(NOTIFY_PENDING); sessionStorage.removeItem(SMS_PENDING);
+  } catch { /* ignore */ }
   if (!pending) return;
   try {
-    await api("PUT", "/v1/notifications/sms", pending);
-    announce("Text alerts are on.");
+    await api("PUT", "/v1/notifications", pending);
+    announce("Notifications are on.");
   } catch {
-    announce("Your text alert choice wasn't saved. You can turn alerts on from My profile.");
+    announce("Your notification choice wasn't saved. You can turn notifications on in My profile settings.");
   }
 }
 
-/** "Text alerts" panel of the profile page: opt in or out, and the mobile number. */
-function smsPanel() {
+/** Profile page aside: where notifications and account changes live now. */
+function settingsPointer() {
+  return h("section", { class: "panel panel--plain stack-sm", "aria-labelledby": "settings-pointer-title" },
+    h("h2", { id: "settings-pointer-title", class: "section-title" }, "Notifications and account"),
+    h("p", { class: "small" }, "Alerts by email or text, your email, your password and deleting your account are in My profile settings."),
+    h("a", { class: "link-btn", href: "#/settings" }, "Open My profile settings"));
+}
+
+/** My profile settings (#/settings): email, password, notifications, delete the account. */
+function renderSettings(main) {
+  const session = COGNITO ? readSession() : null;
+  main.append(
+    band("head", h("div", { class: "page-head" },
+      h("h1", null, "My profile settings"),
+      h("p", null, "Your account, your notifications, and deleting your account. Your investor profile is in \u201CSet up my profile\u201D."))),
+    band("body", h("div", { class: "settings stack" },
+      COGNITO ? emailSection(session) : localTestNote(),
+      COGNITO ? passwordSection() : null,
+      notifySection(session),
+      deleteSection(session))));
+}
+
+function localTestNote() {
+  return h("section", { class: "panel stack-sm" }, h("h2", { class: "section-title" }, "Account"),
+    h("p", { class: "small muted" }, `Local test mode: there is no sign-in account to change. You are ${actorId()}.`));
+}
+
+/** One form of the settings page: its own fields, error box and status line. */
+function settingsForm(prefix, title, intro, fields, submitLabel, onSubmit) {
   const status = h("p", { class: "small", role: "status" });
-  const box = h("input", { type: "checkbox", id: "sms-opt-in", name: "sms_opt_in" });
-  const phone = h("input", { class: "input", id: "sms-phone", name: "sms_phone", type: "tel", inputmode: "tel",
-    autocomplete: "tel-national", placeholder: "514 555 0123", "aria-describedby": "sms-phone-help sms-phone-error" });
-  const error = h("p", { class: "field__error", id: "sms-phone-error" });
-  const phoneField = h("div", { class: "field" },
-    h("label", { class: "field__label", for: "sms-phone" }, "Mobile number"), phone,
-    h("p", { class: "field__help", id: "sms-phone-help" }, "Canada or U.S. Standard text message rates may apply."), error);
-  const save = h("button", { class: "btn btn--secondary", type: "button" }, "Save text alerts");
-  const sync = () => { phoneField.hidden = !box.checked; };
-  box.addEventListener("change", () => { sync(); status.replaceChildren(); if (box.checked) phone.focus(); });
-  phone.addEventListener("input", () => { error.replaceChildren(); phone.removeAttribute("aria-invalid"); });
-  save.addEventListener("click", async () => {
-    status.replaceChildren();
-    if (box.checked) {
-      const problem = phoneProblem(phone.value);
-      if (problem) { error.replaceChildren(icon("alert", 14), h("span", null, problem)); phone.setAttribute("aria-invalid", "true"); phone.focus(); return; }
-    }
-    save.disabled = true;
+  const formError = h("div");
+  const submit = h("button", { class: "btn btn--secondary", type: "submit" }, submitLabel);
+  const form = h("form", { class: "stack-sm", novalidate: true, onsubmit: async (e) => {
+    e.preventDefault();
+    status.textContent = ""; formError.replaceChildren();
+    submit.disabled = true; submit.setAttribute("aria-busy", "true");
+    try { await onSubmit({ status, formError, submit }); } finally { submit.disabled = false; submit.removeAttribute("aria-busy"); }
+  } }, ...fields.map((f) => f.el), formError, h("div", null, submit), status);
+  return { submit, status, formError, form, el: h("section", { class: "panel stack-sm", "aria-labelledby": `${prefix}-title` },
+    h("h2", { id: `${prefix}-title`, class: "section-title" }, title), intro ? h("p", { class: "small" }, intro) : null, form) };
+}
+
+function settingsField(prefix, name, label, attrs, help = "") {
+  const id = `${prefix}-${name}`;
+  const input = h("input", { class: "input", id, name, "aria-describedby": `${id}-help ${id}-error`, ...attrs });
+  const error = h("p", { class: "field__error", id: `${id}-error` });
+  input.addEventListener("input", () => { error.replaceChildren(); input.removeAttribute("aria-invalid"); });
+  return { input, error, el: h("div", { class: "field" }, h("label", { class: "field__label", for: id }, label), input,
+    help ? h("p", { class: "field__help", id: `${id}-help` }, help) : null, error) };
+}
+
+function fieldProblem(f, message) {
+  f.error.replaceChildren(icon("alert", 14), h("span", null, message));
+  f.input.setAttribute("aria-invalid", "true");
+  f.input.focus();
+}
+
+function alertLine(message) {
+  return h("div", { class: "alert", role: "alert", tabindex: "-1" }, icon("alert", 18), h("p", { class: "alert__title" }, message));
+}
+
+function settingsCognitoMessage(err, wrongPassword = "The current password is incorrect.") {
+  if (err instanceof CognitoError && err.type === "NotAuthorizedException" && !/token/i.test(err.message)) return wrongPassword;
+  if (err instanceof CognitoError && err.type === "NotAuthorizedException") return "Your session has expired. Sign out and sign in again.";
+  return err instanceof CognitoError ? cognitoMessage(err) : "Something went wrong. Try again.";
+}
+
+function emailSection(session) {
+  const box = h("div");
+  const current = () => (readSession() || {}).email || (session && session.email) || "";
+  function drawAsk() {
+    const email = settingsField("set-email", "new", "New email", { type: "email", autocomplete: "email", inputmode: "email" },
+      "We send a 6-digit code to the new address to confirm it.");
+    const f = settingsForm("set-email", "Email", `You sign in with ${current()}.`, [email], "Change email", async ({ formError }) => {
+      const value = email.input.value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return fieldProblem(email, "Enter a valid email address, like name@example.com.");
+      if (value.toLowerCase() === current().toLowerCase()) return fieldProblem(email, "That is already your email.");
+      const token = await accessToken();
+      if (!token) { formError.replaceChildren(alertLine("Your session has expired. Sign out and sign in again.")); return; }
+      try {
+        await cognito("UpdateUserAttributes", { AccessToken: token, UserAttributes: [{ Name: "email", Value: value }] }, { withClient: false });
+        drawCode(value);
+      } catch (err) { formError.replaceChildren(alertLine(settingsCognitoMessage(err))); }
+    });
+    box.replaceChildren(f.el);
+  }
+  function drawCode(value) {
+    const code = settingsField("set-email", "code", "Code", { type: "text", inputmode: "numeric", autocomplete: "one-time-code", maxlength: "6", class: "input code-input" },
+      `Sent to ${value}.`);
+    const f = settingsForm("set-email", "Email", `Enter the code we sent to ${value}.`, [code], "Confirm new email", async ({ formError }) => {
+      if (!/^\d{6}$/.test(code.input.value.trim())) return fieldProblem(code, "Enter the 6 digits of the code.");
+      const token = await accessToken();
+      if (!token) { formError.replaceChildren(alertLine("Your session has expired. Sign out and sign in again.")); return; }
+      try {
+        await cognito("VerifyUserAttribute", { AccessToken: token, AttributeName: "email", Code: code.input.value.trim() }, { withClient: false });
+        const s = readSession();
+        if (s) store.set(SESSION_KEY, { ...s, email: value });
+        await refreshSession();             // a new ID token carries the new address
+        setWho();
+        announce("Your email was changed.");
+        drawAsk();
+        box.querySelector('[role="status"]').textContent = `Done: you now sign in with ${value}.`;
+      } catch (err) { formError.replaceChildren(alertLine(settingsCognitoMessage(err))); }
+    });
+    box.replaceChildren(f.el);
+    code.input.focus();
+  }
+  drawAsk();
+  return box;
+}
+
+function passwordSection() {
+  const old = settingsField("set-pw", "current", "Current password", { type: "password", autocomplete: "current-password" });
+  const next = settingsField("set-pw", "new", "New password", { type: "password", autocomplete: "new-password" }, PASSWORD_RULE);
+  const f = settingsForm("set-pw", "Password", null, [old, next], "Change password", async ({ status, formError }) => {
+    if (!old.input.value) return fieldProblem(old, "Enter your current password.");
+    const problem = passwordProblem(next.input.value);
+    if (problem) return fieldProblem(next, problem);
+    const token = await accessToken();
+    if (!token) { formError.replaceChildren(alertLine("Your session has expired. Sign out and sign in again.")); return; }
     try {
-      const r = (await api("PUT", "/v1/notifications/sms", { opt_in: box.checked, phone: box.checked ? phone.value : null })).data;
-      phone.value = r.phone || "";
-      status.textContent = r.opt_in ? `Text alerts are on for ${r.phone_masked}.` : "Text alerts are off. Your number was deleted.";
-    } catch (err) {
-      status.replaceChildren(alertBox(err, "your text alert choice", null));
-    } finally { save.disabled = false; }
+      await cognito("ChangePassword", { AccessToken: token, PreviousPassword: old.input.value, ProposedPassword: next.input.value }, { withClient: false });
+      old.input.value = ""; next.input.value = "";
+      status.textContent = "Your password was changed.";
+      announce("Password changed.");
+    } catch (err) { formError.replaceChildren(alertLine(settingsCognitoMessage(err))); }
   });
-  const panel = h("section", { class: "panel stack-sm", "aria-labelledby": "sms-title" },
-    h("h2", { id: "sms-title", class: "section-title" }, "Text alerts"),
-    h("label", { class: "choice" }, box,
-      h("span", { class: "choice__title" }, "Text me news about the stocks I hold"),
-      h("span", { class: "choice__desc" }, SMS_WHAT)),
-    phoneField, h("div", null, save), status);
-  sync();
-  api("GET", "/v1/notifications/sms").then(({ data }) => {
-    box.checked = !!data.opt_in; phone.value = data.phone || ""; sync();
-  }).catch(() => { status.textContent = "Your text alert choice couldn't be loaded."; });
-  return panel;
+  return f.el;
+}
+
+function notifySection(session) {
+  const choice = notifyChoiceFields("set-notify", { allowOff: true, email: () => (readSession() || session || {}).email || "" });
+  const f = settingsForm("set-notify", "Notifications", null, [choice], "Save notifications", async ({ status, formError }) => {
+    const { prefs, problem } = choice.read();
+    if (problem) return fieldProblem(problem.field, problem.message);
+    try {
+      const r = (await api("PUT", "/v1/notifications", prefs)).data;
+      choice.set(r);
+      status.textContent = !r.opt_in ? "Notifications are off. Your mobile number was deleted."
+        : r.channel === "sms" ? `Saved: alerts by text message to ${r.phone_masked}.` : `Saved: alerts by email to ${r.email}.`;
+      announce("Notifications saved.");
+    } catch (err) {
+      const detail = Array.isArray(err.detail) ? err.detail.map((d) => d.msg).join(" ") : null;
+      formError.replaceChildren(detail ? alertLine(detail) : alertBox(err, "your notifications", null));
+    }
+  });
+  api("GET", "/v1/notifications").then(({ data }) => choice.set(data))
+    .catch(() => { f.status.textContent = "Your notification choice couldn't be loaded."; });
+  return f.el;
+}
+
+function deleteSection(session) {
+  const confirmWord = "DELETE";
+  const typed = settingsField("set-delete", "confirm", `To confirm, type ${confirmWord}`, { type: "text", autocomplete: "off", spellcheck: "false" });
+  const f = settingsForm("set-delete", "Delete my account",
+    "This deletes your sign-in account and everything AlphaForge keeps about you: your profile, your portfolio, your analyses and your notification choice. It can't be undone.",
+    [typed], "Delete my account", async ({ formError }) => {
+      if (typed.input.value.trim() !== confirmWord) return fieldProblem(typed, `Type ${confirmWord} in capital letters.`);
+      if (!window.confirm("Delete your account and all its data? This can't be undone.")) return;
+      const token = COGNITO ? await accessToken() : null;
+      if (COGNITO && !token) { formError.replaceChildren(alertLine("Your session has expired. Sign out and sign in again.")); return; }
+      try {
+        await api("DELETE", "/v1/account");
+        if (COGNITO) await cognito("DeleteUser", { AccessToken: token }, { withClient: false });
+      } catch (err) {
+        formError.replaceChildren(err instanceof CognitoError
+          ? alertLine(`Your data was deleted, but the sign-in account wasn't: ${settingsCognitoMessage(err)} Try again.`)
+          : alertBox(err, "your account", null));
+        return;
+      }
+      state.profile = undefined; state.thread = []; state.dirty = false;
+      if (COGNITO) {
+        try { localStorage.removeItem(SESSION_KEY); sessionStorage.setItem("af.signin.msg", "Your account and its data were deleted."); } catch { /* ignore */ }
+        setWho();
+        window.location.hash = "#/signin";
+      } else {
+        try { localStorage.removeItem("af.actor"); } catch { /* ignore */ }
+        setWho();
+        window.location.hash = "#/profile";
+      }
+      announce("Account deleted.");
+    });
+  f.submit.className = "btn btn--danger";
+  f.el.classList.add("panel--danger");
+  return f.el;
+}
+
+/* ---------------- The user menu (round user button): Set up my profile, My profile settings ---------------- */
+
+function userMenuParts() {
+  return { wrap: document.getElementById("usermenu"), btn: document.getElementById("usermenu-btn"), list: document.getElementById("usermenu-list") };
+}
+function closeUserMenu(focusButton = false) {
+  const { btn, list } = userMenuParts();
+  if (!btn || list.hidden) return;
+  list.hidden = true;
+  btn.setAttribute("aria-expanded", "false");
+  if (focusButton) btn.focus();
+}
+function openUserMenu(focusFirst = true) {
+  const { btn, list } = userMenuParts();
+  list.hidden = false;
+  btn.setAttribute("aria-expanded", "true");
+  if (focusFirst) list.querySelector('[role="menuitem"]').focus();
+}
+function initUserMenu() {
+  const { wrap, btn, list } = userMenuParts();
+  if (!btn) return;
+  btn.replaceChildren(icon("user", 20), h("span", { class: "visually-hidden" }, "Your account"));
+  btn.addEventListener("click", () => (list.hidden ? openUserMenu(false) : closeUserMenu()));
+  btn.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") { e.preventDefault(); openUserMenu(true); }
+  });
+  list.addEventListener("keydown", (e) => {
+    const items = [...list.querySelectorAll('[role="menuitem"]')];
+    const i = items.indexOf(document.activeElement);
+    if (e.key === "Escape") { e.preventDefault(); closeUserMenu(true); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+    else if (e.key === "Home") { e.preventDefault(); items[0].focus(); }
+    else if (e.key === "End") { e.preventDefault(); items[items.length - 1].focus(); }
+    else if (e.key === "Tab") closeUserMenu();
+  });
+  document.addEventListener("click", (e) => { if (!wrap.contains(e.target)) closeUserMenu(); });
 }
 
 /* ---------------- Sign in (Amazon Cognito) ---------------- */
@@ -1508,7 +1789,7 @@ function renderSignIn(main) {
     try { next = sessionStorage.getItem("af.next") || HOME; sessionStorage.removeItem("af.next"); } catch { /* ignore */ }
     setWho();
     announce("Signed in.");
-    await flushSmsChoice();
+    await flushNotifyChoice();
     if (window.location.hash === next) route(); else window.location.hash = next;
   }
 
@@ -1600,17 +1881,7 @@ function renderSignIn(main) {
     if (flow.mode === "signup") {
       const email = field("email", "Email", { type: "email", autocomplete: "email", inputmode: "email", value: flow.email }, "We send a 6-digit code to confirm it.");
       const pw = field("password", "Password", { type: "password", autocomplete: "new-password" }, PASSWORD_RULE);
-      const smsBox = h("input", { type: "checkbox", id: "auth-sms", name: "sms" });
-      const phone = field("phone", "Mobile number", { type: "tel", inputmode: "tel", autocomplete: "tel-national", placeholder: "514 555 0123" },
-        "Canada or U.S. Standard text message rates may apply.");
-      phone.el.hidden = true;
-      smsBox.addEventListener("change", () => { phone.el.hidden = !smsBox.checked; if (smsBox.checked) phone.input.focus(); });
-      const smsChoice = h("fieldset", { class: "stack-sm" },
-        h("legend", { class: "field__label" }, "News by text message ", h("span", { class: "optional" }, "(optional)")),
-        h("label", { class: "choice" }, smsBox,
-          h("span", { class: "choice__title" }, "Text me news about the stocks I hold"),
-          h("span", { class: "choice__desc" }, SMS_WHAT)),
-        phone.el);
+      const inform = notifyChoiceFields("auth", { email: () => email.input.value.trim() });
       const submit = primary("Create account");
       fillBox(
         h("div", { class: "page-head" }, h("h2", null, "Create your account"),
@@ -1622,20 +1893,21 @@ function renderSignIn(main) {
           if (!isEmail(flow.email)) return fail(email, "Enter a valid email address, like name@example.com.");
           const problem = passwordProblem(pw.input.value);
           if (problem) return fail(pw, problem);
-          if (smsBox.checked && phoneProblem(phone.input.value)) return fail(phone, phoneProblem(phone.input.value));
+          const pick = inform.read();
+          if (pick.problem) return fail(pick.problem.field, pick.problem.message);
           const done = busy(submit, "Creating");
           try {
             await cognito("SignUp", { Username: flow.email, Password: pw.input.value, UserAttributes: [{ Name: "email", Value: flow.email }] });
             try {
-              if (smsBox.checked) sessionStorage.setItem(SMS_PENDING, JSON.stringify({ opt_in: true, phone: phone.input.value }));
-              else sessionStorage.removeItem(SMS_PENDING);
-            } catch { /* ignore: the choice can be made on the profile page */ }
+              if (pick.prefs.opt_in) sessionStorage.setItem(NOTIFY_PENDING, JSON.stringify(pick.prefs));
+              else sessionStorage.removeItem(NOTIFY_PENDING);
+            } catch { /* ignore: the choice can be made in My profile settings */ }
             flow.password = pw.input.value;
             notice = "";
             flow.mode = "confirm";
             draw();
           } catch (err) { done(); showError(err); }
-        } }, email.el, pw.el, smsChoice, formError, submit),
+        } }, email.el, pw.el, inform.el, formError, submit),
         h("div", { class: "auth-links" }, h("button", { class: "link-btn", type: "button", onclick: () => go("signin") }, "I already have an account")));
     }
 
@@ -1759,5 +2031,6 @@ window.addEventListener("beforeunload", (e) => { if (state.dirty) { e.preventDef
 window.addEventListener("hashchange", route);
 
 drawModeButton();
+initUserMenu();
 setWho();
 route();

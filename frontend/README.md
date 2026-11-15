@@ -33,7 +33,7 @@ page as `config.js`. Nothing to set in `.env`, except `AF_DEMO_PASSWORD` for the
 
 ```bash
 .venv/bin/pip install -e ".[dev,api]"
-cd backend && AF_INTAKE_MODE=mock AF_STORE=file ../.venv/bin/python -m uvicorn app.api.app:app --port 8000
+cd backend && AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app --port 8000
 
 ```
 

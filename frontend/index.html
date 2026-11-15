@@ -40,7 +40,14 @@
         <nav class="nav" aria-label="Main">
           <a class="nav__link" href="#/portfolio" data-route="portfolio">My portfolio</a>
           <a class="nav__link" href="#/ask" data-route="ask">Ask a question</a>
-          <a class="nav__link" href="#/profile" data-route="profile">My profile</a>
+          <div class="usermenu" id="usermenu">
+            <button class="nav__link usermenu__btn" type="button" id="usermenu-btn" data-route="profile settings"
+                    aria-haspopup="menu" aria-expanded="false" aria-controls="usermenu-list" title="Your account"><span class="visually-hidden">Your account</span></button>
+            <div class="usermenu__list" id="usermenu-list" role="menu" aria-label="Your account" hidden>
+              <a class="usermenu__item" role="menuitem" href="#/profile" data-route="profile">Set up my profile</a>
+              <a class="usermenu__item" role="menuitem" href="#/settings" data-route="settings">My profile settings</a>
+            </div>
+          </div>
         </nav>
       </div>
     </div>
@@ -68,6 +75,7 @@
             <li><a href="#/portfolio">My portfolio</a></li>
             <li><a href="#/ask">Ask a question</a></li>
             <li><a href="#/profile">My investor profile</a></li>
+            <li><a href="#/settings">My profile settings</a></li>
           </ul>
         </nav>
         <section aria-labelledby="footer-about">

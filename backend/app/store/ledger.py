@@ -24,6 +24,8 @@ class EvidenceLedger(Protocol):
     def records(self, run_id: str) -> list[dict[str, Any]]: ...
     def evidence_ids(self, run_id: str) -> list[str]: ...
 
+    def delete_run(self, run_id: str) -> None: ...
+
 
 def _truncate(value: Any) -> Any:
     s = json.dumps(value, ensure_ascii=False, default=str)
@@ -53,6 +55,10 @@ class InMemoryLedger:
 
     def evidence_ids(self, run_id: str) -> list[str]:
         return _unique_ids(self.records(run_id))
+
+    def delete_run(self, run_id: str) -> None:
+        with self._lock:
+            self._records.pop(run_id, None)
 
 
 def seq_label(n: int) -> str:
@@ -111,6 +117,11 @@ class JsonlLedger:
     def evidence_ids(self, run_id: str) -> list[str]:
         return _unique_ids(self.records(run_id))
 
+    def delete_run(self, run_id: str) -> None:
+        with self._lock:
+            self._path(run_id).unlink(missing_ok=True)
+            self._counts.pop(run_id, None)
+
 
 class DynamoDBLedger:
     """Evidence ledger in DynamoDB (L15), same single table as profiles and runs.
@@ -163,6 +174,18 @@ class DynamoDBLedger:
             if eid and eid not in seen:
                 seen.append(eid)
         return seen
+
+    def delete_run(self, run_id: str) -> None:
+        """Every item of the run (evidence and the sequence counter)."""
+        kwargs = {"KeyConditionExpression": "PK = :pk", "ExpressionAttributeValues": {":pk": f"RUN#{run_id}"}}
+        while True:
+            page = self.table.query(**kwargs)
+            for i in page.get("Items", []):
+                if i["SK"] != "META":                     # the run record itself belongs to the run store
+                    self.table.delete_item(Key={"PK": i["PK"], "SK": i["SK"]})
+            if "LastEvaluatedKey" not in page:
+                return
+            kwargs["ExclusiveStartKey"] = page["LastEvaluatedKey"]
 
 
 def make_ledger(settings: Any) -> EvidenceLedger:

@@ -67,6 +67,8 @@ class RunStore(Protocol):
 
     def list_for_actor(self, actor_id: str, limit: int = 50) -> list[RunRecord]: ...
 
+    def delete_for_actor(self, actor_id: str) -> list[str]: ...
+
 
 def actor_run_key(actor_id: str, run: RunRecord) -> dict[str, str]:
     """Pointer item for GET /v1/runs: PK "ACTOR#<id>", SK "RUN#<created_at>#<run_id>" (newest last)."""
@@ -91,6 +93,14 @@ class InMemoryRunStore:
         runs = [RunRecord.model_validate_json(r) for r in self._items.values()]
         runs = sorted((r for r in runs if r.actor_id == actor_id), key=lambda r: r.created_at, reverse=True)
         return runs[:limit]
+
+    def delete_for_actor(self, actor_id: str) -> list[str]:
+        """Every run of the actor; returns their ids (their evidence goes too, see ApiService.delete_account)."""
+        with self._lock:
+            ids = [rid for rid, raw in self._items.items() if RunRecord.model_validate_json(raw).actor_id == actor_id]
+            for rid in ids:
+                del self._items[rid]
+        return ids
 
 
 class JsonFileRunStore:
@@ -157,3 +167,20 @@ class DynamoDBRunStore:
                                 ScanIndexForward=False, Limit=limit)
         runs = (self.get(i["run_id"]) for i in page.get("Items", []))
         return [r for r in runs if r is not None and r.actor_id == actor_id]
+
+    def delete_for_actor(self, actor_id: str) -> list[str]:
+        """Every run of the actor (record + pointer); returns their ids."""
+        ids: list[str] = []
+        kwargs = {"KeyConditionExpression": "PK = :pk AND begins_with(SK, :sk)",
+                  "ExpressionAttributeValues": {":pk": f"ACTOR#{actor_id}", ":sk": "RUN#"}}
+        while True:
+            page = self.table.query(**kwargs)
+            for i in page.get("Items", []):
+                run = self.get(i["run_id"])
+                if run is not None and run.actor_id == actor_id:
+                    self.table.delete_item(Key=run_key(run.run_id))
+                    ids.append(run.run_id)
+                self.table.delete_item(Key={"PK": i["PK"], "SK": i["SK"]})
+            if "LastEvaluatedKey" not in page:
+                return ids
+            kwargs["ExclusiveStartKey"] = page["LastEvaluatedKey"]

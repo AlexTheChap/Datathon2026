@@ -21,6 +21,8 @@ class ProfileStore(Protocol):
 
     def put(self, profile: Profile) -> None: ...
 
+    def delete(self, actor_id: str) -> None: ...
+
 
 class InMemoryProfileStore:
     def __init__(self) -> None:
@@ -32,6 +34,9 @@ class InMemoryProfileStore:
 
     def put(self, profile: Profile) -> None:
         self._items[profile_key(profile.actor_id)] = profile.model_dump_json()
+
+    def delete(self, actor_id: str) -> None:
+        self._items.pop(profile_key(actor_id), None)
 
 
 class JsonFileProfileStore:
@@ -57,6 +62,9 @@ class JsonFileProfileStore:
         item = {"PK": pk, "SK": sk, **json.loads(profile.model_dump_json())}
         self._path(profile.actor_id).write_text(json.dumps(item, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    def delete(self, actor_id: str) -> None:
+        self._path(actor_id).unlink(missing_ok=True)
+
 
 class DynamoDBProfileStore:
     """DynamoDB version (box ②): same keys as above, profile kept as one JSON string attribute (`data`) so
@@ -73,3 +81,7 @@ class DynamoDBProfileStore:
     def put(self, profile: Profile) -> None:
         pk, sk = profile_key(profile.actor_id)
         self.table.put_item(Item={"PK": pk, "SK": sk, "data": profile.model_dump_json()})
+
+    def delete(self, actor_id: str) -> None:
+        pk, sk = profile_key(actor_id)
+        self.table.delete_item(Key={"PK": pk, "SK": sk})

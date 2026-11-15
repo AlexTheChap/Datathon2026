@@ -43,7 +43,7 @@ Before writing or reviewing any code, read it. See
 .venv/bin/pip install -e ".[dev,api]"
 
 # Sign-in (Amazon Cognito) is always on: settings in backend/app/core/signin.json, nothing to set in .env
-cd backend && AF_INTAKE_MODE=mock AF_STORE=file ../.venv/bin/python -m uvicorn app.api.app:app --port 8000
+cd backend && AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app --port 8000
 
 ```
 
@@ -125,8 +125,10 @@ python -m app.market.refresh --mode midday --system-certs       # Windows behind
 
 ## News alerts by text message (Amazon SNS)
 
-People choose at sign-up (or later on **My profile → Text alerts**) whether to be texted, and give a Canadian or
-U.S. mobile number only if they say yes. On weekdays at 18:00 (Toronto), the news-alert agent
+At sign-up, "Inform me when…" (optional) asks which alerts a person wants (a stock they hold goes up, goes down,
+or has news) and how: by email or by text message, with a Canadian or U.S. mobile number only for texts. They change
+it later in the user menu → **My profile settings** (also: email, password, delete the account). Alerts are only
+ever about stocks the person holds. This text sender handles the news alerts of people who chose texts. On weekdays at 18:00 (Toronto), the news-alert agent
 (`app.notify.alerts`, no language model) fetches the **SEC 8-K filings of the stocks each person holds** (their
 saved portfolio, nothing else) and sends one short text with at most 3 items. The same filing is never texted
 twice.

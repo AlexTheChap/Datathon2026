@@ -202,7 +202,7 @@ def test_dynamodb_stores_roundtrip_with_planned_keys():
 
 
 def test_service_from_env():
-    svc = service_from_env({})
+    svc = service_from_env({"AF_STORE": "memory"})
     assert isinstance(svc, ApiService) and isinstance(svc.runs, InMemoryRunStore)
     from app.api.dispatch import InlineDispatcher
     assert isinstance(svc.dispatcher, InlineDispatcher)          # queue-free by default

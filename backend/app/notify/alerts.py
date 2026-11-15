@@ -3,7 +3,7 @@
 Deterministic, no language model (the wording is fixed in app.notify.messages). One run (EventBridge Scheduler,
 weekdays 18:00 America/Toronto, scripts/deploy_sms_alerts.py):
 
-  1. people who opted in to texts (ContactStore: opt_in + phone, set at sign-up or on the profile page);
+  1. people who chose text messages and ticked "news" (ContactStore: set at sign-up or in My profile settings);
   2. their HELD stocks = the tickers of their saved portfolio (Profile.portfolio), nothing else: no "similar"
      stock, no suggestion;
   3. the news on those tickers in (since, until] (SEC 8-K filings), fetched once for everybody;
@@ -78,6 +78,8 @@ def run_alerts(contacts: ContactStore, profiles, source: NewsSource, sender: Sen
     """record=False (dry runs): nothing is marked as sent, so the real run still texts the same news."""
     people = []
     for c in contacts.opted_in():
+        if not c.texts_news:          # chose email, or did not tick "news": not for this SMS news run
+            continue
         held = held_tickers(profiles.get(c.actor_id))
         people.append((c, held))
     universe = sorted({t for _, held in people for t in held})

@@ -11,6 +11,10 @@
     POST /v1/profile/draft[/file] → profile fields read from the person's text or a PDF / Word file (onboarding)
     PUT  /v1/profile        → save the profile form
     GET  /v1/personas       → the brief's three example profiles (Amira, Mateo, Robert) as profile forms
+    GET  /v1/notifications → the caller's notification choice (opt_in, channel sms|email, phone, email, alerts)
+    PUT  /v1/notifications {opt_in, channel?, phone?, email?, alerts?} → save it (opting out deletes the addresses)
+    DELETE /v1/account     → erase the caller's data (profile, notification choice, analyses); the page then deletes
+                            the sign-in account itself (Cognito DeleteUser)
     GET  /v1/notifications/sms → the caller's text-alert choice (opt_in, phone)
     PUT  /v1/notifications/sms {opt_in, phone?} → save it (opting out deletes the phone number)
     GET  /v1/me             → who is signed in (actor_id, email, demo persona)
@@ -36,7 +40,7 @@ from fastapi import Body, Depends, FastAPI, File, HTTPException, Request, Upload
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from app.notify.contacts import SmsPrefsIn
+from app.notify.contacts import NotifyPrefsIn, SmsPrefsIn
 from app.schemas import Profile
 from app.store.runs import RunRecord
 
@@ -158,6 +162,21 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
     @api.put("/v1/notifications/sms")
     def put_sms(body: SmsPrefsIn, actor_id: str = Depends(current_actor)) -> dict[str, Any]:
         return svc.put_sms(actor_id, body)
+
+    # Every channel and alert type (sign-up "Inform me when…", My profile settings). Same item as above.
+    @api.get("/v1/notifications")
+    def get_notifications(actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.get_notifications(actor_id)
+
+    @api.put("/v1/notifications")
+    def put_notifications(body: NotifyPrefsIn, request: Request) -> dict[str, Any]:
+        ident = identity_from(request)            # the account's email is the default address for email alerts
+        svc.ensure_demo_profile(ident.actor_id, ident.demo_persona)
+        return svc.put_notifications(ident.actor_id, body, ident.email)
+
+    @api.delete("/v1/account")
+    def delete_account(actor_id: str = Depends(actor_id_from)) -> dict[str, Any]:
+        return svc.delete_account(actor_id)
 
     # Onboarding (box ③): read the person's answers or a document, return the profile fields found. Saves nothing.
     @api.post("/v1/profile/draft")

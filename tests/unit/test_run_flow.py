@@ -99,11 +99,11 @@ def test_local_dispatcher_runs_the_explainer_in_the_background():
 
 
 def test_every_dispatch_mode_gets_the_explainer():
-    assert isinstance(service_from_env({}).dispatcher, InlineDispatcher)             # queue-free default
-    assert isinstance(service_from_env({"AF_DISPATCH": "local"}).dispatcher, LocalDispatcher)
-    assert isinstance(service_from_env({"AF_DISPATCH": "none"}).dispatcher, NoDispatcher)
+    assert isinstance(service_from_env({"AF_STORE": "memory"}).dispatcher, InlineDispatcher)             # queue-free default
+    assert isinstance(service_from_env({"AF_STORE": "memory", "AF_DISPATCH": "local"}).dispatcher, LocalDispatcher)
+    assert isinstance(service_from_env({"AF_STORE": "memory", "AF_DISPATCH": "none"}).dispatcher, NoDispatcher)
     with pytest.raises(ValueError):
-        service_from_env({"AF_DISPATCH": "lambda"})
+        service_from_env({"AF_STORE": "memory", "AF_DISPATCH": "lambda"})
 
 
 def test_evidence_catalog_endpoint_is_owner_only(monkeypatch):
