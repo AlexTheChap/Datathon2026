@@ -95,7 +95,10 @@ class BedrockBackend:
         response = self.client.messages.parse(
             model=self.model,
             max_tokens=4096,
-            system=self.system_prompt,
+            # Prompt caching: the system prompt (role + universe) is identical on every intake call
+            # (chat turn, form save, retry) — Bedrock reads it once per container instead of on
+            # every call. The universe block is far above the 1024-token minimum for Haiku.
+            system=[{"type": "text", "text": self.system_prompt, "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": user}],
             output_format=IntakeDraft,
         )

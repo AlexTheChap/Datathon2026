@@ -52,7 +52,11 @@ def test_bedrock_backend_end_to_end():
     body = captured[0]
     assert body["model"] == "us.anthropic.claude-haiku-5-5"
     assert body["output_config"]["format"]["type"] == "json_schema"
-    assert "NVDA" in body["system"]  # the asset universe is injected into the prompt
+    system_text = body["system"] if isinstance(body["system"], str) \
+        else "".join(b.get("text", "") for b in body["system"])
+    assert "NVDA" in system_text          # the asset universe is injected into the prompt
+    if isinstance(body["system"], list):  # prompt caching on the static prefix (intake backend)
+        assert body["system"][0]["cache_control"] == {"type": "ephemeral"}
     assert "<user_message>" in body["messages"][0]["content"]
 
     assert res.status == "ready" and res.backend == "bedrock"
