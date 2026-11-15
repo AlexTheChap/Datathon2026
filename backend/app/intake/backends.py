@@ -67,14 +67,11 @@ class BedrockBackend:
         """Bedrock Guardrails on the input (prompt attacks, personal data), when configured."""
         if not self.guardrail_id:
             return
+        # No truststore.inject_into_ssl() here: injected this late (botocore already loaded) it recurses forever in
+        # ssl.SSLContext.options and breaks every later HTTPS call of the process. truststore IS in the Lambda image
+        # (a dependency of httpx2/httpcore2): this took the deployed API down on 2026-11-15 once AF_GUARDRAIL_ID was
+        # set. On Windows, inject it at process start, as the scripts do.
         import boto3
-
-        try:  # on Windows, botocore does not always see the system certificates (CERTIFICATE_VERIFY_FAILED)
-            import truststore
-
-            truststore.inject_into_ssl()
-        except ImportError:
-            pass
 
         rt = boto3.client("bedrock-runtime", region_name=self.region)
         out = rt.apply_guardrail(
