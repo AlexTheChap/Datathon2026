@@ -39,7 +39,7 @@ QUESTIONS = {
     "experience": "How would you describe your investing experience: beginner, intermediate or advanced?",
     "language": "Which language would you like the answers in?",
     "task": "What would you like me to analyse: portfolio risk, a rate or market scenario, an allocation, an ESG screen, "
-            "fundamentals or news?",
+            "fundamentals, news, or the range of what your portfolio could be worth later?",
 }
 
 
@@ -186,10 +186,10 @@ def _says_my_portfolio(text: str) -> bool:
 
 def _about_own_portfolio(text: str, task: str, model_says: bool = False) -> bool:
     """The question is about the user's own portfolio: the model read it so (any wording, language, typo), the text
-    says so (safety net when the model misses it), or it is a risk / scenario question naming no asset.
+    says so (safety net when the model misses it), or it is a risk / scenario / projection question naming no asset.
     Building a new portfolio ("a portfolio that fits my profile") is not: it starts from the profile, not the old mix."""
     return task != "out_of_scope" and (model_says or _says_my_portfolio(text)
-                                       or task in ("risk_review", "scenario_analysis"))
+                                       or task in ("risk_review", "scenario_analysis", "projection"))
 
 
 def _clean_positions(positions: list[Position], warnings: list[str]) -> list[Position]:

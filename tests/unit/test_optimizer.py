@@ -124,3 +124,20 @@ def test_tighter_band_still_converges(rt):
     out = run(rt, ROBERT_NVDA, profile=tight)["output"]
     assert out["status"] == "ok"
     assert out["weights"]["NVDA"] <= out["weights"].get("XIU.TO", 1)   # nothing dominates the bonds
+
+
+# ---------- controversy exclusion: a flagged company is dropped, not a reason to fail ----------
+def test_company_with_a_verified_major_controversy_gets_weight_zero(rt):
+    mateo = PERSONAS["mateo"]                       # exclusion: controversy, min severity major
+    w0 = {"CNQ.TO": .10, "SPY": .45, "XBB.TO": .35, "AAPL": .10}      # CNQ.TO: verified NBIM exclusion (major)
+    ev = run(rt, w0, profile=mateo)
+    out = ev["output"]
+    assert out["status"] == "ok", out.get("explanation")
+    assert "CNQ.TO" not in out["weights"]
+    assert out["changes"]["CNQ.TO"] < 0
+
+
+def test_controversy_exclusion_does_not_touch_a_profile_without_it(rt):
+    w0 = {"CNQ.TO": .05, "SPY": .5, "XBB.TO": .45}
+    ev = run(rt, w0, profile=ROBERT)                 # Robert excludes crypto only
+    assert ev["output"]["status"] == "ok" and "CNQ.TO" in ev["output"]["weights"]

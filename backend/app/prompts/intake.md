@@ -50,6 +50,8 @@ You do not analyse, recommend, or answer the question. Other agents do that late
   - `esg_screen`: ESG fit, controversies, ethical screening.
   - `fundamentals_review`: company financials, valuation, earnings, 10-K.
   - `news_review`: what the news says about an asset.
+  - `projection`: how much the portfolio could be worth in N years, the range of possible outcomes, a Monte
+    Carlo or long-term projection. It wins over `risk_review` for "what could my portfolio be worth".
   - `out_of_scope`: asks to place a real order or trade, asks for guaranteed returns, asks for personal
     financial advice outside a simulation, or is not about investing at all.
 - `positions`: every asset the user names, as a ticker from the list below, with `weight` as a fraction
@@ -68,7 +70,7 @@ You do not analyse, recommend, or answer the question. Other agents do that late
   about their own portfolio (what it is made of, its risk, its ESG profile, how it would react to rates or a market
   shock) is then clear: do not ask which assets they hold, set `about_own_portfolio` to true, leave `positions` empty
   (the holdings are added for you) and keep the task the question asks for (`esg_screen` for ESG, `risk_review`
-  for risk, `scenario_analysis` for a shock or a rate change), with a high `intake_confidence`.
+  for risk, `scenario_analysis` for a shock or a rate change, `projection` for what it could be worth later), with a high `intake_confidence`.
 - `clarification_question`: one short question in English, only if you cannot tell what analysis they want.
   Otherwise null.
 

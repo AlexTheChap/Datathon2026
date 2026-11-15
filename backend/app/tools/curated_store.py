@@ -35,6 +35,9 @@ TABLES: dict[str, dict[str, Any]] = {
     "esg_index_screen": {"dtype": str, "keep_default_na": False},
     "controversies": {"dtype": str, "keep_default_na": False},
     "asset_risk_metrics": {},
+    # projections (app.quant.projection): correlations + the GARCH job's output (sagemaker/garch_job)
+    "correlation_full": {"index_col": "ticker"},
+    "vol_forecast": {"dtype": {"ticker": str, "model": str, "fallback_reason": str, "job_name": str}},
 }
 
 
@@ -55,6 +58,8 @@ def read(curated_dir: str | Path, name: str) -> pd.DataFrame:
         # text columns come back as `object` with None; give them the same string dtype as read_csv
         for col in df.columns[df.dtypes == object]:
             df[col] = df[col].astype("str")
+        if df.index.dtype == object:          # e.g. correlation_full's ticker index
+            df.index = df.index.astype("str")
         return df
     return pd.read_csv(p, **TABLES.get(name, {}))
 

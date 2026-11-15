@@ -1,8 +1,8 @@
 # Task → sub-agent registry of the Plan resolver (④, link L4 of docs/architecture.mmd).
 # Read by backend/app/context/plan_resolver.py. Deterministic: same inputs → same plan.
 # Every change bumps `version` (copied into ExecutionPlan.registry_version).
-version: 1
-updated: 2026-11-14
+version: 2
+updated: 2026-11-15
 
 # Below this threshold, ExecutionPlan.needs_clarification = true (the run still happens).
 min_intake_confidence: 0.6
@@ -17,6 +17,7 @@ tasks:
   esg_screen:          {required: [esg]}
   fundamentals_review: {required: [fundamentals]}
   news_review:         {required: [news]}
+  projection:          {required: [risk]}      # risk sub-agent: projection + vol_forecast tools
   out_of_scope:        {required: []}          # no sub-agent; the Explainer politely declines
 
 # Agents added from the Request or the Profile, whatever the task (except out_of_scope).

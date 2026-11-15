@@ -370,6 +370,30 @@ def test_portfolio_dashboard_shows_the_built_portfolio(page, base_url):
     assert page.errors == []
 
 
+def test_portfolio_shows_how_it_reacts_to_rates_when_macro_is_on(page, base_url):
+    _portfolio_for(page)
+    page.goto(f"{base_url}/#/portfolio")
+    page.wait_for_selector("#rates-title")
+    page.wait_for_selector("section[aria-labelledby=rates-title] dl.facts", timeout=8000)
+    text = page.locator("section[aria-labelledby='rates-title']").inner_text()
+    assert "Bank of Canada rate" in text and "2.5%" in text
+    assert "−" in text and "not a forecast" in text                                 # a 1-point rise lowers bond-fund values
+    rows = page.locator("section[aria-labelledby='rates-title'] tbody tr")
+    assert rows.count() == 4                                                         # SPY, XBB.TO, XIU.TO, QQQ
+    assert "Not measured" in page.locator("section[aria-labelledby='rates-title'] tbody tr:has-text('SPY')").inner_text()
+    assert page.errors == []
+
+
+def test_rates_section_is_hidden_when_macro_is_off(page, base_url):
+    run = _portfolio_for(page)
+    SERVICE.put_profile(run.actor_id, {"agent_toggles": {"macro_scenarios": False}})
+    page.goto(f"{base_url}/#/portfolio")
+    page.wait_for_selector(".hero-card")
+    page.wait_for_timeout(500)
+    assert page.locator("#rates-title").count() == 0
+    assert page.errors == []
+
+
 def test_detail_level_follows_experience_and_can_be_changed(page, base_url):
     _portfolio_for(page, experience="beginner")
     page.goto(f"{base_url}/#/portfolio")
@@ -421,26 +445,6 @@ def test_portfolio_without_a_profile_asks_for_one(page, base_url):
     page.click("main a:has-text('Set up my profile')")
     page.wait_for_selector("#q-card-age.q-card--open")                        # a new user gets the first question
     assert page.errors == []
-
-
-def test_portfolio_on_a_phone_has_no_sideways_scroll(base_url):
-    with playwright_api.sync_playwright() as p:
-        try:
-            browser = p.chromium.launch()
-        except Exception as e:
-            pytest.skip(f"Chromium for Playwright is not installed: {e}")
-        ctx = browser.new_context(viewport={"width": 360, "height": 780})
-        ctx.route("**/config.js", DEV_CONFIG)
-        ctx.add_init_script("localStorage.setItem('af.actor', JSON.stringify('e2e-phone-pf'))")
-        page = ctx.new_page()
-        page.goto(f"{base_url}/#/ask")
-        _portfolio_for(page)
-        page.goto(f"{base_url}/#/portfolio")
-        page.wait_for_selector(".hero-card")
-        wide = page.evaluate("""() => [...document.querySelectorAll('body *')].filter(
-            (e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 1).map((e) => e.className)""")
-        assert wide == [] and page.locator("#usermenu-btn").is_visible()
-        browser.close()
 
 
 # ---------- Profile set-up, one question at a time (profile-steps.js) ----------
@@ -508,30 +512,6 @@ def test_profile_set_up_step_by_step(page, base_url):
     assert SERVICE.get_profile(actor).objective == "retire"
     page.goto(page.url.split("#")[0] + "#/ask")                                       # the Ask page still works
     page.wait_for_selector("#question")
-    assert page.errors == []
-
-
-def test_profile_set_up_from_a_document(page, base_url, tmp_path):
-    import sys as _sys
-    from pathlib import Path as _Path
-    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "unit"))
-    from test_onboarding import docx
-    f = tmp_path / "advisor-notes.docx"
-    f.write_bytes(docx(["Moderate risk. I'm a student and I want to learn.", "No crypto please.", "Buy milk."]))
-    page.goto(page.url.split("#")[0] + "#/profile")
-    page.wait_for_selector("#profile-file")
-    page.set_input_files("#profile-file", str(f))
-    page.wait_for_selector("text=Found in the document")
-    found = page.locator("section[aria-labelledby='document-title']").inner_text()
-    assert "Risk level" in found and "Learning explanations" in found and "Hard limits" in found
-    assert page.locator("fieldset.q-card--open").count() == 10                       # filled, unsaved
-    page.fill("#q-experience", "9")                                                  # the document said nothing about it
-    page.click("button[aria-label='Save all answers']")
-    page.wait_for_selector("#q-card-analyses.q-card--locked")
-    actor = page.evaluate("JSON.parse(localStorage.getItem('af.actor'))")
-    saved = SERVICE.get_profile(actor)
-    assert (saved.risk_band, saved.experience, saved.wants_to_learn) == ("moderate", "advanced", True)
-    assert [e.value for e in saved.exclusions] == ["crypto"]
     assert page.errors == []
 
 

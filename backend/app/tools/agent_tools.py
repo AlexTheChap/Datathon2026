@@ -211,5 +211,50 @@ def market_related(ticker: str) -> dict:
     return related_tool(_market_graph(), {"ticker": ticker, "as_of": run_as_of()})
 
 
+@tool
+def projection(weights: dict[str, float], horizon_years: int | None = None, start_value: float | None = None,
+               monthly_contribution: float = 0.0) -> dict:
+    """Range of possible values of a portfolio after N years: Monte Carlo under the official FP Canada /
+    Institute of Financial Planning 2026 Projection Assumption Guidelines (expected returns from the guidelines,
+    never from past prices; GARCH or historical volatility). NOT a forecast: report the P10–P90 range, the
+    chance of ending below the start, the assumptions and the warnings (e.g. horizon under 10 years).
+    Args:
+        weights: Portfolio weights, e.g. {"XIU.TO": 0.3, "XBB.TO": 0.3}.
+        horizon_years: Years to project; default = the investor's horizon (upper bound of a range).
+        start_value: Starting value in CAD; default = the investor's simulated capital.
+        monthly_contribution: Optional CAD added at the end of each month.
+    """
+    from app.tools.projection_tool import horizon_from_profile, run_projection
+
+    profile = persona_profile() or {}
+    note = None
+    if horizon_years is None:
+        horizon_years, note = horizon_from_profile(profile.get("horizon_years"))
+        if horizon_years is None:
+            return {"error": "No horizon given and none in the profile.", "note": "Pass horizon_years."}
+    start = start_value or profile.get("capital")
+    if not start:
+        return {"error": "No starting value given and no simulated capital in the profile.",
+                "note": "Pass start_value."}
+    s = get_settings()
+    return _guard(run_projection, weights, float(start), int(horizon_years), run_as_of(),
+                  monthly_contribution=monthly_contribution, risk_band=profile.get("risk_band"),
+                  horizon_note=note, curated_dir=s.abs_path(s.curated_dir))
+
+
+@tool
+def vol_forecast(tickers: list[str], as_of: str | None = None) -> dict:
+    """Is the risk (volatility) of these assets rising, stable or easing? Compares the GARCH 21-day volatility
+    forecast (SageMaker job) with the last 3 months' volatility. A risk measure, never a return forecast.
+    Args:
+        tickers: Assets from the universe, e.g. ["NVDA", "SPY"].
+        as_of: Optional earlier date; the run's reference date is the upper bound.
+    """
+    from app.tools.vol_forecast_tool import vol_forecast as _vol
+
+    s = get_settings()
+    return _guard(_vol, tickers, effective_as_of(as_of), curated_dir=s.abs_path(s.curated_dir))
+
+
 ALL_TOOLS = [metrics, concentration, correlation, risk_contribution, optimize,
-             governance_check, market_screen, market_related]
+             governance_check, market_screen, market_related, projection, vol_forecast]
