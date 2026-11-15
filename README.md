@@ -97,6 +97,33 @@ and `alphaforge-context`, and neither Bedrock access for the intake nor read acc
 Redeploy both after changing `backend/app/intake/`, `backend/app/context/` or `backend/app/prompts/explainer.*.md`,
 from an up-to-date `main`, and run `--test-only` to confirm.
 
+## Market graph: S&P 500 on Amazon Neptune (box ⑥)
+
+A graph of the S&P 500 + the curated universe (523 assets): sector, listing country, volatility risk class,
+ETF holdings, ESG index status, controversies and strong correlations (|ρ| ≥ 0.7). The agents query it with
+`market___screen` (filter and sort by risk) and `market___related` (funds, peers, correlations, ESG of one asset).
+
+```bash
+pip install yfinance                                            # local refresh only
+python -m app.market.refresh --mode close                       # from backend/: Yahoo -> data/market/ (git-ignored)
+python -m app.market.refresh --mode midday --system-certs       # Windows behind a TLS-inspecting proxy
+
+.venv/bin/python scripts/deploy_graph.py --run-now --test       # VPC + Neptune Serverless + refresh/loader + schedules
+.venv/bin/python scripts/deploy_quant_gateway.py --test         # tools Lambda into the VPC + `market` Gateway target
+.venv/bin/python scripts/deploy_graph.py --delete               # Neptune bills ~1 NCU around the clock: delete after
+```
+
+- **Refresh** (EventBridge Scheduler, America/Toronto, Mon-Fri): 11:00 = intraday quote only (never mixed into
+  the daily returns); 17:00 = daily close, trailing-252-day metrics, correlations, then a full graph reload.
+  17:00 rather than 16:00: Yahoo finalises the bar after the close.
+- **Network**: Neptune and the Lambdas that query it sit in private subnets with no Internet route; the refresh
+  Lambda (outside the VPC) reaches Yahoo and hands over through S3 (gateway endpoint), so no NAT gateway.
+- **Point-in-time**: the graph is a live snapshot; the tools refuse a run dated before it (look-ahead), the
+  dated `metrics` tools keep serving historical runs. Without Neptune (`AF_NEPTUNE_ENDPOINT` unset) the same
+  graph is built in memory, from `data/market/` or, failing that, from the curated metrics.
+- **Source**: Yahoo Finance via yfinance, an unofficial and unlicensed feed (prototype only); it is isolated in
+  `app.market.refresh.download`, to be swapped for a licensed feed in production.
+
 ## Repository layout
 
 ```

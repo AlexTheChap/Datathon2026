@@ -6,8 +6,11 @@ for the diagram families ("metrics · risk") + point-in-time macro/FX:
     metrics___metrics              metrics___correlation
     risk___risk_contribution       risk___concentration
     macro___macro_snapshot         macro___fx_usdcad
+    market___screen                market___related      (market graph: S&P 500 + universe, app.market)
 
 Data (L14): S3 curated Parquet when AF_CURATED_S3 is set (synced to /tmp on cold start), else repo CSVs.
+Market graph: Amazon Neptune when AF_NEPTUNE_ENDPOINT is set (this Lambda then runs inside the graph VPC,
+scripts/deploy_graph.py), else the same graph in memory (app.market.graph.LocalGraph).
 
 Contract with the Gateway (Lambda target):
   - event   = the tool arguments sent by the agent (a JSON object);
@@ -15,7 +18,8 @@ Contract with the Gateway (Lambda target):
   - return  = a JSON-serializable dict: the risk_tools EVIDENCE envelope (evidence_id, say, output,
     assumptions…), unchanged, so the EvidenceHook (L15) records it exactly like a direct call.
 
-No LLM here, no new maths: every tool is a thin adapter over app.tools.risk_tools.RiskTools.
+No LLM here, no new maths: every tool is a thin adapter over app.tools.risk_tools.RiskTools
+(or app.market.graph for the market target).
 Input errors (unknown ticker, bad window…) return {"error": …} so the agent can fix its call.
 """
 from __future__ import annotations
@@ -77,6 +81,37 @@ TARGETS: dict[str, list[dict[str, Any]]] = {
                         "when given (how much of a US asset's CAD return came from the currency).",
          "inputSchema": {"type": "object", "properties": {"as_of": _AS_OF, "start": _DATE}}},
     ],
+    "market": [
+        {"name": "screen",
+         "description": "Screen the market graph (S&P 500 + curated universe, refreshed 11:00 and 17:00 ET) "
+                        "by sector, listing country, risk class, volatility, drawdown, ESG index status and "
+                        "controversies, sorted by a risk metric. LIVE snapshot: pass the run's as_of; a run "
+                        "dated before the snapshot gets an error (use metrics instead).",
+         "inputSchema": {"type": "object", "properties": {
+             "sector": {"type": "string", "description": 'GICS sector, e.g. "Utilities", "Energy".'},
+             "country": {"type": "string", "description": 'Listing country: "US", "CA" or "Global (crypto)".'},
+             "risk_class": {"type": "string", "description": "low (<15% vol), moderate, high or very_high (>=40%)."},
+             "asset_class": {"type": "string", "description": "equity, etf_equity, etf_bond, etf_commodity, crypto."},
+             "in_sp500": {"type": "boolean", "description": "Only S&P 500 constituents (true) or only others."},
+             "esg": {"type": "string", "description": "in_index, excluded, not_screened or any (ESG index status)."},
+             "exclude_controversies": {"type": "boolean", "description": "Drop assets with a controversy line."},
+             "min_vol": {"type": "number", "description": "Minimum annualized volatility, e.g. 0.10."},
+             "max_vol": {"type": "number", "description": "Maximum annualized volatility, e.g. 0.20."},
+             "max_drawdown_limit": {"type": "number",
+                                    "description": "Worst trailing-year drawdown allowed, e.g. 0.25 for -25%."},
+             "sort_by": {"type": "string", "description": "ann_vol (default), max_drawdown, var95_daily, beta_spy, "
+                                                          "total_return, sp500_weight or last_price."},
+             "descending": {"type": "boolean", "description": "Sort descending (default ascending)."},
+             "limit": {"type": "integer", "description": "Rows returned, 1-100 (default 20)."},
+             "as_of": _AS_OF}}},
+        {"name": "related",
+         "description": "Relationships of one asset in the market graph: funds holding it (with weight), its "
+                        "holdings if it is an ETF, strongly correlated assets (|rho| >= 0.7), lower-volatility "
+                        "peers of its sector, ESG index status and controversies.",
+         "inputSchema": {"type": "object", "properties": {
+             "ticker": {"type": "string", "description": 'Ticker, e.g. "XOM" or "RY.TO".'}, "as_of": _AS_OF},
+             "required": ["ticker"]}},
+    ],
 }
 
 
@@ -111,6 +146,25 @@ def _macro(name: str, a: dict) -> dict:
     return macro_tools.fx_usdcad(curated_dir(), a.get("as_of") or None, a.get("start") or None)
 
 
+_graph = None
+
+
+def market_graph():
+    """Neptune (AF_NEPTUNE_ENDPOINT) or the in-memory graph, created once per Lambda container."""
+    global _graph
+    if _graph is None:
+        from app.market.graph import backend
+
+        _graph = backend(curated_dir())
+    return _graph
+
+
+def _market(name: str, a: dict) -> dict:
+    from app.market import graph
+
+    return (graph.screen_tool if name == "screen" else graph.related_tool)(market_graph(), a)
+
+
 def _weights(value: Any) -> dict[str, float]:
     """Accept {"NVDA": 0.2} or [{"ticker": "NVDA", "weight": 0.2}] (in case a client cannot send free keys)."""
     if isinstance(value, str):
@@ -141,6 +195,8 @@ HANDLERS: dict[str, Callable[[dict], dict]] = {
                                                      look_through=bool(a.get("look_through", True))),
     "macro_snapshot": lambda a: _macro("macro_snapshot", a),
     "fx_usdcad": lambda a: _macro("fx_usdcad", a),
+    "screen": lambda a: _market("screen", a),
+    "related": lambda a: _market("related", a),
 }
 
 assert set(HANDLERS) == {t["name"] for ts in TARGETS.values() for t in ts}, "schemas and handlers out of sync"

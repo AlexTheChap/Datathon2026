@@ -15,8 +15,11 @@ What it creates (all names prefixed "alphaforge-quant"):
    (handler app.tools.quant_gateway.handler).
 3. IAM role "alphaforge-quant-gateway" (trusted by bedrock-agentcore, may invoke ONLY that Lambda).
 4. AgentCore Gateway "alphaforge-quant-gateway": protocol MCP, authorizer AWS_IAM (SigV4).
-5. Five Gateway targets on the same Lambda: metrics · risk · scenarios · optimizer · macro
+5. Gateway targets on the same Lambda: metrics · risk · macro · market
    (tool schemas from app.tools.quant_gateway.TARGETS).
+Market graph: when build/graph.json exists (scripts/deploy_graph.py), the Lambda runs inside the graph VPC
+(private subnets, S3 gateway endpoint) with AF_NEPTUNE_ENDPOINT and read-only neptune-db access, so
+market___screen / market___related query Neptune; otherwise they use the in-memory graph.
 The Gateway URL is written to build/quant_gateway.json and to .env as AF_GATEWAY_URL.
 """
 from __future__ import annotations
@@ -46,8 +49,14 @@ GATEWAY_ROLE = "alphaforge-quant-gateway"
 RUNTIME = "python3.12"
 DEPS = ["numpy", "pandas", "python-dateutil<3", "fastparquet"]  # dateutil<3: same major as the runtime botocore
 CSVS = ["returns_daily_cad.csv", "prices_cad.csv", "assets_universe.csv", "etf_holdings.csv",
-        "fx_usdcad_filled.csv", "macro_daily_asof.csv"]   # bundled only when the S3 data layer is absent
+        "fx_usdcad_filled.csv", "macro_daily_asof.csv",   # bundled only when the S3 data layer is absent
+        "esg_index_screen.csv", "controversies.csv", "asset_risk_metrics.csv"]   # in-memory market graph
 DATA_LAYER = BUILD / "data_layer.json"   # written by scripts/deploy_data_layer.py (S3 curated Parquet, L14)
+GRAPH = BUILD / "graph.json"             # written by scripts/deploy_graph.py (VPC + Neptune)
+
+
+def graph_state() -> dict | None:
+    return json.loads(GRAPH.read_text()) if GRAPH.exists() else None
 
 
 def curated_s3() -> str | None:
@@ -77,6 +86,9 @@ def build_zip() -> Path:
                     "--only-binary=:all:", *DEPS], check=True)
     for f in ("risk_tools.py", "quant_gateway.py", "curated_store.py", "macro_tools.py"):  # what the Lambda imports
         shutil.copy(ROOT / "backend" / "app" / "tools" / f, pkg / "app" / "tools" / f)
+    (pkg / "app" / "market").mkdir(parents=True)
+    for f in ("graph.py", "neptune.py", "universe.py", "metrics.py"):  # market target (no yfinance needed)
+        shutil.copy(ROOT / "backend" / "app" / "market" / f, pkg / "app" / "market" / f)
     if curated_s3() is None:  # no S3 data layer: ship the CSVs inside the zip (previous behaviour)
         (pkg / "data" / "curated").mkdir(parents=True)
         for f in CSVS:
@@ -107,9 +119,13 @@ def ensure_role(iam, name: str, trust: dict, description: str) -> tuple[str, boo
 
 def deploy_lambda(lam, zip_path: Path, role_arn: str) -> str:
     code = zip_path.read_bytes()
-    cfg = dict(Timeout=60, MemorySize=1024,
-               Environment={"Variables": {"AF_CURATED_S3": curated_s3()} if curated_s3()
-                            else {"AF_CURATED_DIR": "/var/task/data/curated"}})
+    env = {"AF_CURATED_S3": curated_s3()} if curated_s3() else {"AF_CURATED_DIR": "/var/task/data/curated"}
+    g = graph_state()
+    cfg = dict(Timeout=60, MemorySize=1024)
+    if g:  # inside the graph VPC, Neptune for the market target
+        env |= {"AF_NEPTUNE_ENDPOINT": g["neptune_endpoint"], "AF_NEPTUNE_PORT": str(g["neptune_port"])}
+        cfg["VpcConfig"] = {"SubnetIds": g["subnet_ids"], "SecurityGroupIds": [g["sg_lambda"]]}
+    cfg["Environment"] = {"Variables": env}
     try:
         lam.get_function(FunctionName=FUNCTION)
         lam.update_function_code(FunctionName=FUNCTION, ZipFile=code)
@@ -215,10 +231,14 @@ TEST_CALLS = [
     ("metrics___correlation", {"tickers": ["XIU.TO", "XBB.TO"], "start": "2022-01-01", "end": "2022-12-31"}),
     ("risk___risk_contribution", {"weights": ROBERT_NVDA}),
     ("risk___concentration", {"weights": ROBERT_NVDA}),
-    ("scenarios___stress", {"weights": ROBERT_NVDA, "window": "2022", "capital": 400000}),
-    ("optimizer___max_position", {"base_weights": ROBERT, "asset": "NVDA", "max_drawdown_limit": 0.15}),
     ("macro___macro_snapshot", {"as_of": "2022-06-30"}),
     ("macro___fx_usdcad", {"as_of": "2022-12-30", "start": "2022-01-03"}),
+]
+# market graph: live data (Neptune) vs the local in-memory graph may hold different snapshots, so these are
+# checked for a well-formed evidence record, not for equality with the local result
+MARKET_CALLS = [
+    ("market___screen", {"sector": "Utilities", "sort_by": "ann_vol", "limit": 5}),
+    ("market___related", {"ticker": "NVDA"}),
 ]
 
 
@@ -243,8 +263,14 @@ def test(session, url: str) -> bool:
         mark = "✓" if same else "✗"
         print(f"  {mark} {name:<26} {ms:6.0f} ms  {remote.get('evidence_id') if isinstance(remote, dict) else '?'}"
               f"  {(remote.get('say') or remote.get('error')) if isinstance(remote, dict) else remote}")
-    bad = client.call_tool("scenarios___stress", {"weights": ROBERT, "window": "1929"})
-    print(f"  {'✓' if 'error' in bad else '✗'} bad window returns an error the agent can fix: {bad.get('error')}")
+    for name, args in MARKET_CALLS:
+        remote = client.call_tool(name, args)
+        good = isinstance(remote, dict) and str(remote.get("evidence_id", "")).startswith("ev-")
+        ok &= good
+        print(f"  {'✓' if good else '✗'} {name:<26} {remote.get('as_of') if isinstance(remote, dict) else '?'}"
+              f"  {(remote.get('say') or remote.get('error')) if isinstance(remote, dict) else remote}")
+    bad = client.call_tool("metrics___metrics", {"tickers": ["NOT_A_TICKER"]})
+    print(f"  {'✓' if 'error' in bad else '✗'} unknown ticker returns an error the agent can fix: {bad.get('error')}")
     ok &= "error" in bad
     print("• Gateway == local for every tool" if ok else "✗ Gateway and local results differ")
     return ok
@@ -325,6 +351,17 @@ def main() -> None:
                     {"Effect": "Allow", "Action": "s3:ListBucket", "Resource": f"arn:aws:s3:::{bucket}",
                      "Condition": {"StringLike": {"s3:prefix": [f"{prefix}*"]}}}]}))
             print(f"• Lambda reads curated Parquet from {curated_s3()}")
+        g = graph_state()
+        if g:  # market graph: VPC networking + read-only openCypher on the Neptune cluster
+            iam.attach_role_policy(RoleName=LAMBDA_ROLE,
+                                   PolicyArn="arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole")
+            iam.put_role_policy(RoleName=LAMBDA_ROLE, PolicyName="read-market-graph", PolicyDocument=json.dumps({
+                "Version": "2012-10-17", "Statement": [{
+                    "Effect": "Allow", "Action": ["neptune-db:connect", "neptune-db:ReadDataViaQuery"],
+                    "Resource": f"arn:aws:neptune-db:{region}:{account}:{g['neptune_resource_id']}/*"}]}))
+            print(f"• Lambda queries Neptune {g['neptune_endpoint']} from VPC {g['vpc_id']}")
+            if new1:
+                time.sleep(10)
         lambda_arn = deploy_lambda(session.client("lambda"), build_zip(), lambda_role)
 
         gw_role, new2 = ensure_role(iam, GATEWAY_ROLE, gateway_trust(account),

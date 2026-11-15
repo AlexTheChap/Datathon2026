@@ -28,10 +28,14 @@ import argparse
 import json
 from pathlib import Path
 
+import sys
+
 import numpy as np
 import pandas as pd
 
-TRADING_DAYS = 252
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
+from app.market.metrics import asset_metrics  # noqa: E402  (shared with the market refresh)
+
 
 # HYPOTHETICAL release lags (to be replaced by the real dates: ALFRED / StatCan).
 # Used to avoid look-ahead bias in simulations.
@@ -124,52 +128,6 @@ def macro_daily_asof(m: pd.DataFrame, cal: pd.DataFrame) -> pd.DataFrame:
 
 
 # ---------- risk metrics ----------
-
-def _drawdown(r: pd.Series):
-    w = (1 + r.fillna(0)).cumprod()
-    peak = w.cummax()
-    dd = w / peak - 1
-    trough = dd.idxmin()
-    peak_date = w.loc[:trough].idxmax()
-    rec = w.loc[trough:]
-    rec_dates = rec[rec >= w.loc[peak_date]].index
-    recovery = rec_dates[0] if len(rec_dates) else pd.NaT
-    return dd.min(), peak_date, trough, recovery
-
-
-def asset_metrics(rets: pd.DataFrame, bench: dict[str, str], label: str) -> pd.DataFrame:
-    rows = []
-    monthly = (1 + rets.fillna(0)).resample("ME").prod() - 1
-    for t in rets.columns:
-        r = rets[t].dropna()
-        if len(r) < 30:
-            continue
-        n_years = len(r) / TRADING_DAYS
-        total = (1 + r).prod() - 1
-        mdd, pk, tr, rc = _drawdown(r)
-        neg = r[r < 0]
-        q = r.quantile(0.05)
-        mq = monthly[t].quantile(0.05)
-        row = {
-            "ticker": t, "window": label,
-            "start": r.index.min().date(), "end": r.index.max().date(), "n_obs": len(r),
-            "total_return": total,
-            "cagr": (1 + total) ** (1 / n_years) - 1 if n_years > 0 else np.nan,
-            "ann_vol": r.std() * np.sqrt(TRADING_DAYS),
-            "downside_vol": neg.std() * np.sqrt(TRADING_DAYS),
-            "max_drawdown": mdd, "dd_peak": pk.date(), "dd_trough": tr.date(),
-            "dd_recovery": rc.date() if pd.notna(rc) else None,
-            "recovery_days": (rc - tr).days if pd.notna(rc) else None,
-            "var95_daily": -q, "cvar95_daily": -r[r <= q].mean(),
-            "var95_monthly": -mq, "worst_month": monthly[t].min(),
-        }
-        for name, b in bench.items():
-            if b in rets.columns and b != t:
-                j = pd.concat([r, rets[b]], axis=1).dropna()
-                row[f"beta_{name}"] = j.iloc[:, 0].cov(j.iloc[:, 1]) / j.iloc[:, 1].var()
-        rows.append(row)
-    return pd.DataFrame(rows)
-
 
 def rate_sensitivity(rets_local: pd.DataFrame, macro_wide: pd.DataFrame,
                      durations: pd.DataFrame | None) -> pd.DataFrame:

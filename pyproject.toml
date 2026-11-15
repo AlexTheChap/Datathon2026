@@ -20,6 +20,8 @@ dependencies = [
 dev = ["pytest", "ruff", "requests", "httpx"]
 # Data-collection scripts in scripts/ (network access to SEC, iShares, NBIM, etc.)
 scripts = ["requests", "beautifulsoup4", "lxml", "openpyxl"]
+# Market refresh (app.market.refresh): Yahoo Finance daily bars for the S&P 500 graph (bundled in the Lambda zip)
+market = ["yfinance>=1.0"]
 # Intake agent (box 3) on Bedrock: Claude Haiku with structured outputs via the anthropic SDK (AnthropicBedrock).
 # truststore: on Windows, lets botocore see the system certificates (otherwise CERTIFICATE_VERIFY_FAILED).
 bedrock = ["anthropic>=2.0", "truststore>=0.9"]

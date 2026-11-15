@@ -31,6 +31,10 @@ TABLES: dict[str, dict[str, Any]] = {
     "macro_pit": {"parse_dates": ["date", "available_from"]},             # long format with publication dates
     "assets_universe": {},
     "etf_holdings": {"dtype": {"ticker": str, "cusip": str}, "keep_default_na": False},
+    # market graph reference data (app.market.graph: ESG status, controversies, fallback metrics)
+    "esg_index_screen": {"dtype": str, "keep_default_na": False},
+    "controversies": {"dtype": str, "keep_default_na": False},
+    "asset_risk_metrics": {},
 }
 
 
