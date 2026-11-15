@@ -199,3 +199,34 @@ def test_offline_intake_reads_each_weight_next_to_its_asset(mock, text, expected
     whether the percentage comes before or after the ticker."""
     positions = mock.extract(text, {}).request.positions
     assert {p.ticker: p.weight for p in positions} == expected
+
+
+SAVED = {"SPY": 0.3481, "XBB.TO": 0.3054, "XIU.TO": 0.2509, "QQQ": 0.0956}
+
+
+@pytest.fixture
+def store_with_portfolio(make_profile):
+    store = InMemoryProfileStore()
+    store.put(make_profile("mateo", actor_id="mateo", portfolio=SAVED, portfolio_run_id="run-pf"))
+    return store
+
+
+@pytest.mark.parametrize("text", ["How exposed is my portfolio to a rate hike?", "Is my portfolio too risky?",
+                                  "What would a crash do to my holdings?"])
+def test_my_portfolio_questions_use_the_saved_portfolio(mock, store_with_portfolio, text):
+    res = run_intake(text, "mateo", backend=mock, store=store_with_portfolio)
+    assert {p.ticker: p.weight for p in res.request.positions} == SAVED
+    assert any(w.startswith("Analysed on your saved portfolio: SPY 35%") for w in res.warnings)
+    assert res.profile.portfolio == SAVED  # the intake keeps it in the profile
+
+
+@pytest.mark.parametrize("text", ["Is Nvidia too risky for me?", "Build a simulated portfolio that fits my profile.",
+                                  "Buy 100 Tesla shares for me"])
+def test_other_questions_keep_their_own_assets(mock, store_with_portfolio, text):
+    res = run_intake(text, "mateo", backend=mock, store=store_with_portfolio)
+    assert not res.request or {p.ticker for p in res.request.positions} != set(SAVED)
+
+
+def test_a_saved_portfolio_must_have_valid_weights(make_profile):
+    with pytest.raises(ValueError):
+        make_profile("mateo", portfolio={"SPY": 1.4})

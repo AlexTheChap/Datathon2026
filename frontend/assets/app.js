@@ -439,7 +439,7 @@ function renderAsk(main) {
       h("label", { class: "field__label", for: "question" }, "Your question"),
       textarea,
       h("p", { class: "field__help", id: "question-help" },
-        "Mention amounts or percentages if you have them. Press Ctrl+Enter to send."),
+        "Mention amounts or percentages if you have them. Questions about \u201Cmy portfolio\u201D use the portfolio AlphaForge built for you. Press Ctrl+Enter to send."),
       error),
     h("div", { class: "composer__actions" }, submit, pending),
     h("div", { class: "stack-sm" },
@@ -616,6 +616,9 @@ function profileSummary(p) {
       h("dt", null, "Experience"), h("dd", null, titleOf(EXPERIENCE, p.experience)),
       h("dt", null, "Answers"), h("dd", null, p.wants_to_learn ? "Explained so you learn" : "Straight to the point"),
       p.capital ? [h("dt", null, "Capital"), h("dd", { class: "num" }, money(p.capital))] : null,
+      h("dt", null, "Portfolio"), h("dd", null, p.portfolio
+        ? Object.entries(p.portfolio).sort((a, b) => b[1] - a[1]).map(([t, w]) => `${t} ${Math.round(w * 100)}%`).join(", ")
+        : "Not built yet"),
       h("dt", null, "Limits"), h("dd", null, limits.length ? limits.join(", ") : "None"),
       h("dt", null, "Analyses off"), h("dd", null, off.length ? off.join(", ") : "None")),
     h("div", { class: "notice" }, h("a", { class: "link-btn", href: HOME }, "My portfolio"),

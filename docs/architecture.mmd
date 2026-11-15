@@ -126,6 +126,8 @@ flowchart TB
   %% L3  Intake → JSON: output validated by schema (Bedrock structured outputs), then Pydantic;
   %%      the profile is stored in DynamoDB (ACTOR#… / PROFILE#current), including the sub-agent toggles the user
   %%      switches on/off in chat (with their words: agent_toggle_reasons) and the profile form (PUT /v1/profile).
+  %%      The profile also keeps the user's current portfolio (portfolio + portfolio_run_id: the mix AlphaForge built
+  %%      from it, saved by the web app); a question about "my portfolio" naming no asset gets its positions from it.
   ING --> PROF
   ING --> REQ
   %% L4  JSON → Plan resolver: plain Python code; versioned agent/task registry

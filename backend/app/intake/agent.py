@@ -14,6 +14,7 @@ The Intake analyses nothing and blocks nothing: governance (box 5) decides. It o
 """
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import date
 from typing import Any, Optional
@@ -66,8 +67,10 @@ def _dedupe(items: list) -> list:
 
 
 def _known_profile(stored: Optional[Profile], form: Optional[dict]) -> dict[str, Any]:
-    """What we already know before reading the text (sent to the model as context)."""
-    known: dict[str, Any] = stored.model_dump(mode="json", exclude={"actor_id", "schema_version"}) if stored else {}
+    """What we already know before reading the text (sent to the model as context). The saved portfolio is left out:
+    the model extracts only what the message says; code adds the portfolio for "my portfolio" questions."""
+    known: dict[str, Any] = stored.model_dump(mode="json", exclude={"actor_id", "schema_version", "portfolio",
+                                                                   "portfolio_run_id"}) if stored else {}
     known.update({k: v for k, v in (form or {}).items() if v is not None})
     return known
 
@@ -127,6 +130,15 @@ def _merge_profile(stored: Optional[Profile], draft: IntakeDraft, form: Optional
         merged["agent_toggles"] = toggles
     merged["agent_toggle_reasons"] = reasons
     return merged
+
+
+_OWN_PORTFOLIO = re.compile(r"\bmy\s+(?:current\s+|whole\s+|own\s+)?(?:portfolio|holdings|investments|mix|allocation)\b", re.I)
+
+
+def _about_own_portfolio(text: str, task: str) -> bool:
+    """The question is about the user's own portfolio: it says so, or it is a risk / scenario question naming no asset.
+    Building a new portfolio ("a portfolio that fits my profile") is not: it starts from the profile, not the old mix."""
+    return task != "out_of_scope" and (bool(_OWN_PORTFOLIO.search(text)) or task in ("risk_review", "scenario_analysis"))
 
 
 def _clean_positions(positions: list[Position], warnings: list[str]) -> list[Position]:
@@ -191,6 +203,11 @@ def run_intake(
     # --- Request --------------------------------------------------------------------------------
     r = draft.request
     positions = _clean_positions(r.positions, warnings)
+    if not positions and profile is not None and profile.portfolio and _about_own_portfolio(text, r.task):
+        # "How exposed is my portfolio to a rate hike?": the analysis runs on the portfolio saved in the profile.
+        positions = [Position(ticker=t, weight=w) for t, w in sorted(profile.portfolio.items(), key=lambda kv: -kv[1])]
+        warnings.append("Analysed on your saved portfolio: "
+                        + ", ".join(f"{p.ticker} {p.weight:.0%}" for p in positions) + ".")
     _conflicts(profile, positions, warnings)
 
     analysis_date = as_of or r.as_of or DATA_END
