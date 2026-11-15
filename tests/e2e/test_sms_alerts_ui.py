@@ -73,12 +73,9 @@ def test_settings_page_turns_text_alerts_on_and_off(base_url, browser):
     pg.goto(f"{base_url}/#/settings")
     panel = pg.locator("section[aria-labelledby=set-notify-title]")
     panel.wait_for()
-    pg.wait_for_function("document.querySelector('#set-notify-channel-off').checked")   # off until chosen
     phone = panel.locator("#set-notify-phone")
-    assert not phone.is_visible()                        # the number is asked only for texts
-    panel.get_by_text("There is news about a stock I hold").click()
-    panel.get_by_text("By text message").click()
-    assert phone.is_visible()
+    assert not panel.locator("#set-notify-notify").is_checked()   # off until chosen
+    panel.get_by_text("Notify me on news related to my portfolio").click()
     phone.fill("12345")
     panel.get_by_role("button", name="Save notifications").click()
     assert "Canadian or U.S. mobile number" in panel.locator("#set-notify-phone-error").inner_text()
@@ -90,15 +87,15 @@ def test_settings_page_turns_text_alerts_on_and_off(base_url, browser):
     pg.reload()                                          # the choice is read back from the API
     panel = pg.locator("section[aria-labelledby=set-notify-title]")
     pg.wait_for_function("document.querySelector('#set-notify-phone') && document.querySelector('#set-notify-phone').value !== ''")
-    assert panel.locator("#set-notify-alert-news").is_checked() and panel.locator("#set-notify-channel-sms").is_checked()
-    panel.get_by_text("Don't notify me").click()
+    assert panel.locator("#set-notify-notify").is_checked()
+    panel.get_by_text("Notify me on news related to my portfolio").click()   # unchecked = off
     panel.get_by_role("button", name="Save notifications").click()
     pg.wait_for_function("document.querySelector('[aria-labelledby=set-notify-title] [role=status]').textContent.includes('deleted')")
     assert SERVICE.contacts.get("e2e-sms").phone is None and not SERVICE.contacts.get("e2e-sms").opt_in
     assert not pg.errors, pg.errors
 
 
-def test_sign_up_asks_inform_me_when_then_how(base_url, browser):
+def test_sign_up_asks_phone_and_one_news_checkbox(base_url, browser):
     pg = new_page(browser, COGNITO_CONFIG)
     calls = []
 
@@ -113,13 +110,8 @@ def test_sign_up_asks_inform_me_when_then_how(base_url, browser):
     pg.get_by_role("button", name="Create an account").click()
     pg.locator("#auth-email").fill("new.person@example.com")
     pg.locator("#auth-password").fill("Abcdefgh12")
-    pg.get_by_text("Inform me when").wait_for()
-    assert not pg.locator("#auth-channel-email").is_visible()   # how to tell you: asked once an alert is ticked
-    pg.get_by_text("A stock I hold goes down").click()
-    pg.get_by_text("There is news about a stock I hold").click()
-    assert pg.locator("#auth-channel-email").is_checked()        # email by default
-    assert "new.person@example.com" in pg.locator("label:has(#auth-channel-email)").inner_text()
-    pg.get_by_text("By text message").click()
+    pg.locator("#auth-phone").wait_for()
+    pg.get_by_text("Notify me on news related to my portfolio").click()
     pg.locator("#auth-phone").fill("555")
     pg.get_by_role("button", name="Create account").click()
     assert "Canadian or U.S. mobile number" in pg.locator("#auth-phone-error").inner_text()
@@ -130,7 +122,7 @@ def test_sign_up_asks_inform_me_when_then_how(base_url, browser):
     assert calls[0][0].endswith("SignUp")
     assert "phone" not in json.dumps(calls[0][1]).lower()  # the number never goes to Cognito
     pending = json.loads(pg.evaluate("sessionStorage.getItem('af.notify.pending')"))
-    assert pending == {"opt_in": True, "channel": "sms", "phone": "438 555 0199", "alerts": ["down", "news"]}
+    assert pending == {"opt_in": True, "channel": "sms", "phone": "438 555 0199", "alerts": ["news"]}
     assert not pg.errors, pg.errors
 
 

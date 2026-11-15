@@ -1438,81 +1438,43 @@ function phoneProblem(v) {
   return "Enter a Canadian or U.S. mobile number, like 514 555 0123.";
 }
 
-/* ---------------- Notifications ("Inform me when…") and My profile settings ---------------- */
+/* ---------------- Notifications (phone number + news checkbox) and My profile settings ---------------- */
 
 const NOTIFY_PENDING = "af.notify.pending"; // the sign-up choice, saved once the new account is signed in
-const ALERT_CHOICES = [
-  { id: "up", label: "A stock I hold goes up" },
-  { id: "down", label: "A stock I hold goes down" },
-  { id: "news", label: "There is news about a stock I hold" },
-];
-const NOTIFY_WHAT = "Only about stocks you hold. Facts only, never advice. You can change this at any time in My profile settings.";
+const NOTIFY_WHAT = "Only about stocks you hold. Facts only, never advice. By text message to the phone number above. Standard text message rates may apply. You can change this at any time in My profile settings.";
 
-/** The "Inform me when…" fields: which alerts, then how (email or text, with the mobile number).
- * allowOff adds "Don't notify me" (My profile settings). read() -> { prefs, problem } where problem = { field, message }. */
-function notifyChoiceFields(prefix, { email = () => "", allowOff = false } = {}) {
-  const boxes = ALERT_CHOICES.map((a) => ({ id: a.id, input: h("input", { type: "checkbox", id: `${prefix}-alert-${a.id}`, name: `${prefix}-alerts`, value: a.id }), label: a.label }));
-  const channels = [
-    { id: "email", title: "By email", desc: () => (email() ? `To ${email()}.` : "To the email address of your account.") },
-    { id: "sms", title: "By text message", desc: () => "To a Canadian or U.S. mobile number. Standard text message rates may apply." },
-    ...(allowOff ? [{ id: "off", title: "Don't notify me", desc: () => "No alerts at all. Your mobile number is deleted." }] : []),
-  ].map((c) => ({ ...c, input: h("input", { type: "radio", name: `${prefix}-channel`, id: `${prefix}-channel-${c.id}`, value: c.id }), descEl: h("span", { class: "choice__desc" }) }));
+/** Phone number + one checkbox, "Notify me on news related to my portfolio" (text message to that number).
+ * read() -> { prefs, problem } where problem = { field, message }. Unchecking the box turns notifications off
+ * (the API then deletes the number). */
+function notifyChoiceFields(prefix) {
   const phoneInput = h("input", { class: "input", id: `${prefix}-phone`, name: "phone", type: "tel", inputmode: "tel", autocomplete: "tel-national",
     placeholder: "514 555 0123", "aria-describedby": `${prefix}-phone-help ${prefix}-phone-error` });
   const phoneError = h("p", { class: "field__error", id: `${prefix}-phone-error` });
-  const phoneEl = h("div", { class: "field" }, h("label", { class: "field__label", for: `${prefix}-phone` }, "Mobile number"), phoneInput,
-    h("p", { class: "field__help", id: `${prefix}-phone-help` }, "Canada or U.S."), phoneError);
+  const phoneEl = h("div", { class: "field" }, h("label", { class: "field__label", for: `${prefix}-phone` }, "Phone number"), phoneInput,
+    h("p", { class: "field__help", id: `${prefix}-phone-help` }, "Canadian or U.S. mobile number. Used only for the text alerts below."), phoneError);
   phoneInput.addEventListener("input", () => { phoneError.replaceChildren(); phoneInput.removeAttribute("aria-invalid"); });
-  const alertsError = h("p", { class: "field__error", id: `${prefix}-alerts-error` });
-  const how = h("fieldset", { class: "stack-sm notify__how" },
-    h("legend", { class: "field__label" }, "How should we tell you?"),
-    h("div", { class: "choices" }, channels.map((c) => h("label", { class: "choice" }, c.input,
-      h("span", { class: "choice__title" }, c.title), c.descEl))),
-    phoneEl);
-  const channel = () => (channels.find((c) => c.input.checked) || {}).id || null;
-  const sync = () => {
-    const any = boxes.some((b) => b.input.checked);
-    for (const c of channels) c.descEl.textContent = c.desc();
-    how.hidden = !allowOff && !any;
-    if (!channel()) channels[0].input.checked = true;
-    phoneEl.hidden = channel() !== "sms";
-  };
-  for (const b of boxes) b.input.addEventListener("change", () => {
-    alertsError.replaceChildren();
-    if (b.input.checked && channel() === "off") channels[0].input.checked = true; // ticking an alert turns them on
-    sync();
-  });
-  for (const c of channels) c.input.addEventListener("change", () => { sync(); if (channel() === "sms") phoneInput.focus(); });
-  const el = h("fieldset", { class: "stack-sm notify" },
-    h("legend", { class: "field__label" }, "Inform me when… ", allowOff ? null : h("span", { class: "optional" }, "(optional)")),
-    h("div", { class: "choices" }, boxes.map((b) => h("label", { class: "choice" }, b.input, h("span", { class: "choice__title" }, b.label)))),
-    alertsError,
-    h("p", { class: "field__help" }, allowOff ? "Only about stocks you hold. Facts only, never advice." : NOTIFY_WHAT),
-    how);
-  sync();
+  const box = h("input", { type: "checkbox", id: `${prefix}-notify`, name: `${prefix}-notify`, value: "news" });
+  const boxError = h("p", { class: "field__error", id: `${prefix}-notify-error` });
+  box.addEventListener("change", () => boxError.replaceChildren());
+  const el = h("div", { class: "stack-sm notify" },
+    phoneEl,
+    h("div", { class: "choices" }, h("label", { class: "choice" }, box,
+      h("span", { class: "choice__title" }, "Notify me on news related to my portfolio"))),
+    boxError,
+    h("p", { class: "field__help" }, NOTIFY_WHAT));
   return {
     el,
-    refresh: sync,
+    refresh() {},
     set(prefs) {
-      const on = Boolean(prefs && prefs.opt_in);
-      for (const b of boxes) b.input.checked = on && (prefs.alerts || []).includes(b.id);
-      const pick = on ? prefs.channel : allowOff ? "off" : "email";
-      for (const c of channels) c.input.checked = c.id === pick;
+      const on = Boolean(prefs && prefs.opt_in && prefs.channel === "sms" && (prefs.alerts || []).includes("news"));
+      box.checked = on;
       phoneInput.value = (on && prefs.phone) || "";
-      sync();
     },
     read() {
-      const alerts = boxes.filter((b) => b.input.checked).map((b) => b.id);
-      const ch = channel();
-      if (ch === "off" || (!allowOff && !alerts.length)) return { prefs: { opt_in: false }, problem: null };
-      const alertsField = { input: boxes[0].input, error: alertsError };
-      if (!alerts.length) return { prefs: null, problem: { field: alertsField, message: "Pick at least one alert, or choose \u201CDon't notify me\u201D." } };
-      if (ch === "sms") {
-        const problem = phoneProblem(phoneInput.value);
-        if (problem) return { prefs: null, problem: { field: { input: phoneInput, error: phoneError }, message: problem } };
-        return { prefs: { opt_in: true, channel: "sms", phone: phoneInput.value, alerts }, problem: null };
-      }
-      return { prefs: { opt_in: true, channel: "email", alerts }, problem: null };
+      if (!box.checked) return { prefs: { opt_in: false }, problem: null };
+      const problem = phoneProblem(phoneInput.value);
+      if (problem) return { prefs: null, problem: { field: { input: phoneInput, error: phoneError }, message: problem } };
+      return { prefs: { opt_in: true, channel: "sms", phone: phoneInput.value, alerts: ["news"] }, problem: null };
     },
   };
 }
@@ -1539,7 +1501,7 @@ async function flushNotifyChoice() {
 function settingsPointer() {
   return h("section", { class: "panel panel--plain stack-sm", "aria-labelledby": "settings-pointer-title" },
     h("h2", { id: "settings-pointer-title", class: "section-title" }, "Notifications and account"),
-    h("p", { class: "small" }, "Alerts by email or text, your email, your password and deleting your account are in My profile settings."),
+    h("p", { class: "small" }, "Text alerts on your portfolio news, your email, your password and deleting your account are in My profile settings."),
     h("a", { class: "link-btn", href: "#/settings" }, "Open My profile settings"));
 }
 
@@ -1666,14 +1628,14 @@ function passwordSection() {
 }
 
 function notifySection(session) {
-  const choice = notifyChoiceFields("set-notify", { allowOff: true, email: () => (readSession() || session || {}).email || "" });
+  const choice = notifyChoiceFields("set-notify");
   const f = settingsForm("set-notify", "Notifications", null, [choice], "Save notifications", async ({ status, formError }) => {
     const { prefs, problem } = choice.read();
     if (problem) return fieldProblem(problem.field, problem.message);
     try {
       const r = (await api("PUT", "/v1/notifications", prefs)).data;
       choice.set(r);
-      status.textContent = !r.opt_in ? "Notifications are off. Your mobile number was deleted."
+      status.textContent = !r.opt_in ? "Notifications are off. Your phone number was deleted."
         : r.channel === "sms" ? `Saved: alerts by text message to ${r.phone_masked}.` : `Saved: alerts by email to ${r.email}.`;
       announce("Notifications saved.");
     } catch (err) {
@@ -1881,7 +1843,7 @@ function renderSignIn(main) {
     if (flow.mode === "signup") {
       const email = field("email", "Email", { type: "email", autocomplete: "email", inputmode: "email", value: flow.email }, "We send a 6-digit code to confirm it.");
       const pw = field("password", "Password", { type: "password", autocomplete: "new-password" }, PASSWORD_RULE);
-      const inform = notifyChoiceFields("auth", { email: () => email.input.value.trim() });
+      const inform = notifyChoiceFields("auth");
       const submit = primary("Create account");
       fillBox(
         h("div", { class: "page-head" }, h("h2", null, "Create your account"),
