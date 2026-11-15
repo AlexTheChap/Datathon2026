@@ -636,10 +636,11 @@ function renderAsk(main) {
     if (r.kind === "question") parts.push(...drawQuestion(turn));
     if (r.kind === "message") {
       parts.push(h("p", null, r.message));
-      if (/profile/i.test(r.message || "")) parts.push(h("div", { class: "notice" }, h("a", { class: "btn btn--secondary btn--sm", href: "#/profile" }, "Set up your profile")));
+      if (r.intake_status !== "profile_updated" && /profile/i.test(r.message || "")) parts.push(h("div", { class: "notice" }, h("a", { class: "btn btn--secondary btn--sm", href: "#/profile" }, "Set up your profile")));
     }
     if (r.kind === "run") parts.push(...drawRunTurn(turn));
-    for (const change of r.toggle_changes || []) parts.push(drawToggleChange(change));
+    // A settings-only message already says what changed: each card then only offers to undo it.
+    for (const change of r.toggle_changes || []) parts.push(drawToggleChange(change, r.intake_status === "profile_updated"));
     const notes = (r.warnings || []).filter(Boolean);
     if (notes.length) parts.push(h("ul", { class: "warning-list" }, notes.map((w) => h("li", null, w))));
     turn.el.replaceChildren(you(turn.text), ai(parts));
@@ -713,9 +714,10 @@ function renderAsk(main) {
     return out;
   }
 
-  function drawToggleChange(change) {
+  function drawToggleChange(change, brief = false) {
     const name = (AGENTS[change.agent] || { name: change.agent }).name;
-    const line = h("p", null, `${name} is now ${change.enabled ? "on" : "off"} in your profile, because you said “${change.quote}”.`);
+    const line = h("p", null, brief ? `${name}: you said “${change.quote}”.`
+      : `${name} is now ${change.enabled ? "on" : "off"} in your profile, because you said “${change.quote}”.`);
     const undo = h("button", { class: "link-btn", type: "button", onclick: async () => {
       undo.disabled = true;
       try {

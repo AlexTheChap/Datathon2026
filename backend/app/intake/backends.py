@@ -410,6 +410,8 @@ class MockBackend:
             positions=self._positions(text, bench),
             benchmark=bench,
             include_rag=bool(_NEWS.search(request_text)),
+            # Only a setting (an analysis switched on/off, a new limit), no task word and no question mark.
+            settings_only=bool(toggle_changes or exclusions) and not task and "?" not in text,
             intake_confidence=0.9 if task else 0.4,
         )
         return IntakeDraft(profile=profile, request=request)

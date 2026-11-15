@@ -93,6 +93,19 @@ def test_news_switched_off_in_chat_shows_in_plan_profile_and_can_be_undone(page)
     assert page.errors == []
 
 
+def test_a_setting_said_alone_in_chat_is_confirmed_without_an_analysis(page):
+    fill_profile_form(page, risk=6, experience=2)   # Moderate, Beginner
+    page.click("a.nav__link:has-text('Ask')")
+    page.fill("#question", "I do not care about the news anymore for my portfolio")
+    page.keyboard.press("Control+Enter")
+    page.wait_for_selector("text=Done. News is now switched off")
+    assert page.locator("text=How AlphaForge worked on this").count() == 0     # no analysis ran
+    assert page.locator("a:has-text('Set up your profile')").count() == 0
+    page.click("button:has-text('Undo')")
+    page.wait_for_selector("text=News is back on")
+    assert page.errors == []
+
+
 def test_learning_switch_is_saved_and_picks_the_learning_template(page):
     fill_profile_form(page, risk=6, experience=2)   # Moderate, Beginner
     page.check("#q-wants_to_learn")

@@ -3,6 +3,7 @@
 POST /v1/runs (links L2 → L6), synchronous part (a few seconds, well under API Gateway's 30 s):
   1. ③ Intake with the stored profile (the profile is saved, toggles said in chat included);
   2. Intake "needs_clarification"           → 200 {"kind": "question"}  (no run)
+     Intake "profile_updated"                → 200 {"kind": "message"}   (settings saved and confirmed, no run)
   3. ④ Context on "ready" / "out_of_scope":
        "profile_required"                    → 200 {"kind": "message"}   (no run)
        "planned"                             → run saved as QUEUED, handed to the dispatcher → 202 {"kind": "run"}
@@ -180,6 +181,8 @@ class ApiService:
         if res.status == "needs_clarification":
             return 200, MessageOut(kind="question", question=res.clarification_question,
                                    missing_fields=res.missing_fields, **common)
+        if res.status == "profile_updated":  # only settings changed (saved by the Intake): confirm, run nothing
+            return 200, MessageOut(kind="message", message=res.message, **common)
         if res.request is None:  # input refused (e.g. guardrail): nothing to plan
             return 200, MessageOut(kind="message", message="This request cannot be processed. AlphaForge is a "
                                    "simulation tool for investment analysis.", **common)

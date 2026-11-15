@@ -99,7 +99,7 @@ def test_bumped_version_is_refused(make_profile, local_copy):
     src = LocalPromptSource(local_copy)
     ref = resolve_explainer_prompt(make_profile("robert"), src)
     path = local_copy / ref.key
-    path.write_text(path.read_text(encoding="utf-8").replace("version: 1.3.0", "version: 1.4.0"), encoding="utf-8")
+    path.write_text(path.read_text(encoding="utf-8").replace("version: 1.4.0", "version: 1.5.0"), encoding="utf-8")
     with pytest.raises(PromptVersionMismatch):
         load_prompt(ref, src)
 
@@ -255,4 +255,4 @@ def test_template_with_the_wrong_style_is_refused(make_profile, tmp_path):
 def test_every_template_carries_the_evidence_rules():
     for f in PROMPTS_DIR.glob("explainer.*.md"):
         body = f.read_text(encoding="utf-8")
-        assert "Evidence only" in body and "short_answer_evidence" in body and "version: 1.3.0" in body and "UNVERIFIED" in body and "NON_VERIFIE" not in body, f.name
+        assert "Evidence only" in body and "short_answer_evidence" in body and "version: 1.4.0" in body and "UNVERIFIED" in body and "NON_VERIFIE" not in body, f.name

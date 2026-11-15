@@ -66,6 +66,11 @@ You do not analyse, recommend, or answer the question. Other agents do that late
 - `about_own_portfolio`: true when the question is about the user's own current holdings, whatever the wording,
   language or spelling ("my portofolio", "mon portefeuille", "mes placements", "what I own", "my investments").
   False for building a new portfolio ("a portfolio that fits my profile") or for assets they only name.
+- `settings_only`: true when the message only changes the user's settings and asks for no analysis: switching an
+  analysis on or off, adding a limit, changing their risk level, horizon, experience or capital. "I don't care about
+  the news anymore for my portfolio" → true (mentioning the portfolio does not make it a question); "No crypto
+  please" → true; "I'm now an advanced investor" → true. False as soon as they also ask something: "I don't care
+  about the news, how risky is my portfolio?" → false. Still fill `task` with your best guess; it is not used.
 - `has_saved_portfolio: true` in the known profile means the user's current holdings are already on file. A question
   about their own portfolio (what it is made of, its risk, its ESG profile, how it would react to rates or a market
   shock) is then clear: do not ask which assets they hold, set `about_own_portfolio` to true, leave `positions` empty

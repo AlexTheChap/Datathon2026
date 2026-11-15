@@ -115,3 +115,46 @@ def test_bedrock_draft_schema_exposes_toggle_changes():
     assert "agent_toggle_changes" in schema["$defs"]["ProfileDraft"]["properties"]
     assert set(schema["$defs"]["AgentToggleChange"]["properties"]["agent"]["enum"]) == {
         "risk", "news", "esg", "fundamentals", "macro_scenarios", "allocation"}
+
+
+# ---------- A message that only changes a setting ----------
+
+def test_a_setting_alone_is_confirmed_and_runs_no_analysis(mock):
+    store = InMemoryProfileStore()
+    run_intake("Is my portfolio too risky?", "robert", backend=mock, profile_form=FORM, store=store)
+    res = run_intake("I do not care about the news anymore for my portfolio", "robert", backend=mock, store=store)
+    assert res.status == "profile_updated"
+    assert res.message.startswith("Done. News is now switched off")
+    assert store.get("robert").agent_toggles.news is False                    # saved
+
+
+def test_a_setting_with_a_question_still_answers_the_question(mock):
+    store = InMemoryProfileStore()
+    run_intake("Is my portfolio too risky?", "robert", backend=mock, profile_form=FORM, store=store)
+    res = run_intake("I don't care about the news. Is my portfolio too risky?", "robert", backend=mock, store=store)
+    assert res.status == "ready" and res.message is None
+
+
+def test_a_new_limit_says_the_portfolio_will_be_rebuilt(mock):
+    store = InMemoryProfileStore()
+    run_intake("Is my portfolio too risky?", "robert", backend=mock, profile_form={**FORM, "portfolio": {"SPY": 1.0}},
+               store=store)
+    res = run_intake("No crypto please", "robert", backend=mock, store=store)
+    assert res.status == "profile_updated"
+    assert "New hard limit: no cryptocurrencies." in res.message and "rebuilt" in res.message
+
+
+class _SettingsOnly:
+    """The model reads the message as settings only, but nothing new is said: nothing to change."""
+    name = "bedrock"
+
+    def extract(self, text, known_profile, feedback=None):
+        return IntakeDraft(profile=ProfileDraft(learning="unsaid"),
+                           request=RequestDraft(task="risk_review", settings_only=True, intake_confidence=0.9))
+
+
+def test_a_setting_already_saved_is_said_so():
+    store = InMemoryProfileStore()
+    run_intake("Is my portfolio too risky?", "robert", backend=MockBackend(), profile_form=FORM, store=store)
+    res = run_intake("Keep things as they are", "robert", backend=_SettingsOnly(), store=store)
+    assert res.status == "profile_updated" and res.message.startswith("Nothing to change")

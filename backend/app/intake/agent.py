@@ -7,7 +7,8 @@ Steps of `run_intake`:
    switches on/off in the text are kept only if their quote is really in the message, and are saved;
 4. add the server-side fields (actor_id, request_id, as_of) and validate with Pydantic;
 5. checks: tickers outside the universe, weights > 100%, conflict with an exclusion, date after the data;
-6. pick the status: ready, needs_clarification (at most one question) or out_of_scope;
+6. pick the status: ready, needs_clarification (at most one question), out_of_scope, or profile_updated (the
+   message only changed settings: they are saved and confirmed, no analysis runs);
 7. store the profile if it is complete.
 
 The Intake analyses nothing and blocks nothing: governance (box 5) decides. It only flags.
@@ -156,6 +157,62 @@ def _merge_profile(stored: Optional[Profile], draft: IntakeDraft, form: Optional
     return merged
 
 
+_ANALYSIS_NAMES = {"risk": "Portfolio risk", "macro_scenarios": "Macro and rates", "esg": "ESG screening",
+                   "fundamentals": "Company fundamentals", "news": "News", "allocation": "Allocation proposal"}
+_RISK_WORDS = {"low": "low", "low_moderate": "low to moderate", "moderate": "moderate", "high": "high"}
+# The fields that shape a portfolio: changing one means the portfolio is rebuilt (the dashboard's SHAPING list).
+_SHAPING = ("risk_band", "horizon_years", "capital", "loss_capacity", "exclusions", "preferences", "constraints")
+
+
+def _limit_words(e: dict) -> str:
+    if e.get("type") == "asset_class" and e.get("value") == "crypto":
+        return "no cryptocurrencies"
+    if e.get("type") == "controversy":
+        return "avoid companies with major controversies (the ESG check runs)"
+    return f"nothing from {str(e.get('value') or e.get('type')).replace('_', ' ')}"
+
+
+def _settings_changes(stored: Optional[Profile], profile: Profile,
+                      toggle_changes: list[AgentToggleChange]) -> tuple[list[str], bool]:
+    """What this message changed in the saved profile, one plain sentence each, and whether it reshapes the portfolio.
+    Used to confirm a settings-only message ("I don't care about the news anymore") without running an analysis."""
+    before = stored.model_dump(mode="json") if stored else {}
+    after = profile.model_dump(mode="json")
+    said: list[str] = []
+    for c in toggle_changes:
+        name = _ANALYSIS_NAMES.get(c.agent, c.agent)
+        said.append(f"{name} is now switched on: AlphaForge may use it when a question needs it." if c.enabled
+                    else f"{name} is now switched off: AlphaForge won't use it unless a question can't be answered without it.")
+    added = [e for e in after.get("exclusions") or [] if e not in (before.get("exclusions") or [])]
+    said += [f"New hard limit: {_limit_words(e)}." for e in added]
+    if after.get("risk_band") != before.get("risk_band"):
+        said.append(f"Your risk level is now {_RISK_WORDS.get(after['risk_band'], after['risk_band'])}.")
+    if after.get("horizon_years") != before.get("horizon_years") and before:
+        h = after.get("horizon_years") or {}
+        span = f"{h.get('min')} to {h.get('max')} years" if h.get("min") and h.get("max") and h["min"] != h["max"] \
+            else f"{h.get('max') or h.get('min')} years" if (h.get("max") or h.get("min")) else "not set"
+        said.append(f"Your horizon is now {span}.")
+    if after.get("experience") != before.get("experience"):
+        said.append(f"Your experience is now {after['experience']}: answers will be written for that level.")
+    if after.get("wants_to_learn") != before.get("wants_to_learn") and before:
+        said.append("Answers will now explain the ideas behind them." if after.get("wants_to_learn")
+                    else "Answers will now go straight to the point.")
+    if after.get("capital") != before.get("capital") and after.get("capital"):
+        said.append(f"The simulated amount is now ${after['capital']:,.0f}.")
+    if after.get("loss_capacity") != before.get("loss_capacity") and after.get("loss_capacity") is not None:
+        said.append(f"The largest loss you accept is now {after['loss_capacity']:.0%}.")
+    reshapes = any(after.get(k) != before.get(k) for k in _SHAPING)
+    return said, reshapes
+
+
+def _settings_message(said: list[str], reshapes: bool, has_portfolio: bool) -> str:
+    if not said:
+        return "Nothing to change: your settings already say that. Ask me anything about your portfolio."
+    end = ("Your portfolio will be rebuilt to match when you open My portfolio." if reshapes and has_portfolio
+           else "Your portfolio stays the same." if has_portfolio else "")
+    return " ".join(["Done.", *said, end]).strip()
+
+
 _OWN_PORTFOLIO = re.compile(r"\bmy\s+(?:current\s+|whole\s+|own\s+)?(?:portfolio|holdings|investments|mix|allocation)\b", re.I)
 
 
@@ -293,7 +350,15 @@ def run_intake(
 
     # --- Status ---------------------------------------------------------------------------------
     question = None
-    if request.task == "out_of_scope":
+    message = None
+    if r.settings_only and stored is not None and profile is not None and request.task != "out_of_scope":
+        # "I don't care about the news anymore": a setting, not a question. Confirm it; run no analysis (an answer
+        # about something else would read as unrelated). Only an update: a first message describing oneself is
+        # still asked what to analyse.
+        status = "profile_updated"
+        said, reshapes = _settings_changes(stored, profile, toggle_changes)
+        message = _settings_message(said, reshapes, bool(profile.portfolio))
+    elif request.task == "out_of_scope":
         status = "out_of_scope"
     elif missing:
         status = "needs_clarification"
@@ -313,6 +378,7 @@ def run_intake(
         profile=profile,
         request=request,
         clarification_question=question,
+        message=message,
         missing_fields=missing,
         toggle_changes=toggle_changes if profile is not None else [],  # only reported once saved in a profile
         warnings=warnings,
