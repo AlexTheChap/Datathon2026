@@ -41,12 +41,16 @@ Before writing or reviewing any code, read it. See
 
 ```bash
 .venv/bin/pip install -e ".[dev,api]"
+
+# With sign-in (Amazon Cognito, demo accounts for Amira, Mateo and Robert). Once: python scripts/setup_cognito.py
+(set -a; . ./.env; set +a; cd backend && AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app --port 8000)
+
+# Without sign-in (a demo user name kept in the browser, no password; local only)
 cd backend && AF_AUTH_MODE=dev AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app --port 8000
-# open http://127.0.0.1:8000  (AF_INTAKE_MODE=bedrock + your .env keys for the real Claude Haiku intake)
 ```
 
-`AF_AUTH_MODE=dev` lets the browser pick a demo user; it is for local use only. Real sign-in (Amazon Cognito,
-demo accounts for Amira, Mateo and Robert): `python scripts/setup_cognito.py`, then start the API with `.env` loaded. Details, design rules and the
+Open http://127.0.0.1:8000. The first log line says which sign-in mode the API runs in, and the page follows it.
+`AF_INTAKE_MODE=bedrock` (with the `.env` keys) uses the real Claude Haiku intake. Details, design rules and the
 ergonomic checklist: [`frontend/README.md`](frontend/README.md).
 
 ## Run the pipeline (boxes ③④⑤⑥)

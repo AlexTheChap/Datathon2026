@@ -18,12 +18,13 @@ Lambda: `handler` (Mangum adapter). Local: `uvicorn app.api.app:app --app-dir ba
 """
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.schemas import Profile
@@ -41,6 +42,23 @@ def identity_from(request: Request) -> Identity:
         return identify(request.scope.get("aws.event"), request.headers)
     except AuthError as e:
         raise HTTPException(status_code=401, detail=str(e), headers={"WWW-Authenticate": "Bearer"}) from e
+
+
+def auth_mode() -> str:
+    return os.environ.get("AF_AUTH_MODE", "jwt").lower()
+
+
+def log_auth_mode() -> None:
+    """One line at startup saying how callers are identified (the first thing to check when sign-in fails)."""
+    mode, log = auth_mode(), logging.getLogger("uvicorn.error")
+    if mode == "cognito":
+        pool = os.environ.get("AF_COGNITO_USER_POOL_ID") or "NOT SET: every request will get 401"
+        log.info("AlphaForge API sign-in: Amazon Cognito (user pool %s)", pool)
+    elif mode == "dev":
+        log.info("AlphaForge API sign-in: dev mode, X-Actor-Id header, no password (local tests only)")
+    else:
+        log.info("AlphaForge API sign-in: API Gateway authorizer only; direct local requests get 401 "
+                 "(start with AF_AUTH_MODE=cognito or dev)")
 
 
 def actor_id_from(request: Request) -> str:
@@ -97,7 +115,21 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
     # the API routes above win. On AWS the frontend is static files in S3 + CloudFront instead.
     frontend = Path(os.environ.get("AF_FRONTEND_DIR", FRONTEND_DIR))
     if os.environ.get("AF_SERVE_FRONTEND", "1") != "0" and (frontend / "index.html").is_file():
+
+        @api.get("/config.js", include_in_schema=False)
+        def frontend_config() -> Response:
+            """The page's sign-in settings always match how this API checks callers: the Cognito config only when
+            this API verifies Cognito tokens, otherwise none (the page then runs in dev mode)."""
+            cfg = frontend / "config.js"
+            if auth_mode() == "cognito" and cfg.is_file():
+                body = cfg.read_text(encoding="utf-8")
+            else:
+                body = "// Sign-in is off: this API does not verify Cognito tokens (AF_AUTH_MODE is not cognito).\n"
+            return Response(body, media_type="application/javascript", headers={"Cache-Control": "no-store"})
+
         api.mount("/", StaticFiles(directory=frontend, html=True), name="frontend")
+
+    log_auth_mode()
 
     return api
 

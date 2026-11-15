@@ -215,7 +215,8 @@ def test_cognito_demo_sign_in_seeds_the_persona_and_signs_out(base_url, monkeypa
         pg.click("a.nav__link:has-text('Ask')")
         pg.fill("#question", "Is my portfolio too risky?")
         pg.click("form.composer button[type=submit]")  # the API sees the forged token and answers 401
-        pg.wait_for_selector("text=Your session has expired. Sign in again.")
+        # Refused right after signing in: the app names the real cause instead of "session expired"
+        pg.wait_for_selector("text=AlphaForge's server refused your sign-in")
         assert pg.evaluate("localStorage.getItem('af.session')") is None
         browser.close()
     assert "InitiateAuth" in calls and errors == []

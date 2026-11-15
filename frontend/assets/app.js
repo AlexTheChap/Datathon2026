@@ -189,11 +189,12 @@ function cognitoMessage(err) {
   }[err.type] || "Sign-in didn't work this time. Try again in a moment.";
 }
 
-function setSession(result, email, { keepRefresh = null, reset = true } = {}) {
+function setSession(result, email, { keepRefresh = null, reset = true, signedInAt = Date.now() } = {}) {
   store.set(SESSION_KEY, {
     idToken: result.IdToken,
     refreshToken: result.RefreshToken || keepRefresh,
     expiresAt: Date.now() + (result.ExpiresIn || 3600) * 1000,
+    signedInAt,
     email,
   });
   if (reset) { state.profile = undefined; state.thread = []; }
@@ -210,7 +211,7 @@ async function refreshSession() {
   if (!s || !s.refreshToken) return false;
   try {
     const out = await cognito("InitiateAuth", { AuthFlow: "REFRESH_TOKEN_AUTH", AuthParameters: { REFRESH_TOKEN: s.refreshToken } });
-    setSession(out.AuthenticationResult, s.email, { keepRefresh: s.refreshToken, reset: false });
+    setSession(out.AuthenticationResult, s.email, { keepRefresh: s.refreshToken, reset: false, signedInAt: s.signedInAt });
     return true;
   } catch { return false; }
 }
@@ -257,12 +258,18 @@ async function api(method, path, body, retried = false) {
   } catch {
     throw new ApiError(0, "network");
   }
-  if (res.status === 401 && COGNITO) {
-    if (!retried && (await refreshSession())) return api(method, path, body, true);
-    signOut("Your session has expired. Sign in again.");
-  }
   let data = null;
   try { data = await res.json(); } catch { /* empty body */ }
+  if (res.status === 401 && COGNITO) {
+    if (!retried && (await refreshSession())) return api(method, path, body, true);
+    // A token refused minutes after signing in is not an expired session: say what really happened.
+    const s = readSession();
+    const fresh = s && s.signedInAt && Date.now() - s.signedInAt < 120_000;
+    const reason = (data && typeof data.detail === "string" && data.detail) || "unauthorized";
+    signOut(fresh
+      ? `AlphaForge's server refused your sign-in (\u201C${reason}\u201D). If you run the API yourself, start it with the Cognito settings from .env.`
+      : "Your session has expired. Sign in again.");
+  }
   if (!res.ok) throw new ApiError(res.status, data && data.detail);
   return { status: res.status, data };
 }

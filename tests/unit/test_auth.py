@@ -147,3 +147,34 @@ def test_users_cannot_see_each_others_runs(client):
     run_id = client.post("/v1/runs", json={"text": "Is my portfolio too risky?"}, headers=robert).json()["run_id"]
     assert client.get(f"/v1/runs/{run_id}", headers=robert).status_code == 200
     assert client.get(f"/v1/runs/{run_id}", headers=bearer(sub="sub-ana")).status_code == 404
+
+
+# ---------- The page's sign-in config always matches the API's mode ----------
+
+@pytest.fixture
+def site(tmp_path, monkeypatch):
+    (tmp_path / "index.html").write_text("<!doctype html><title>t</title>", encoding="utf-8")
+    (tmp_path / "config.js").write_text('window.AF_CONFIG = {"auth": "cognito"};', encoding="utf-8")
+    monkeypatch.setenv("AF_FRONTEND_DIR", str(tmp_path))
+    return tmp_path
+
+
+@pytest.mark.parametrize("mode, served", [("cognito", True), ("dev", False), ("jwt", False)])
+def test_config_js_is_served_only_when_the_api_verifies_cognito_tokens(site, monkeypatch, mode, served):
+    monkeypatch.setenv("AF_AUTH_MODE", mode)
+    r = TestClient(create_app(ApiService(intake_backend=MockBackend()))).get("/config.js")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("application/javascript")
+    assert ("AF_CONFIG" in r.text) is served
+    assert r.headers["cache-control"] == "no-store"
+
+
+def test_startup_log_names_the_sign_in_mode(monkeypatch, caplog):
+    import logging
+
+    from app.api.app import log_auth_mode
+    for mode, words in [("cognito", "Amazon Cognito"), ("dev", "dev mode"), ("jwt", "get 401")]:
+        monkeypatch.setenv("AF_AUTH_MODE", mode)
+        caplog.clear()
+        with caplog.at_level(logging.INFO, logger="uvicorn.error"):
+            log_auth_mode()
+        assert words in caplog.text, mode
