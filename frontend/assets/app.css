@@ -925,12 +925,16 @@ summary { cursor: pointer; font-weight: var(--weight-mid); min-height: 44px; dis
 .scale.is-unset .scale__input::-webkit-slider-runnable-track { background: var(--color-rule); }
 .scale.is-unset .scale__input::-moz-range-progress { background: transparent; }
 .scale.is-unset .scale__input::-webkit-slider-thumb { border-color: var(--color-edge); }
-.scale__bands { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 2px; font-size: var(--text-sm); color: var(--color-muted); }
-.scale__band { text-align: center; padding-block-start: var(--space-2xs); border-top: 2px solid var(--color-rule-soft); transition: color var(--dur-short) var(--ease), border-color var(--dur-short) var(--ease); }
-.scale__band.is-on { color: var(--color-accent-text); border-top-color: var(--color-accent); font-weight: var(--weight-mid); }
+.scale__bands { position: relative; display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); font-size: var(--text-sm); color: var(--color-muted);
+  border-top: 2px solid var(--color-rule-soft); }
+.scale__bar { position: absolute; left: 0; top: -2px; width: 100%; height: 2px; background: var(--color-accent); transform-origin: left center;
+  transition: transform 380ms var(--ease-out), opacity var(--dur-short) var(--ease); }
+.scale.is-unset .scale__bar { opacity: 0; }
+.scale__band { text-align: center; padding-block-start: var(--space-2xs); transition: color 300ms var(--ease); }
+.scale__band.is-on { color: var(--color-accent-text); font-weight: var(--weight-mid); }
 .scale__out { display: grid; gap: 2px; min-height: 2.6em; color: var(--color-ink-2); }
 .scale__out strong { color: var(--color-ink); }
-.scale__out:not(:empty) { animation: af-fade 240ms var(--ease) both; }
+.scale__out.is-new { animation: af-appear 320ms var(--ease-out) both; } /* the new category's words slide in */
 
 /* ---------- Motion: things appear, grow and respond (all off with prefers-reduced-motion) ---------- */
 @keyframes af-appear { from { opacity: 0; transform: translateY(8px) scale(0.985); } to { opacity: 1; transform: none; } }

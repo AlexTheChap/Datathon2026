@@ -22,7 +22,9 @@ export function scale(h, { id, name, label, help, bands, options, value = null, 
   const input = h("input", { type: "range", class: "scale__input", id, name, min: "1", max: "10", step: "1",
     "aria-describedby": `${id}-out${help ? ` ${id}-help` : ""}` });
   const out = h("output", { class: "scale__out", id: `${id}-out`, for: id, "aria-live": "polite" });
-  const ticks = h("div", { class: "scale__bands", "aria-hidden": "true" }, bands.map((b) => h("span", {
+  // One red bar under the categories, moved and resized to the current one (transform only, so it slides).
+  const bar = h("span", { class: "scale__bar" });
+  const ticks = h("div", { class: "scale__bands", "aria-hidden": "true" }, bar, bands.map((b) => h("span", {
     class: "scale__band", style: `grid-column: ${b.from} / ${b.to + 1}`, "data-value": b.value }, titleOf(b.value))));
   const el = h("div", { class: "scale is-unset" },
     h("label", { class: "field__label", for: id }, label),
@@ -31,14 +33,19 @@ export function scale(h, { id, name, label, help, bands, options, value = null, 
     out);
 
   let set = false;
+  let shown = null; // the category on screen: its words slide in only when it changes
   function show(n, fromUser) {
     const b = bandOf(n);
     set = true;
     el.classList.remove("is-unset");
+    bar.style.transform = `translateX(${((b.from - 1) / 10) * 100}%) scaleX(${(b.to - b.from + 1) / 10})`;
+    const changed = shown !== b.value;
+    shown = b.value;
     input.value = String(n);
     input.style.setProperty("--fill", `${((n - 1) / 9) * 100}%`);
     input.setAttribute("aria-valuetext", `${n} out of 10, ${titleOf(b.value)}`);
     out.replaceChildren(h("strong", null, `${n} / 10 · ${titleOf(b.value)}`), h("span", null, descOf(b.value)));
+    if (changed) { out.classList.remove("is-new"); void out.offsetWidth; out.classList.add("is-new"); }
     for (const t of ticks.children) t.classList.toggle("is-on", t.dataset.value === b.value);
     if (fromUser && onChange) onChange(b.value, n);
   }
@@ -53,7 +60,7 @@ export function scale(h, { id, name, label, help, bands, options, value = null, 
   el.setCategory = (v) => {
     const b = bands.find((x) => x.value === v);
     if (b) show(b.score, false);
-    else { set = false; el.classList.add("is-unset"); input.value = "5"; input.removeAttribute("aria-valuetext");
+    else { set = false; shown = null; el.classList.add("is-unset"); input.value = "5"; input.removeAttribute("aria-valuetext");
       out.replaceChildren(h("span", null, "Move the slider to choose.")); for (const t of ticks.children) t.classList.remove("is-on"); }
   };
   el.setCategory(value);
