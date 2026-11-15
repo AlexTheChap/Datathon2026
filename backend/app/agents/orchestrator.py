@@ -53,6 +53,11 @@ def persona_block(profile: Profile, language: str) -> str:
     if profile.exclusions:
         lines.append("- exclusions: " + "; ".join(
             f"{e.type}={e.value or e.min_severity or ''}".rstrip("=") for e in profile.exclusions))
+    if profile.wants_to_learn:
+        lines.append("- wants to learn: yes — explain terms and show the reasoning in the summary")
+    if profile.agent_toggle_reasons:
+        lines.append("- investor's words about the analysis: " + "; ".join(
+            f"{a} ({q})" for a, q in profile.agent_toggle_reasons.items()))
     if profile.loss_capacity is not None:
         lines.append(f"- stated loss capacity: {profile.loss_capacity:.0%}")
     if profile.capital is not None:

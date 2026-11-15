@@ -88,6 +88,23 @@ def test_tools_block_without_plan_is_unchanged(make_profile, make_request):
     assert all(f"**`{t.tool_name}`**" in g for t in REGISTRY.values())
 
 
+# ---------- Persona block ----------
+
+def test_persona_block_carries_learning_and_toggle_preferences(make_profile):
+    """The orchestrator sees what the investor said, not just the Explainer: teaching
+    preference and the words that switched sub-agents off reach the system prompt."""
+    p = make_profile("mateo", wants_to_learn=True, agent_toggle_reasons={"news": "I don't care about the news"})
+    block = orchestrator.persona_block(p, "en")
+    assert "wants to learn: yes" in block
+    assert "news (I don't care about the news)" in block
+
+
+def test_persona_block_defaults_stay_silent(make_profile):
+    p = make_profile("robert")
+    block = orchestrator.persona_block(p, "en")
+    assert "wants to learn" not in block and "investor's words" not in block
+
+
 # ---------- Orchestrator runs ----------
 
 def test_out_of_scope_runs_no_llm(make_profile, make_request, monkeypatch, tmp_path):
