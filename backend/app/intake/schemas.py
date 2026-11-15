@@ -13,7 +13,22 @@ from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas import Benchmark, Exclusion, Position, Profile, Request, Scenario, Task
+from app.schemas.execution_plan import AgentName
 from app.schemas.profile import Experience, Language, RiskBand
+
+
+class AgentToggleChange(BaseModel):
+    """The user explicitly switched a kind of analysis on or off ("I don't care about the news").
+
+    Saved in the profile (it lasts until the user changes it again). `quote` must be the user's exact
+    words: the code drops any change whose quote is not found in the message (no invented toggles).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    agent: AgentName
+    enabled: bool
+    quote: str = Field(description="The user's exact words that express this choice, copied verbatim.")
 
 
 class ProfileDraft(BaseModel):
@@ -30,6 +45,8 @@ class ProfileDraft(BaseModel):
     exclusions: list[Exclusion] = Field(default_factory=list)
     loss_capacity: Optional[float] = Field(default=None, description="Tolerated loss, as a fraction (0.15 = 15%).")
     capital: Optional[float] = Field(default=None, description="Total simulated capital, in CAD.")
+    agent_toggle_changes: list[AgentToggleChange] = Field(
+        default_factory=list, description="Only analyses the user explicitly turns on or off in this message.")
 
 
 class RequestDraft(BaseModel):
@@ -69,5 +86,7 @@ class IntakeResult(BaseModel):
     request: Optional[Request] = None
     clarification_question: Optional[str] = None
     missing_fields: list[str] = Field(default_factory=list)
+    toggle_changes: list[AgentToggleChange] = Field(
+        default_factory=list, description="Toggle changes applied (and saved) from this message, for the UI.")
     warnings: list[str] = Field(default_factory=list)
     backend: str = Field(description="'bedrock' or 'mock': which backend produced the draft.")

@@ -17,7 +17,7 @@ from typing import Optional, Protocol, get_args
 from app.schemas import Exclusion, Position
 from app.schemas.profile import Language
 
-from .schemas import IntakeDraft, ProfileDraft, RequestDraft
+from .schemas import AgentToggleChange, IntakeDraft, ProfileDraft, RequestDraft
 from .universe import Asset, aliases, load_universe, universe_for_prompt
 
 PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "intake.md"
@@ -151,6 +151,42 @@ _PCT = re.compile(r"(\d+(?:\.\d+)?)\s*%")
 _LOSS = re.compile(r"(?:lose|loss)\D{0,30}?(\d+(?:\.\d+)?)\s*%", re.I)
 _TICKER_TOKEN = re.compile(r"\b[A-Z]{2,5}(?:\.TO|-USD)?\b")
 
+# Sub-agent toggles said in chat ("I don't care about the news", "bring back the ESG check").
+_AGENT_WORD = (r"(?P<word>news|headlines|esg|fundamentals|financials|scenarios?|stress[- ]tests?|macro|"
+               r"allocations?|risk(?:\s+analysis)?)\b")
+_TOGGLE_OFF = re.compile(
+    r"(?:(?:don'?t|do\s+not|never)\s+(?:really\s+)?(?:care|want|need)\s+(?:about\s+|for\s+|to\s+see\s+)?"
+    r"|not\s+interested\s+in\s+|(?:skip|ignore|stop\s+showing(?:\s+me)?|turn\s+off|disable|no\s+more|drop)\s+)"
+    rf"(?:the\s+|any\s+|me\s+)?{_AGENT_WORD}", re.I)
+_TOGGLE_ON = re.compile(
+    r"(?:turn\s+on|enable|bring\s+back|include|start\s+showing(?:\s+me)?|i\s+(?:do\s+)?(?:care|want)\s+(?:about\s+)?)"
+    rf"\s*(?:the\s+)?{_AGENT_WORD}", re.I)
+
+
+def _agent_for(word: str) -> str:
+    w = word.lower()
+    if w in ("news", "headlines"):
+        return "news"
+    if w == "esg":
+        return "esg"
+    if w in ("fundamentals", "financials"):
+        return "fundamentals"
+    if w.startswith(("scenario", "stress", "macro")):
+        return "macro_scenarios"
+    if w.startswith("allocation"):
+        return "allocation"
+    return "risk"
+
+
+def _toggle_changes(text: str) -> tuple[list[AgentToggleChange], str]:
+    """Toggle changes said in the text + the text with the 'switch off' phrases removed, so that
+    "I don't care about the news" does not also request news (include_rag) or pick the news task."""
+    changes = [AgentToggleChange(agent=_agent_for(m.group("word")), enabled=False, quote=m.group(0))
+               for m in _TOGGLE_OFF.finditer(text)]
+    changes += [AgentToggleChange(agent=_agent_for(m.group("word")), enabled=True, quote=m.group(0))
+                for m in _TOGGLE_ON.finditer(text)]
+    return changes, _TOGGLE_OFF.sub(" ", text)
+
 
 def _first(table: list[tuple[str, str]], text: str) -> Optional[str]:
     for value, pattern in table:
@@ -217,6 +253,7 @@ class MockBackend:
 
     def extract(self, text: str, known_profile: Optional[dict], feedback: Optional[str] = None) -> IntakeDraft:
         kp = known_profile or {}
+        toggle_changes, request_text = _toggle_changes(text)
         h_min, h_max = _horizon(text)
 
         exclusions: list[Exclusion] = []
@@ -241,20 +278,21 @@ class MockBackend:
             exclusions=exclusions,
             loss_capacity=loss,
             capital=capital,
+            agent_toggle_changes=toggle_changes,
         )
 
-        task = "out_of_scope" if _OUT_OF_SCOPE.search(text) else _first(_TASKS, text)
+        task = "out_of_scope" if _OUT_OF_SCOPE.search(text) else _first(_TASKS, request_text)
         bench = None
         if m := _BENCH.search(text):
             bench = _BENCH_MAP.get(re.sub(r"\s+", "", m.group(1).lower()))
-        stress = bool(_STRESS.search(text))
+        stress = bool(_STRESS.search(request_text))
         request = RequestDraft(
             task=task or "risk_review",
             positions=self._positions(text, bench),
             scenarios=(["2022_H1"] if _H1.search(text) else ["2022"]) if stress else [],
             benchmark=bench,
             stress_tests=stress,
-            include_rag=bool(_NEWS.search(text)),
+            include_rag=bool(_NEWS.search(request_text)),
             intake_confidence=0.9 if task else 0.4,
         )
         return IntakeDraft(profile=profile, request=request)

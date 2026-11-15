@@ -3,7 +3,8 @@
 Steps of `run_intake`:
 1. read the already stored profile (store) and the profile form;
 2. ask the backend (Bedrock Haiku or mock) for a draft, retrying once if the output is invalid;
-3. merge: stored profile < free text < form (the explicit form always wins);
+3. merge: stored profile < free text < form (the explicit form always wins); sub-agent toggles the user
+   switches on/off in the text are kept only if their quote is really in the message, and are saved;
 4. add the server-side fields (actor_id, request_id, as_of) and validate with Pydantic;
 5. checks: tickers outside the universe, weights > 100%, conflict with an exclusion, date after the data;
 6. pick the status: ready, needs_clarification (at most one question) or out_of_scope;
@@ -23,7 +24,7 @@ from app.schemas import Parameters, PortfolioRef, Position, Profile, Request, To
 from app.store.profiles import ProfileStore
 
 from .backends import IntakeBackend, IntakeRefused, get_backend
-from .schemas import IntakeDraft, IntakeResult
+from .schemas import AgentToggleChange, IntakeDraft, IntakeResult
 from .universe import load_universe, normalize_ticker
 
 DATA_END = date(2026, 11, 12)  # last date of the dataset (see schemas/enums.py)
@@ -68,7 +69,25 @@ def _known_profile(stored: Optional[Profile], form: Optional[dict]) -> dict[str,
     return known
 
 
-def _merge_profile(stored: Optional[Profile], draft: IntakeDraft, form: Optional[dict]) -> dict[str, Any]:
+def _normalize(text: str) -> str:
+    return " ".join(text.replace("\u2019", "'").lower().split())
+
+
+def _verified_toggle_changes(text: str, changes: list[AgentToggleChange], warnings: list[str]) -> list[AgentToggleChange]:
+    """Keep a toggle change only if its quote is really in the message (the model cannot invent one).
+    One change per agent: the last one wins."""
+    message, kept = _normalize(text), {}
+    for change in changes:
+        quote = _normalize(change.quote)
+        if not quote or quote not in message:
+            warnings.append(f"Ignored a change to the '{change.agent}' analysis: its quoted words are not in the message.")
+            continue
+        kept[change.agent] = change
+    return list(kept.values())
+
+
+def _merge_profile(stored: Optional[Profile], draft: IntakeDraft, form: Optional[dict],
+                   toggle_changes: Optional[list[AgentToggleChange]] = None) -> dict[str, Any]:
     merged: dict[str, Any] = stored.model_dump(exclude={"actor_id", "schema_version"}) if stored else {}
     d = draft.profile
 
@@ -83,9 +102,27 @@ def _merge_profile(stored: Optional[Profile], draft: IntakeDraft, form: Optional
         merged[field] = _dedupe(list(merged.get(field, [])) + list(getattr(d, field)))
     merged["exclusions"] = _dedupe(list(merged.get("exclusions", [])) + [e.model_dump() for e in d.exclusions])
 
+    # Sub-agent toggles: unlike exclusions, the text can switch an analysis back on. Saved with the user's words.
+    toggles = dict(merged.get("agent_toggles") or {})
+    reasons = dict(merged.get("agent_toggle_reasons") or {})
+    for change in toggle_changes or []:
+        toggles[change.agent] = change.enabled
+        reasons[change.agent] = change.quote
+
     for key, value in (form or {}).items():  # the form is explicit: it wins
-        if value is not None:
+        if value is None:
+            continue
+        if key == "agent_toggles":  # per agent: a partial form must not silently re-enable the others
+            toggles.update(value)
+            for agent in value:
+                reasons.pop(agent, None)  # set in the form, not said in chat: no quote to keep
+        elif key == "agent_toggle_reasons":
+            continue  # only the chat sets reasons
+        else:
             merged[key] = value
+    if toggles:
+        merged["agent_toggles"] = toggles
+    merged["agent_toggle_reasons"] = reasons
     return merged
 
 
@@ -138,7 +175,8 @@ def run_intake(
     warnings: list[str] = []
 
     # --- Profile --------------------------------------------------------------------------------
-    merged = _merge_profile(stored, draft, profile_form)
+    toggle_changes = _verified_toggle_changes(text, draft.profile.agent_toggle_changes, warnings)
+    merged = _merge_profile(stored, draft, profile_form, toggle_changes)
     missing = [f for f in REQUIRED_PROFILE_FIELDS if not merged.get(f)]
     profile: Optional[Profile] = None
     if not missing:
@@ -193,6 +231,7 @@ def run_intake(
         request=request,
         clarification_question=question,
         missing_fields=missing,
+        toggle_changes=toggle_changes if profile is not None else [],  # only reported once saved in a profile
         warnings=warnings,
         backend=backend.name,
     )
