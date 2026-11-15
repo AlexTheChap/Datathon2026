@@ -49,16 +49,18 @@ cd backend && AF_AUTH_MODE=dev AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicor
 demo accounts for Amira, Mateo and Robert): `python scripts/setup_cognito.py`, then start the API with `.env` loaded. Details, design rules and the
 ergonomic checklist: [`frontend/README.md`](frontend/README.md).
 
-## Run the orchestrator (node ⑤)
+## Run the pipeline (boxes ③④⑤⑥)
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+python3 -m venv .venv && .venv/bin/pip install -e ".[dev,bedrock,api]"
 .venv/bin/pytest -q                                   # unit tests, no AWS needed
 
 # Requires AWS credentials with Bedrock Claude access (default model + region
 # overridable via AF_MODEL_ORCHESTRATOR / AF_AWS_REGION):
-.venv/bin/python scripts/smoke_orchestrator.py          # Robert "20% in Nvidia?" end-to-end
+.venv/bin/python scripts/smoke_pipeline.py              # full chain: Intake → Plan → Orchestrator → sub-agents
+.venv/bin/python scripts/smoke_orchestrator.py          # orchestrator only (plan resolved on the fly)
 .venv/bin/python -m app.entrypoint                      # AgentCore Runtime entrypoint on :8080
+.venv/bin/python scripts/show_run.py                    # pipeline trace of the latest run
 
 # Optional long-term memory (L17): create once, then export AF_MEMORY_ID=<id>
 .venv/bin/python scripts/setup_memory.py
