@@ -6,7 +6,7 @@ Fundamentals sub-agents cite real events (`event_id`, source URL, publication da
 
 Sources in the index (`origin`): sec_8k (SEC 8-K filings, public domain; `excerpt` = the first words of the item text, read by
 scripts/enrich_8k.py), macro_derived (central bank rate
-decisions derived from the curated macro data), gdelt (press headlines: title and link only).
+decisions derived from the curated macro data). No press headlines: too few days and too noisy to be evidence.
 Local stand-in of the Bedrock Knowledge Base (same filter: published <= as_of).
 """
 from __future__ import annotations
@@ -20,7 +20,7 @@ from app.tools.analysis_tools import _envelope
 from app.tools.context import effective_as_of
 from strands import tool
 
-ORIGINS = ("sec_8k", "macro_derived", "gdelt")
+ORIGINS = ("sec_8k", "macro_derived")
 _COLUMNS = ["event_id", "published_at", "title", "excerpt", "source", "source_url", "tickers", "theme", "origin",
             "n_sources"]
 MAX_LIMIT = 20
@@ -90,10 +90,10 @@ def search_news(query: str | None = None, tickers: list[str] | None = None, them
         ["Only events published on or before as_of are returned (point-in-time).",
          ("The corpus is incomplete: SEC 8-K filings of the universe's SEC filers (the `excerpt` is the first ~700 "
           "characters of the reported item, not the whole filing), central bank rate decisions derived from the "
-          "macro data, and a few days of press headlines (title and link only, article text not read). "
+          "macro data. "
           "No match is not proof that nothing happened."),
-         "Press headlines (origin gdelt) are noisy and unreviewed; 8-K filings are primary sources."],
-        ["data/external/news/news_index.csv (SEC EDGAR 8-K, Bank of Canada / FRED derived, GDELT DOC 2.0)"]),
+         "8-K filings and rate decisions are primary sources; no press coverage is included."],
+        ["data/external/news/news_index.csv (SEC EDGAR 8-K, Bank of Canada / FRED derived)"]),
         "as_of": cut}
 
 
@@ -106,7 +106,7 @@ def news_search(query: str | None = None, tickers: list[str] | None = None, them
         query: Optional keywords matched against titles, e.g. "interest rates inflation".
         tickers: Optional tickers (or MARKET / MACRO / GEOPOLITICS / CRYPTO tags) to filter on.
         themes: Optional themes: company, rates, press, markets, central_banks, geopolitics, economy, corporate, crypto.
-        origins: Optional sources: "sec_8k" (SEC filings, most reliable), "macro_derived" (rate decisions), "gdelt" (press).
+        origins: Optional sources: "sec_8k" (SEC filings, most reliable), "macro_derived" (rate decisions).
         days_back: Optional window in days before the reference date.
         limit: Maximum events returned (default 10, at most 20).
     """

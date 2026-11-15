@@ -8,7 +8,7 @@
 Credentials: --profile, otherwise the AWS_* variables, otherwise the repo's .env file (git-ignored).
 
 Inputs (already in the repo / produced by the team's scripts):
-  news : data/external/news/news_index.csv      (scripts/ingest_news.py: SEC 8-K, GDELT, rate decisions)
+  news : data/external/news/news_index.csv      (scripts/ingest_news.py: SEC 8-K, rate decisions)
   docs : data/external/kb_filings/*.txt (+ .metadata.json)   (scripts/fetch_10k.py: 10-K / 40-F sections)
 
 What it creates (names prefixed "alphaforge-"):
@@ -196,7 +196,7 @@ def ensure_kb(ag, role_arn: str, index_arn: str, region: str) -> dict:
             try:
                 kb = ag.create_knowledge_base(
                     name=KB_NAME, roleArn=role_arn,
-                    description="AlphaForge news (8-K, press headlines, rate decisions) and annual-report "
+                    description="AlphaForge news (8-K filings, rate decisions) and annual-report "
                                 "risk/legal sections; filter published_date <= as_of",
                     knowledgeBaseConfiguration={"type": "VECTOR", "vectorKnowledgeBaseConfiguration": {
                         "embeddingModelArn": f"arn:aws:bedrock:{region}::foundation-model/{EMBED_MODEL}",

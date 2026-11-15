@@ -8,7 +8,7 @@ dependencies = [
     "bedrock-agentcore[strands-agents]>=0.4",   # orchestrator entrypoint (node ⑤)
     "pydantic>=2.7",
     "pydantic-settings>=2.3",                    # AF_* settings
-    "pandas",
+    "pandas>=3,<4",                              # pandas 4 drops the fastparquet engine (see below)
     "numpy",
     "pyyaml",
     "fastparquet>=2024.2",                       # Parquet engine of tools/curated_store.py (kept over pyarrow: Lambda zip size)

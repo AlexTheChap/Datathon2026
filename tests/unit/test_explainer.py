@@ -241,3 +241,14 @@ def test_no_prompt_mentions_removed_stress_tools_or_2022_examples():
     texts.update({"tool_guide": tool_guide.tools_block("risk_review") + tool_guide.tools_block("allocation_proposal")})
     for name, text in texts.items():
         assert not re.search(r"`stress`|stress_tests|max_position|\b2022\b|NON_VERIFIE", text), name
+
+
+def test_an_invented_percentage_is_not_backed_by_a_stray_number(catalog):
+    """A plain "1" or "-1" somewhere in the evidence text used to back "up 100%"; only fractions in data fields
+    and percentages written as such can back a percentage now."""
+    ctx = context_numbers({"capital": 400000}, {"user_message": "20% in Nvidia"})
+    invented = draft(key_points=[{"text": "Nvidia was up 100% in that period.", "evidence": ["ev-c5f01b9379"]}])
+    issues, _ = check(invented, catalog, ctx)
+    assert [i.section for i in issues] == ["key_points"] and "100%" in issues[0].reason
+    issues, _ = check(draft(), catalog, ctx)  # the real figures (fractions and "% in text") still pass
+    assert issues == []

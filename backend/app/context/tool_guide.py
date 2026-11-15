@@ -22,7 +22,7 @@ _DELEGATION_LINES: dict[str, str] = {
     "esg": "- ESG index membership & controversies → **`esg_subagent`**",
     "fundamentals": "- Reported financials (SEC 10-K/10-Q: revenue, profit, margins, cash flow, leverage), 8-K events and documented controversies → **`fundamentals_subagent`**",
     "allocation": "- Building a hypothetical allocation → **`allocation_subagent`** (weights come from the optimizer tool, verified)",
-    "news": ("- Dated news (SEC 8-K, rate decisions, press headlines, annual-report risk sections; published ≤ as_of) "
+    "news": ("- Dated news (SEC 8-K, rate decisions, annual-report risk sections; published ≤ as_of) "
              "→ **`news_subagent`** — the corpus is incomplete: say so when it finds nothing; "
              "if its record says SIMULATED, label the content as fictional"),
 }

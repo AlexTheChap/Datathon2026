@@ -14,9 +14,10 @@ ROWS = [
      "NVDA", "company", "sec_8k", 1),
     ("N-0000000003", "2022-09-15", "NVDA: Form 8-K (acquisition or disposition of assets)", "SEC EDGAR (8-K)",
      "https://sec/2", "NVDA", "company", "sec_8k", 1),
-    ("N-0000000004", "2026-11-10", "Larger series of interest rate hikes more likely", "katu.com", "https://p/1",
-     "MACRO", "central_banks", "gdelt", 3),
-    ("N-0000000005", "2026-11-11", "Wall Street stocks sway", "aol.com", "https://p/2", "MARKET", "markets", "gdelt", 1),
+    ("N-0000000004", "2026-11-10", "Federal Reserve signals further interest rate hikes", "Federal Reserve",
+     "https://fed", "MACRO", "rates", "macro_derived", 1),
+    ("N-0000000005", "2026-11-11", "AAPL: Form 8-K (departure of directors or officers)", "SEC EDGAR (8-K)",
+     "https://sec/3", "AAPL", "company", "sec_8k", 1),
 ]
 COLUMNS = ["event_id", "published_at", "title", "source", "source_url", "tickers", "theme", "origin", "n_sources"]
 
@@ -56,8 +57,8 @@ def test_the_caller_cannot_ask_for_a_later_date():
 
 def test_filters_by_ticker_origin_theme_and_window():
     assert ids(news_tools.search_news(tickers=["NVDA"])) == ["N-0000000003", "N-0000000002"]    # newest first
-    assert ids(news_tools.search_news(origins=["macro_derived"])) == ["N-0000000001"]
-    assert ids(news_tools.search_news(themes=["markets"])) == ["N-0000000005"]
+    assert ids(news_tools.search_news(origins=["macro_derived"])) == ["N-0000000004", "N-0000000001"]
+    assert ids(news_tools.search_news(themes=["company"], days_back=7)) == ["N-0000000005"]
     assert set(ids(news_tools.search_news(days_back=7))) == {"N-0000000004", "N-0000000005"}
     assert ids(news_tools.search_news(tickers=["TSLA"])) == []
 
@@ -83,6 +84,8 @@ def test_evidence_envelope_and_determinism():
 def test_unknown_origin_is_an_error_dict_for_the_model():
     with pytest.raises(ValueError):
         news_tools.search_news(origins=["twitter"])
+    with pytest.raises(ValueError):  # press headlines were dropped from the corpus
+        news_tools.search_news(origins=["gdelt"])
     assert "error" in news_tools.news_search(origins=["twitter"])
 
 
