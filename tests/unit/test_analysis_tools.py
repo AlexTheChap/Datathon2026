@@ -41,3 +41,13 @@ def test_esg_screen_membership_and_controversies():
     # unreviewed extracts ("to_verify") and were reviewed later on main (commit 3a981d6, status "verified").
     assert ("CNQ.TO" in out["unverified_only"]) == all(c["status"] != "verified" for c in cnq)
     assert any("SIMULATED" not in a for a in ev["assumptions"])
+
+
+def test_esg_screen_output_is_strict_json():
+    """An empty `wording` cell is NaN in pandas: it must reach the ledger as null (DynamoDB and strict JSON
+    readers refuse NaN)."""
+    import json
+
+    ev = esg_screen(["AAPL", "JNJ", "XOM"])
+    json.dumps(ev, allow_nan=False)  # raises ValueError on NaN
+    assert ev["output"]["membership"]["AAPL"]["wording"] is None

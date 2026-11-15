@@ -50,6 +50,8 @@ cd backend && AF_AUTH_MODE=dev AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicor
 ```
 
 Open http://127.0.0.1:8000. The first log line says which sign-in mode the API runs in, and the page follows it.
+The home page is **My portfolio**: once a profile is saved, AlphaForge builds a simulated portfolio from it (about a
+minute) and shows it as a dashboard whose level of detail follows the user's experience.
 `AF_INTAKE_MODE=bedrock` (with the `.env` keys) uses the real Claude Haiku intake. Each question runs the
 analysis and the Explainer (Claude Sonnet on Bedrock) synchronously (`AF_DISPATCH=inline`, the default): the
 live answer is already in the POST response — no queue. `AF_DISPATCH=local` runs them in a background thread

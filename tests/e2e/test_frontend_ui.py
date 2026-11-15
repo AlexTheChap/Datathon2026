@@ -284,3 +284,124 @@ def test_answer_with_checks_evidence_and_glossary(page, base_url):
     assert target.count() == 1 and "In 2022" in target.inner_text()           # chip 1 = the 2022 replay
     assert page.locator("text=All other evidence from this analysis").count() == 1
     assert page.errors == []
+
+
+# ---------- My portfolio (box ① dashboard, frontend/assets/portfolio.js) ----------
+
+def _portfolio_for(page, *, risk_follow_up=False, experience=None):
+    """Give the page's user the recorded live portfolio run (Mateo, graph mode) and its ledger."""
+    import copy
+    import json as _json
+    import types as _types
+    from pathlib import Path as _Path
+
+    from app.schemas import Profile
+    from app.store.runs import RunRecord
+
+    fx = _Path(__file__).resolve().parents[1] / "fixtures"
+    ledger = [_json.loads(x) for x in (fx / "ledger_mateo_portfolio.jsonl").read_text().splitlines()]
+    actor = page.evaluate("JSON.parse(localStorage.getItem('af.actor'))")
+    run = RunRecord.model_validate_json((fx / "run_mateo_portfolio.json").read_text())
+    run = run.model_copy(update={"actor_id": actor, "run_id": f"run-pf-{actor}"})
+    profile = run.profile.model_dump()
+    if experience:
+        profile["experience"] = experience
+    SERVICE.profiles.put(Profile.model_validate({**profile, "actor_id": actor, "capital": 150000}))
+    SERVICE.runs.put(run.model_copy(update={"profile": Profile.model_validate({**run.profile.model_dump(), "actor_id": actor})}))
+    ledgers = {run.run_id: ledger}
+    if risk_follow_up:  # the follow-up question measured the exact weights
+        weights = {"SPY": 0.3481, "XBB.TO": 0.3054, "XIU.TO": 0.2509, "QQQ": 0.0956}
+        rc = copy.deepcopy(next(r for r in ledger if r["tool"] == "risk_contribution"))
+        rc["payload"][0]["output"]["weights"] = weights
+        rc["payload"][0]["output"]["risk_contribution"] = {"SPY": 0.52, "QQQ": 0.17, "XIU.TO": 0.24, "XBB.TO": 0.07}
+        follow = run.model_copy(update={"run_id": f"run-risk-{actor}", "request": run.request.model_copy(update={
+            "user_message": "Check the risk of my portfolio: SPY 34.81%, XBB.TO 30.54%, XIU.TO 25.09%, QQQ 9.56%.",
+            "task": "risk_review"})})
+        SERVICE.runs.put(follow)
+        ledgers[follow.run_id] = [rc]
+    previous = SERVICE.ledger
+    SERVICE.ledger = _types.SimpleNamespace(records=lambda run_id: ledgers.get(run_id) or
+                                            (previous.records(run_id) if previous else []))
+    return run
+
+
+def test_portfolio_dashboard_shows_the_built_portfolio(page, base_url):
+    run = _portfolio_for(page)
+    page.goto(f"{base_url}/#/portfolio")
+    page.wait_for_selector(".hero-card")
+    assert "Fits your profile" in page.locator(".hero-card .verdict").inner_text()
+    assert page.locator("#viz-holdings-title").count() == 1 and page.locator(".viz-bars__row").count() == 4
+    assert "69%" in page.locator(".viz-seg").inner_text()                     # stocks share, from the weights
+    assert page.locator("#checks-title ~ div .verdict--pass").count() == 5
+    # The run measured risk on another mix: never shown as this portfolio's; the follow-up can't run here.
+    page.wait_for_selector("button:has-text('Measure it')")
+    assert page.locator("text=Share of the money vs share of the risk").count() == 0
+    assert page.locator(f"a[href='#/runs/{run.run_id}']").count() >= 1           # linked to its analysis
+    assert page.errors == []
+
+
+def test_detail_level_follows_experience_and_can_be_changed(page, base_url):
+    _portfolio_for(page, experience="beginner")
+    page.goto(f"{base_url}/#/portfolio")
+    page.wait_for_selector(".hero-card")
+    assert page.is_checked("input[name='detail-level'][value='simple']")
+    assert page.locator("text=500 large US companies").count() >= 1             # plain words for a beginner
+    assert page.locator("text=Each holding's history").count() == 0
+    page.click("label.seg-control__option:has-text('Detailed')")
+    page.wait_for_selector("text=Each holding's history")
+    assert page.locator("text=Largest single position").count() == 1             # technical names when detailed
+    page.click("a.nav__link:has-text('Ask a question')")
+    page.click("a.nav__link:has-text('My portfolio')")
+    page.wait_for_selector(".hero-card")
+    assert page.is_checked("input[name='detail-level'][value='detailed']")      # the choice is remembered
+    assert page.errors == []
+
+
+def test_risk_comes_from_the_follow_up_on_the_exact_mix(page, base_url):
+    _portfolio_for(page, risk_follow_up=True)
+    page.goto(f"{base_url}/#/portfolio")
+    page.wait_for_selector("text=Share of the money vs share of the risk")
+    assert page.locator("text=Measured on this exact mix in a follow-up analysis").count() == 1
+    page.click("#risk ~ details summary, figure:has-text('Share of the money vs share of the risk') summary")
+    assert "52%" in page.locator("figure:has-text('Share of the money vs share of the risk') table").inner_text()
+    assert page.errors == []
+
+
+def test_saving_a_profile_builds_the_portfolio(page, base_url):
+    page.click("a.nav__link:has-text('My profile')")
+    page.click("label.choice:has-text('Moderate')")
+    page.click("label.choice:has-text('Intermediate')")
+    page.click("button:has-text('Save profile')")
+    page.wait_for_selector("text=Building your portfolio")
+    page.click("a:has-text('See my portfolio')")
+    # This test server only plans (no Bedrock): the dashboard says so instead of spinning forever.
+    page.wait_for_selector("text=The analysis agents aren't running", timeout=15000)
+    assert page.errors == []
+
+
+def test_portfolio_without_a_profile_asks_for_one(page, base_url):
+    page.goto(f"{base_url}/#/portfolio")
+    page.wait_for_selector("text=First, tell AlphaForge about you")
+    page.click("a:has-text('Set up my profile')")
+    page.wait_for_selector("text=Start from an example")
+    assert page.errors == []
+
+
+def test_portfolio_on_a_phone_has_no_sideways_scroll(base_url):
+    with playwright_api.sync_playwright() as p:
+        try:
+            browser = p.chromium.launch()
+        except Exception as e:
+            pytest.skip(f"Chromium for Playwright is not installed: {e}")
+        ctx = browser.new_context(viewport={"width": 360, "height": 780})
+        ctx.route("**/config.js", NO_CONFIG)
+        ctx.add_init_script("localStorage.setItem('af.actor', JSON.stringify('e2e-phone-pf'))")
+        page = ctx.new_page()
+        page.goto(f"{base_url}/#/ask")
+        _portfolio_for(page)
+        page.goto(f"{base_url}/#/portfolio")
+        page.wait_for_selector(".hero-card")
+        wide = page.evaluate("""() => [...document.querySelectorAll('body *')].filter(
+            (e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 1).map((e) => e.className)""")
+        assert wide == [] and page.locator("a.nav__link:has-text('My profile')").is_visible()
+        browser.close()

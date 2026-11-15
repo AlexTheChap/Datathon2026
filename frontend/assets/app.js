@@ -3,6 +3,9 @@
 // sign-in is configured (config.js from scripts/setup_cognito.py), to Amazon Cognito for the login.
 // Every piece of user or server text goes into the page as a text node (never as HTML).
 
+import { renderPortfolio, onProfileSaved } from "./portfolio.js";
+import { PORTFOLIO_PROMPT, RISK_PROMPT_PREFIX } from "./portfolio-data.js";
+
 const API_BASE = window.AF_API_BASE || ""; // same origin by default (the API serves this folder locally)
 const POLL_EVERY_MS = 4000;
 const POLL_MAX = 45; // ~3 minutes: a real analysis (agents + Explainer) takes about a minute
@@ -367,14 +370,22 @@ function settingsOf(agent) {
 
 const routes = [
   { re: /^#\/signin$/, nav: null, title: "Sign in", view: renderSignIn, public: true },
+  { re: /^#\/portfolio$/, nav: "portfolio", title: "Your portfolio", view: (main) => renderPortfolio(main, dashboardContext()) },
   { re: /^#\/ask$/, nav: "ask", title: "Ask", view: renderAsk },
   { re: /^#\/profile$/, nav: "profile", title: "Your profile", view: renderProfile },
   { re: /^#\/runs\/([\w-]+)$/, nav: "ask", title: "Analysis plan", view: renderRun },
 ];
 
 let currentHash = null;
+const HOME = "#/portfolio";
+
+/** What the portfolio dashboard (portfolio.js) needs from the app: same API client, components and state. */
+function dashboardContext() {
+  return { h, icon, api, band, alertBox, skeleton, announce, money, timeText, VERDICTS, actorId, store, route,
+    loadProfile: async (force) => loadProfile(force) };
+}
 function route() {
-  const hash = window.location.hash || "#/ask";
+  const hash = window.location.hash || HOME;
   if (state.dirty && currentHash === "#/profile" && hash !== "#/profile") {
     if (!window.confirm("Your profile has unsaved changes. Leave without saving?")) {
       history.replaceState(null, "", currentHash);
@@ -384,19 +395,19 @@ function route() {
   }
   window.clearTimeout(state.pollTimer);
   let match = routes.find((r) => r.re.test(hash));
-  if (!match) { match = routes.find((r) => r.nav === "ask"); history.replaceState(null, "", "#/ask"); }
+  if (!match) { match = routes.find((r) => r.nav === "portfolio"); history.replaceState(null, "", HOME); }
   const signedIn = !COGNITO || Boolean(readSession());
   if (COGNITO && !signedIn && !match.public) { // remember where they were going, then sign in
     try { sessionStorage.setItem("af.next", hash); } catch { /* ignore */ }
     history.replaceState(null, "", "#/signin");
     match = routes[0];
   } else if (match.public && signedIn) {
-    history.replaceState(null, "", "#/ask");
-    match = routes.find((r) => r.nav === "ask");
+    history.replaceState(null, "", HOME);
+    match = routes.find((r) => r.nav === "portfolio");
   }
   document.querySelector(".nav").hidden = !signedIn;
   setWho();
-  currentHash = window.location.hash || "#/ask";
+  currentHash = window.location.hash || HOME;
   for (const link of document.querySelectorAll(".nav__link")) {
     if (link.dataset.route === match.nav) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
@@ -420,6 +431,7 @@ function renderAsk(main) {
   });
   const error = h("p", { class: "field__error", id: "question-error" });
   const submit = h("button", { class: "btn btn--primary", type: "submit" }, "Ask");
+  const pending = h("p", { class: "small muted", role: "status" });
   const thread = h("div", { class: "thread", "aria-label": "Your questions and AlphaForge's replies" });
 
   const form = h("form", { class: "composer", novalidate: true, onsubmit: (e) => { e.preventDefault(); send(); } },
@@ -429,7 +441,7 @@ function renderAsk(main) {
       h("p", { class: "field__help", id: "question-help" },
         "Mention amounts or percentages if you have them. Press Ctrl+Enter to send."),
       error),
-    h("div", { class: "composer__actions" }, submit),
+    h("div", { class: "composer__actions" }, submit, pending),
     h("div", { class: "stack-sm" },
       h("p", { class: "small muted", id: "examples-label" }, "Try an example. It fills the box; nothing is sent until you press Ask."),
       h("div", { class: "examples", role: "group", "aria-labelledby": "examples-label" },
@@ -456,6 +468,7 @@ function renderAsk(main) {
     submit.disabled = true;
     submit.setAttribute("aria-busy", "true");
     submit.replaceChildren(h("span", { class: "spinner", "aria-hidden": "true" }), "Asking");
+    pending.textContent = "AlphaForge reads your question, runs the analysis and writes the answer. This can take about a minute.";
     try {
       const body = { text };
       if (profileForm) body.profile_form = profileForm;
@@ -476,6 +489,7 @@ function renderAsk(main) {
       submit.disabled = false;
       submit.removeAttribute("aria-busy");
       submit.replaceChildren("Ask");
+      pending.textContent = "";
     }
   }
 
@@ -502,7 +516,7 @@ function renderAsk(main) {
     }
     if (r.kind === "run") {
       const names = (r.enabled_agents || []).map((a) => (AGENTS[a] || { name: a }).name);
-      parts.push(h("p", { class: "turn__label" }, "Analysis planned"));
+      parts.push(h("p", { class: "turn__label" }, r.run_status === "DONE" ? "Analysis ready" : "Analysis planned"));
       parts.push(h("p", null, names.length
         ? `AlphaForge will look at: ${names.join(", ")}.`
         : "Nothing to analyse: this request asks for something a simulation can't do. The answer will explain why."));
@@ -604,7 +618,8 @@ function profileSummary(p) {
       p.capital ? [h("dt", null, "Capital"), h("dd", { class: "num" }, money(p.capital))] : null,
       h("dt", null, "Limits"), h("dd", null, limits.length ? limits.join(", ") : "None"),
       h("dt", null, "Analyses off"), h("dd", null, off.length ? off.join(", ") : "None")),
-    h("a", { class: "link-btn", href: "#/profile" }, "Edit profile"));
+    h("div", { class: "notice" }, h("a", { class: "link-btn", href: HOME }, "My portfolio"),
+      h("a", { class: "link-btn", href: "#/profile" }, "Edit profile")));
 }
 
 function noProfile() {
@@ -863,12 +878,16 @@ function profileForm(saved, initialStatus = null) {
     saveBtn.setAttribute("aria-busy", "true");
     saveBtn.replaceChildren(h("span", { class: "spinner", "aria-hidden": "true" }), "Saving");
     try {
+      const before = state.profile || null;
       const fresh = (await api("PUT", "/v1/profile", payload)).data;
       state.profile = fresh;
       state.dirty = false;
+      // A new or changed profile gets a new portfolio, built in the background (portfolio.js).
+      const building = onProfileSaved(dashboardContext(), before, fresh);
       // Rebuild from what the server saved (e.g. a chat quote it dropped), keeping the confirmation.
       const confirmation = h("span", { class: "saved" }, icon("check", 14),
-        `Saved at ${new Date().toLocaleTimeString("en-CA", { timeStyle: "short" })}`);
+        `Saved at ${new Date().toLocaleTimeString("en-CA", { timeStyle: "short" })}.`,
+        building ? [" Building your portfolio (about a minute). ", h("a", { href: HOME }, "See my portfolio")] : null);
       const next = profileForm(fresh, confirmation);
       root.replaceWith(next);
       next.querySelector('button[type="submit"]').focus();
@@ -1025,7 +1044,8 @@ function focusEvidence(id) {
 }
 
 function renderRun(main, runId) {
-  const back = h("p", null, h("a", { class: "link-btn", href: "#/ask" }, "All questions"));
+  const back = h("p", { class: "back-links" }, h("a", { class: "link-btn", href: HOME }, "My portfolio"),
+    h("a", { class: "link-btn", href: "#/ask" }, "Ask a question"));
   const headSlot = h("div", { class: "stack-sm" }, h("div", { class: "skeleton" }, h("div", { class: "skeleton__bar skeleton__bar--title" })));
   const body = h("div", { class: "stack" }, h("div", { class: "panel" }, skeleton(5)));
   main.append(band("head", back, headSlot), band("body", body));
@@ -1080,7 +1100,8 @@ function renderRun(main, runId) {
 
     const jump = (id) => () => { const el = document.getElementById(id); if (el) { el.scrollIntoView({ block: "start" }); el.setAttribute("tabindex", "-1"); el.focus({ preventScroll: true }); } };
     const head = h("div", { class: "page-head" },
-      h("p", { class: "run-label" }, "Your question"),
+      h("p", { class: "run-label" }, run.request.user_message === PORTFOLIO_PROMPT ? "How your portfolio was built"
+        : run.request.user_message.startsWith(RISK_PROMPT_PREFIX) ? "Risk check of your portfolio" : "Your question"),
       h("h1", { class: "run-question" }, run.request.user_message),
       h("p", { class: "status" }, h("span", { class: "status__word" }, statusWord(run.status)), h("span", null, statusLine),
         stoppedPolling ? h("button", { class: "link-btn", type: "button", onclick: () => { polls = 0; shown = null; load(); } }, "Check again") : null),
@@ -1154,7 +1175,7 @@ function passwordProblem(pw) {
 }
 
 function renderSignIn(main) {
-  if (!COGNITO) { window.location.hash = "#/ask"; return; }
+  if (!COGNITO) { window.location.hash = HOME; return; }
   const flow = { mode: "signin", email: "", password: "" }; // the password stays in memory only, for auto sign-in
   let notice = "";
   try { notice = sessionStorage.getItem("af.signin.msg") || ""; sessionStorage.removeItem("af.signin.msg"); } catch { /* ignore */ }
@@ -1168,8 +1189,8 @@ function renderSignIn(main) {
   const fillBox = (...parts) => box.replaceChildren(...parts.filter(Boolean)); // replaceChildren would print "null"
 
   async function finish() {
-    let next = "#/ask";
-    try { next = sessionStorage.getItem("af.next") || "#/ask"; sessionStorage.removeItem("af.next"); } catch { /* ignore */ }
+    let next = HOME;
+    try { next = sessionStorage.getItem("af.next") || HOME; sessionStorage.removeItem("af.next"); } catch { /* ignore */ }
     setWho();
     announce("Signed in.");
     if (window.location.hash === next) route(); else window.location.hash = next;

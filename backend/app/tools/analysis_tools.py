@@ -102,7 +102,7 @@ def esg_screen(tickers: list[str], as_of: str | None = None) -> dict:
                     & screen["ticker"].isin(tset)]
     membership = {
         r.ticker: {"esg_index": r.esg_fund, "in_esg_index": str(r.in_esg_fund).lower() == "true",
-                   "status": r.status, "wording": r.wording or None}
+                   "status": r.status, "wording": r.wording if isinstance(r.wording, str) and r.wording else None}  # NaN (empty cell) is truthy
         for r in screen.itertuples()
     }
 

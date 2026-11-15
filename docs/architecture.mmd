@@ -30,7 +30,8 @@
 %%   orchestrator holds only governance_check, all quant tools live in the sub-agents ·
 %%   tools called in-process (no Gateway/MCP yet) · ledger = JSONL not DynamoDB ·
 %%   news = simulated (no KB feed yet).
-%% ① + ⑦ frontend (frontend/: HTML/CSS/JS, no build step; sign-in, ask, profile form, analysis plan, light+dark;
+%% ① + ⑦ frontend (frontend/: HTML/CSS/JS, no build step; sign-in, portfolio dashboard (home: the portfolio built from
+%%   the profile, detail by experience), ask, profile form, analysis plan, light+dark;
 %%   served by the API locally; scripts/deploy_frontend.py publishes it to S3 + CloudFront, not run yet; ⑦ result view: short answer, verdicts, key points,
 %%   glossary for learners, numbered evidence chips → evidence panel, what the claim check removed).
 %% NOT BUILT: L6 dispatcher to AgentCore Runtime (Lambda) · file upload · Guardrails grounding check (L18) ·
@@ -45,7 +46,7 @@ flowchart TB
   %%      On AWS: scripts/deploy_frontend.py → private S3 bucket read by CloudFront only (Origin Access Control),
   %%      managed security headers; with --api-url, CloudFront also routes /v1/* to the API Gateway (same origin:
   %%      no CORS, the Cognito Bearer token is forwarded). config.js = the Cognito settings from setup_cognito.py.
-  UI["① Frontend — web app (HTML/CSS/JS) on S3 + CloudFront · Cognito login<br/>ask · profile form · analysis plan · file upload (presigned S3 URL, later)"]
+  UI["① Frontend — web app (HTML/CSS/JS) on S3 + CloudFront · Cognito login<br/>my portfolio (built from the profile) · ask · profile form · analysis plan · file upload (presigned S3 URL, later)"]
 
   %% ===== 2. API =====
   %% AWS: API Gateway (HTTP API + Cognito JWT authorizer) · Lambda (FastAPI + Mangum)
@@ -93,7 +94,7 @@ flowchart TB
   end
 
   %% AWS: same static frontend (S3 + CloudFront); reads the result via API Gateway + Lambda
-  OUT["⑦ Frontend result view<br/>short answer · clickable evidence · checks · trace"]
+  OUT["⑦ Frontend result view + portfolio dashboard<br/>short answer · clickable evidence · checks · trace · charts by detail level"]
 
   %% ===== Cross-cutting =====
   %% AWS: Bedrock Guardrails · AgentCore Observability → CloudWatch (GenAI observability) · IAM

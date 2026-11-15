@@ -1,0 +1,222 @@
+{
+ "source": "data/curated/assets_universe.csv",
+ "assets": {
+  "RY.TO": {
+   "name": "Royal Bank of Canada",
+   "class": "equity",
+   "currency": "CAD",
+   "sector": "Financials",
+   "plain": "Royal Bank of Canada"
+  },
+  "TD.TO": {
+   "name": "Toronto-Dominion Bank",
+   "class": "equity",
+   "currency": "CAD",
+   "sector": "Financials",
+   "plain": "Toronto-Dominion Bank"
+  },
+  "MFC.TO": {
+   "name": "Manulife Financial",
+   "class": "equity",
+   "currency": "CAD",
+   "sector": "Financials",
+   "plain": "Manulife Financial"
+  },
+  "ENB.TO": {
+   "name": "Enbridge",
+   "class": "equity",
+   "currency": "CAD",
+   "sector": "Energy",
+   "plain": "Enbridge"
+  },
+  "CNQ.TO": {
+   "name": "Canadian Natural Resources",
+   "class": "equity",
+   "currency": "CAD",
+   "sector": "Energy",
+   "plain": "Canadian Natural Resources"
+  },
+  "CNR.TO": {
+   "name": "Canadian National Railway",
+   "class": "equity",
+   "currency": "CAD",
+   "sector": "Industrials",
+   "plain": "Canadian National Railway"
+  },
+  "FTS.TO": {
+   "name": "Fortis",
+   "class": "equity",
+   "currency": "CAD",
+   "sector": "Utilities",
+   "plain": "Fortis"
+  },
+  "ATD.TO": {
+   "name": "Alimentation Couche-Tard",
+   "class": "equity",
+   "currency": "CAD",
+   "sector": "Consumer Staples",
+   "plain": "Alimentation Couche-Tard"
+  },
+  "SHOP.TO": {
+   "name": "Shopify",
+   "class": "equity",
+   "currency": "CAD",
+   "sector": "Information Technology",
+   "plain": "Shopify"
+  },
+  "CSU.TO": {
+   "name": "Constellation Software",
+   "class": "equity",
+   "currency": "CAD",
+   "sector": "Information Technology",
+   "plain": "Constellation Software"
+  },
+  "AAPL": {
+   "name": "Apple",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Apple"
+  },
+  "MSFT": {
+   "name": "Microsoft",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Microsoft"
+  },
+  "NVDA": {
+   "name": "NVIDIA",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "NVIDIA"
+  },
+  "GOOGL": {
+   "name": "Alphabet (Class A)",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "Alphabet (Class A)"
+  },
+  "AMZN": {
+   "name": "Amazon",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Amazon"
+  },
+  "TSLA": {
+   "name": "Tesla",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Tesla"
+  },
+  "JPM": {
+   "name": "JPMorgan Chase",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "JPMorgan Chase"
+  },
+  "JNJ": {
+   "name": "Johnson & Johnson",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Johnson & Johnson"
+  },
+  "PG": {
+   "name": "Procter & Gamble",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Procter & Gamble"
+  },
+  "XOM": {
+   "name": "Exxon Mobil",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Exxon Mobil"
+  },
+  "XIU.TO": {
+   "name": "iShares S&P/TSX 60 Index ETF",
+   "class": "etf_equity",
+   "currency": "CAD",
+   "sector": "Broad market (Canada)",
+   "plain": "60 large Canadian companies"
+  },
+  "SPY": {
+   "name": "SPDR S&P 500 ETF Trust",
+   "class": "etf_equity",
+   "currency": "USD",
+   "sector": "Broad market (U.S.)",
+   "plain": "500 large US companies"
+  },
+  "QQQ": {
+   "name": "Invesco QQQ Trust (Nasdaq-100)",
+   "class": "etf_equity",
+   "currency": "USD",
+   "sector": "Broad market (U.S. growth/tech-heavy)",
+   "plain": "100 large US companies, mostly technology"
+  },
+  "ESGV": {
+   "name": "Vanguard ESG U.S. Stock ETF",
+   "class": "etf_equity",
+   "currency": "USD",
+   "sector": "Broad market (U.S., ESG-screened)",
+   "plain": "US companies that pass an ESG screen"
+  },
+  "XBB.TO": {
+   "name": "iShares Core Canadian Universe Bond Index ETF",
+   "class": "etf_bond",
+   "currency": "CAD",
+   "sector": "Bonds (Canada aggregate)",
+   "plain": "Canadian government and company bonds"
+  },
+  "ZST.TO": {
+   "name": "BMO Ultra Short-Term Bond ETF",
+   "class": "etf_bond",
+   "currency": "CAD",
+   "sector": "Bonds (Canada ultra short-term)",
+   "plain": "Very short-term bonds, close to cash"
+  },
+  "AGG": {
+   "name": "iShares Core U.S. Aggregate Bond ETF",
+   "class": "etf_bond",
+   "currency": "USD",
+   "sector": "Bonds (U.S. aggregate)",
+   "plain": "US government and company bonds"
+  },
+  "TLT": {
+   "name": "iShares 20+ Year Treasury Bond ETF",
+   "class": "etf_bond",
+   "currency": "USD",
+   "sector": "Bonds (U.S. long Treasury)",
+   "plain": "Long-term US government bonds"
+  },
+  "GLD": {
+   "name": "SPDR Gold Shares",
+   "class": "etf_commodity",
+   "currency": "USD",
+   "sector": "Gold",
+   "plain": "Gold"
+  },
+  "BTC-USD": {
+   "name": "Bitcoin",
+   "class": "crypto",
+   "currency": "USD",
+   "sector": "Crypto asset",
+   "plain": "Bitcoin"
+  },
+  "ETH-USD": {
+   "name": "Ether",
+   "class": "crypto",
+   "currency": "USD",
+   "sector": "Crypto asset",
+   "plain": "Ether"
+  }
+ }
+}

@@ -168,7 +168,7 @@ _EXPERIENCE = [
 ]
 _TASKS = [  # priority: the first match wins
     ("allocation_proposal", r"allocation|rebalanc|(?:put\w*|invest\w*|allocat\w*|mov\w*|add\w*)\s+(?:\w+\s+){0,2}\d+(?:\.\d+)?\s*%|"
-                            r"build\s+(?:me\s+)?a\s+portfolio|how\s+should\s+i\s+split"),
+                            r"build\s+(?:me\s+)?a\s+(?:\w+\s+)?portfolio|how\s+should\s+i\s+split"),
     ("esg_screen", r"\besg\b|controvers|ethical|sustainab"),
     ("risk_review", r"\brisk|volatil|drawdown|diversif|concentrat"),
     ("scenario_analysis", r"crash|stress|scenario|recession|rate\s+hike"),
