@@ -141,31 +141,40 @@ def _item_from_envelope(env: dict, record: dict) -> EvidenceItem:
         facts_source = {"verdict": env.get("verdict"),
                         "checks": [{k: c.get(k) for k in ("id", "status", "value", "limit", "detail")}
                                    for c in env.get("checks") or [] if isinstance(c, dict)]}
-    nums: set[tuple[str, float]] = set()
-    _numbers(env, nums)
     weights = (env.get("inputs") or {}).get("weights") if isinstance(env.get("inputs"), dict) else None
-    return EvidenceItem(
+    item = EvidenceItem(
         id=env["evidence_id"], tool=str(env.get("tool") or record.get("tool")),
         agent=record.get("agent") or "orchestrator", say=str(say),
         period=env.get("period") or record.get("period"), as_of=env.get("as_of") or record.get("as_of"),
         facts=_flatten(facts_source), assumptions=list(env.get("assumptions") or []),
         data_sources=list(env.get("data_sources") or []), verdict=env.get("verdict"),
-        weights=weights if isinstance(weights, dict) else None, numbers=nums, seq=record.get("seq"),
+        weights=weights if isinstance(weights, dict) else None, seq=record.get("seq"),
     )
+    item.numbers = _shown_numbers(item)
+    return item
+
+
+def _shown_numbers(item: EvidenceItem) -> set[tuple[str, float]]:
+    """The numbers of what the Explainer is shown of this item (for_model: say, facts, weights, assumptions):
+    the only numbers a claim citing it may state."""
+    nums: set[tuple[str, float]] = set()
+    view = item.for_model()
+    _numbers({k: view.get(k) for k in ("say", "facts", "weights", "assumptions")}, nums)
+    return nums
 
 
 def _item_from_nested(d: dict, parent: EvidenceItem) -> EvidenceItem:
     """An id referenced inside another item (e.g. the evidence behind one governance check)."""
-    nums: set[tuple[str, float]] = set()
-    _numbers(d, nums)
     label = d.get("id") or d.get("metric") or d.get("tool") or "detail"
     status = f": {d['status']}" if d.get("status") else ""
     value = f" (value {d['value']}, limit {d.get('limit')})" if "value" in d else ""
     say = d.get("say") or f"{label}{status}{value}"
-    return EvidenceItem(id=d["evidence_id"], tool=str(d.get("tool") or f"{parent.tool} detail"), agent=parent.agent,
+    item = EvidenceItem(id=d["evidence_id"], tool=str(d.get("tool") or f"{parent.tool} detail"), agent=parent.agent,
                         say=str(say), period=d.get("period") or parent.period, as_of=d.get("as_of") or parent.as_of,
                         facts=_flatten({k: v for k, v in d.items() if k != "justification"}),
-                        numbers=nums, seq=parent.seq, parent=parent.id or None)
+                        seq=parent.seq, parent=parent.id or None)
+    item.numbers = _shown_numbers(item)
+    return item
 
 
 def build_catalog(records: list[dict]) -> dict[str, EvidenceItem]:

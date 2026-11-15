@@ -236,7 +236,9 @@ flowchart TB
   GW -->|"each call = 1 evidence"| DDB
   %% L16 DynamoDB → Explainer: reads the run's ledger (EvidenceLedger.records) and builds an evidence catalogue
   %%      (every evidence_id, nested ones linked to their parent); the claim check compares each stated
-  %%      number with the evidence it cites. Same catalogue served by GET /v1/runs/{id}/evidence/catalog.
+  %%      number with the evidence it cites: only the numbers the Explainer was shown of each item (say, facts,
+  %%      weights), within the rounding of the precision written, and a gain is never backed by a loss.
+  %%      Same catalogue served by GET /v1/runs/{id}/evidence/catalog.
   DDB -.->|"evidence ledger"| EXP
   %% L17 Orchestrator ↔ Memory: AgentCore Memory, on the main agent only (sub-agents stay stateless).
   %%      Short term: the conversation, stored per (actorId, sessionId) by the Strands session manager and restored
