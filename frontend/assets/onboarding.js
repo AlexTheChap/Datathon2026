@@ -38,20 +38,18 @@ export function renderOnboarding(main, ctx) {
   function start() {
     const file = h("input", { type: "file", id: "profile-file", accept: ".pdf,.docx,.txt,.md", class: "visually-hidden",
       onchange: () => { if (file.files[0]) readDocument(file.files[0]); } });
-    const drop = h("label", { class: "dropzone", for: "profile-file" },
-      icon("upload", 28),
-      h("strong", null, "Drop a PDF or Word file here"),
-      h("span", { class: "small muted" }, "or click to choose one. For example notes from an advisor, or a questionnaire you filled in."),
-      file);
-    for (const ev of ["dragenter", "dragover"]) drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("is-over"); });
-    for (const ev of ["dragleave", "drop"]) drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("is-over"); });
-    drop.addEventListener("drop", (e) => { const f = e.dataTransfer.files[0]; if (f) readDocument(f); });
+    // A small round "attach" button next to the main choice; a file can also be dropped on this message.
+    const attach = h("label", { class: "attach-btn", for: "profile-file", title: "Attach a PDF or Word file" },
+      icon("file", 20), h("span", { class: "visually-hidden" }, "Attach a PDF or Word file about your situation"), file);
     const ask = h("button", { class: "btn btn--primary", type: "button", onclick: () => { lock(); queue = [...STEPS]; add(you("I'll answer the questions.")); next(); } }, "Answer the questions");
-    const lock = () => { ask.disabled = true; file.disabled = true; drop.classList.add("is-done"); };
-    add(ai(h("p", null, "Hi, I'm AlphaForge. Let's set up your investor profile. It takes about two minutes."),
-      h("p", null, "You can answer a few questions, or give me a document about your situation and I'll read it first, then ask only what's missing."),
-      h("div", { class: "onboarding__choices" }, ask, drop),
+    const lock = () => { ask.disabled = true; file.disabled = true; attach.classList.add("is-done"); msg.classList.remove("is-over"); };
+    const msg = add(ai(h("p", null, "Hi, I'm AlphaForge. Let's set up your investor profile. It takes about two minutes."),
+      h("p", null, "Answer a few questions, or attach a document about your situation (PDF or Word, for example notes from an advisor): I'll read it first, then ask only what's missing."),
+      h("div", { class: "onboarding__choices" }, ask, attach),
       h("p", { class: "small muted" }, "A document is read to fill in your profile and is not kept. Nothing is saved until you review and save.")));
+    for (const ev of ["dragenter", "dragover"]) msg.addEventListener(ev, (e) => { if (file.disabled) return; e.preventDefault(); msg.classList.add("is-over"); });
+    for (const ev of ["dragleave", "drop"]) msg.addEventListener(ev, (e) => { e.preventDefault(); msg.classList.remove("is-over"); });
+    msg.addEventListener("drop", (e) => { const f = e.dataTransfer.files[0]; if (f && !file.disabled) readDocument(f); });
     start.lock = lock;
   }
 

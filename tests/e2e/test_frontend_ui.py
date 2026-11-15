@@ -479,7 +479,7 @@ def test_profile_set_up_from_a_document(page, base_url, tmp_path):
     f = tmp_path / "advisor-notes.docx"
     f.write_bytes(docx(["Moderate risk. I'm a student and I want to learn.", "No crypto please.", "Buy milk."]))
     page.goto(page.url.split("#")[0] + "#/profile")
-    page.wait_for_selector("text=Drop a PDF or Word file here")
+    page.wait_for_selector("label.attach-btn[title='Attach a PDF or Word file']")   # the small round attach button
     page.set_input_files("#profile-file", str(f))
     page.wait_for_selector(".msg--user:has-text('advisor-notes.docx')")
     page.wait_for_selector("text=Here's what I found:")
