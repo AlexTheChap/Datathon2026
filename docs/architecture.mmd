@@ -7,7 +7,7 @@
 %% Color legend: orange = AWS service · green = LLM agent · blue = deterministic code
 %%                 violet = JSON data · white = interface
 %% =====================================================================================
-%% IMPLEMENTATION STATUS (branch feat/orchestrator-bedrock, 2026-11-14)
+%% IMPLEMENTATION STATUS (main, 2026-11-14)
 %% -------------------------------------------------------------------------------------
 %% BUILT: ⑤ orchestrator (Strands Agent, Claude Sonnet via Bedrock) · 6 sub-agents exposed
 %%   as tools (Claude Haiku; news = SIMULATED placeholder) · prompt loader + en templates ·
@@ -15,14 +15,19 @@
 %%   (AfterToolCallEvent) → local JSONL ledger (data/runs/<run_id>.jsonl, DynamoDB-shaped
 %%   interface) · quant + analysis tools in-process (agent_tools.py, analysis_tools.py over
 %%   data/curated CSVs) · AgentCore entrypoint (app/entrypoint.py, not yet deployed) ·
-%%   AF_* / .env config · toggle-based sub-agent filtering (plan-resolver stub).
+%%   AF_* / .env config · sub-agents chosen from the ④ ExecutionPlan (L6).
+%%   ② API (backend/app/api/: FastAPI, POST/GET /v1/runs, GET/PUT /v1/profile, DynamoDB-ready stores;
+%%   not deployed yet, runs stay QUEUED: no dispatcher to AgentCore) · ③ Intake (deployed Lambda
+%%   alphaforge-intake; chat toggles saved in the profile) · ④ plan resolver + Explainer prompt loader
+%%   (deployed Lambda alphaforge-context, templates in S3).
 %% DIVERGES from target (by design for the prototype): dispatch = agents-as-tools
 %%   (sequential), Strands graph + parallel nodes = next phase · PURE DELEGATION: the
 %%   orchestrator holds only governance_check, all quant tools live in the sub-agents ·
 %%   tools called in-process (no Gateway/MCP yet) · ledger = JSONL not DynamoDB ·
 %%   news = simulated (no KB feed yet).
-%% NOT BUILT: ① frontend · ② API · ③ Intake · ④ plan resolver (full version) · Explainer
-%%   agent · Guardrails · Memory (wired, needs AF_MEMORY_ID) · optimizer tool.
+%% NOT BUILT: ① frontend · L6 dispatcher (API → AgentCore Runtime) · Explainer agent ·
+%%   Guardrails (wired in the Intake, needs AF_GUARDRAIL_ID) · Memory (wired, needs AF_MEMORY_ID) ·
+%%   optimizer tool.
 %% =====================================================================================
 flowchart TB
   %% ===== 1. Frontend =====
@@ -31,7 +36,7 @@ flowchart TB
 
   %% ===== 2. API =====
   %% AWS: API Gateway (HTTP API + Cognito JWT authorizer) · Lambda (FastAPI + Mangum)
-  API["② API Gateway HTTP + Lambda (FastAPI)<br/>POST /v1/runs → 202 run_id · GET /v1/runs/id"]
+  API["② API Gateway HTTP + Lambda (FastAPI)<br/>POST /v1/runs → 202 run_id (or 200 question) · GET /v1/runs/id · GET/PUT /v1/profile"]
 
   %% ===== 3. Intake =====
   %% AWS: Bedrock (Claude Haiku, Converse API + structured outputs JSON Schema) · Guardrails (input)
@@ -45,7 +50,7 @@ flowchart TB
   %% AWS: Lambda (plain Python code) · S3 or Bedrock Prompt Management (versioned templates)
   subgraph CTX["④ Context resolution — deterministic code, no LLM"]
     PLAN{{"Plan resolver<br/>task × profile × toggles → enabled sub-agents"}}
-    LOAD{{"Prompt loader<br/>base prompts by language · experience · role<br/>(versioned agent.md templates in S3)"}}
+    LOAD{{"Prompt loader<br/>Explainer prompt by experience level<br/>(versioned explainer.level.md templates in S3)"}}
   end
 
   %% ===== 5. Agents =====
@@ -85,20 +90,27 @@ flowchart TB
   %% L1  UI → API: Cognito issues the JWT; the API Gateway JWT authorizer validates it before the Lambda.
   %%      Files go straight to S3 via presigned URL (never through Lambda, 6 MB limit).
   UI -->|"JWT"| API
-  %% L2  API → Intake: Lambda calls Bedrock (Haiku) with structured outputs (JSON schema), via the anthropic
+  %% L2  API → Intake: the API Lambda (backend/app/api/, FastAPI + Mangum) runs the Intake and the context
+  %%      resolution in-process, synchronously (a few s, under API Gateway's 30 s): it answers 200 with the Intake's
+  %%      question or "create your profile first", else saves the run QUEUED and answers 202 {run_id}.
+  %%      Identity = Cognito JWT `sub` (X-Actor-Id header only with AF_AUTH_MODE=dev).
+  %%      The Intake calls Bedrock (Haiku) with structured outputs (JSON schema), via the anthropic
   %%      SDK (AnthropicBedrock client = InvokeModel, messages.parse, inference profile us.anthropic.claude-haiku-5-5);
   %%      code: backend/app/intake/. Guardrails filters the input (prompt attack, personal data): ApplyGuardrail
   %%      when AF_GUARDRAIL_ID is set. Offline mode without an LLM (AF_INTAKE_MODE=mock) for tests and demos.
   API --> ING
   %% L3  Intake → JSON: output validated by schema (Bedrock structured outputs), then Pydantic;
-  %%      the profile is stored in DynamoDB (ACTOR#… / PROFILE#…).
+  %%      the profile is stored in DynamoDB (ACTOR#… / PROFILE#current), including the sub-agent toggles the user
+  %%      switches on/off in chat (with their words: agent_toggle_reasons) and the profile form (PUT /v1/profile).
   ING --> PROF
   ING --> REQ
-  %% L4  JSON → Plan resolver: Lambda, plain Python code; versioned agent/task registry (repo, or AWS AppConfig as an option).
+  %% L4  JSON → Plan resolver: plain Python code; versioned agent/task registry
+  %%      (backend/app/core/plan_registry.yaml, or AWS AppConfig as an option). Output: ExecutionPlan.
   PROF --> PLAN
   REQ --> PLAN
   %% L5  Profile → Prompt loader: Lambda; picks the Explainer template (experience level). Source: Git
-  %%      (agents/prompts/), published to S3 in aws mode (AF_PROMPT_SOURCE); option: Bedrock Prompt Management.
+  %%      (backend/app/prompts/explainer.<level>.md), published to S3 by scripts/deploy_context_lambda.py
+  %%      (AF_PROMPT_SOURCE=s3); option: Bedrock Prompt Management. Output: PromptRef (level, version, sha256).
   PROF --> LOAD
   %% L6  Plan → Orchestrator: DynamoDB (run QUEUED) → "dispatcher" Lambda (asynchronous invocation)
   %%      → AgentCore Runtime (InvokeAgentRuntime). API / agents boundary; IAM for the call.

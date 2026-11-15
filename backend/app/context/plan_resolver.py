@@ -113,6 +113,13 @@ def _parameters(agent: str, request: Request, registry: PlanRegistry) -> dict[st
     return {}
 
 
+def _toggle_off(profile: Profile, agent: str) -> str:
+    """'profile.agent_toggles.news = false', plus the user's words when the toggle was set from chat."""
+    quote = profile.agent_toggle_reasons.get(agent)
+    said = f' (user said: "{quote}")' if quote else ""
+    return f"profile.agent_toggles.{agent} = false{said}"
+
+
 def resolve_plan(profile: Profile, request: Request, registry: Optional[PlanRegistry] = None) -> ExecutionPlan:
     """Apply the registry to (Profile, Request). Raises ValueError if the actors differ."""
     if profile.actor_id != request.actor_id:
@@ -170,7 +177,7 @@ def resolve_plan(profile: Profile, request: Request, registry: Optional[PlanRegi
         elif toggle_on or must:
             reason = "; ".join(reasons)
             if not toggle_on:
-                reason += f" (profile.agent_toggles.{agent} = false ignored)"
+                reason += f" ({_toggle_off(profile, agent)} ignored)"
                 warnings.append(f"{agent} enabled although profile.agent_toggles.{agent} = false: {reasons[0]}")
             enabled.append(
                 EnabledAgent(
@@ -182,7 +189,7 @@ def resolve_plan(profile: Profile, request: Request, registry: Optional[PlanRegi
             )
         else:
             disabled.append(
-                DisabledAgent(agent=agent, reason=f"profile.agent_toggles.{agent} = false (overrides {'; '.join(reasons)})")
+                DisabledAgent(agent=agent, reason=f"{_toggle_off(profile, agent)} (overrides {'; '.join(reasons)})")
             )
             warnings.append(f"{agent} requested ({'; '.join(reasons)}) but disabled by profile.agent_toggles.{agent}")
 

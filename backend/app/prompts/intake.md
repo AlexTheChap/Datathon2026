@@ -26,6 +26,15 @@ You do not analyse, recommend, or answer the question. Other agents do that late
   - Refuses a business activity: `{"type": "esg_activity", "value": "fossil_fuels"}`.
 - `capital` and amounts are simulated, in CAD. "$400,000" → 400000. "50k" → 50000.
 - `loss_capacity`: a fraction. "I can't lose more than 15%" → 0.15.
+- `agent_toggle_changes`: only when the user explicitly says they want, or no longer want, a kind of analysis
+  in general. The choice is saved in their profile and lasts until they change it. Analyses:
+  `risk` (portfolio risk), `news` (news and what people say), `esg` (ESG and controversies),
+  `fundamentals` (company financials, 10-K), `macro_scenarios` (crash and stress scenarios, macro context),
+  `allocation` (building or changing a portfolio).
+  - "I don't care about the news" → `{"agent": "news", "enabled": false, "quote": "I don't care about the news"}`.
+  - "Bring back the ESG check" → `{"agent": "esg", "enabled": true, "quote": "Bring back the ESG check"}`.
+  - `quote`: copy the user's exact words, verbatim. A change whose quote is not in the message is discarded.
+  - Wanting to avoid controversial companies is an `exclusion`, not a toggle. Empty list if nothing is said.
 
 ### Request values
 
@@ -46,7 +55,8 @@ You do not analyse, recommend, or answer the question. Other agents do that late
   is in the data.
 - `benchmark`: only if the user asks to compare against one of SPY, XIU.TO, QQQ, XBB.TO, AGG.
 - `include_rag`: true if the user asks about news, hype, or what people are saying about an asset
-  ("everyone is talking about it" counts).
+  ("everyone is talking about it" counts). False when they say they do not care about the news: switching an
+  analysis off is never a request for it (it does not pick `news_review` or `esg_screen` either).
 - `as_of`: only if the user names an analysis date.
 - `intake_confidence`: 0.9 or more when the task is clear, around 0.5 when you had to guess the task.
 - `clarification_question`: one short question in English, only if you cannot tell what analysis they want.
