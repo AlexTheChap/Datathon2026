@@ -28,19 +28,15 @@ import argparse
 import json
 import os
 import shutil
-import subprocess
 import sys
 import time
-import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-BUILD = ROOT / "build"
-sys.path.insert(0, str(ROOT / "backend"))
-sys.path.insert(0, str(ROOT / "scripts"))
-
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _aws import (  # noqa: E402
+    BUILD, LAMBDA_TRUST, ROOT, ensure_role, load_dotenv, pip_install_linux, trust_policy, zip_dir,
+)
 from app.tools.quant_gateway import TARGETS  # noqa: E402
-from deploy_context_lambda import load_dotenv  # noqa: E402
 
 FUNCTION = "alphaforge-quant-tools"
 LAMBDA_ROLE = "alphaforge-quant-lambda"
@@ -64,14 +60,6 @@ def curated_s3() -> str | None:
 TAGS = {"project": "alphaforge", "component": "quant-gateway"}
 STATE = BUILD / "quant_gateway.json"
 
-LAMBDA_TRUST = {"Version": "2012-10-17", "Statement": [
-    {"Effect": "Allow", "Principal": {"Service": "lambda.amazonaws.com"}, "Action": "sts:AssumeRole"}]}
-
-
-def gateway_trust(account: str) -> dict:
-    return {"Version": "2012-10-17", "Statement": [{
-        "Effect": "Allow", "Principal": {"Service": "bedrock-agentcore.amazonaws.com"}, "Action": "sts:AssumeRole",
-        "Condition": {"StringEquals": {"aws:SourceAccount": account}}}]}
 
 
 # ---------- Build ----------
@@ -80,10 +68,7 @@ def build_zip() -> Path:
     pkg = BUILD / "quant_pkg"
     shutil.rmtree(pkg, ignore_errors=True)
     (pkg / "app" / "tools").mkdir(parents=True)
-    print("• Installing numpy/pandas (Linux wheels, Python 3.12)...")
-    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--target", str(pkg),
-                    "--platform", "manylinux2014_x86_64", "--implementation", "cp", "--python-version", "3.12",
-                    "--only-binary=:all:", *DEPS], check=True)
+    pip_install_linux(pkg, DEPS, "numpy/pandas")
     for f in ("risk_tools.py", "quant_gateway.py", "curated_store.py", "macro_tools.py"):  # what the Lambda imports
         shutil.copy(ROOT / "backend" / "app" / "tools" / f, pkg / "app" / "tools" / f)
     (pkg / "app" / "market").mkdir(parents=True)
@@ -93,26 +78,7 @@ def build_zip() -> Path:
         (pkg / "data" / "curated").mkdir(parents=True)
         for f in CSVS:
             shutil.copy(ROOT / "data" / "curated" / f, pkg / "data" / "curated" / f)
-    zip_path = BUILD / "quant_lambda.zip"
-    zip_path.unlink(missing_ok=True)
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in pkg.rglob("*"):
-            if f.is_file() and "__pycache__" not in f.parts and not f.name.endswith(".pyc"):
-                z.write(f, f.relative_to(pkg).as_posix())
-    print(f"• Package: {zip_path} ({zip_path.stat().st_size / 1e6:.1f} MB)")
-    return zip_path
-
-
-# ---------- IAM ----------
-
-def ensure_role(iam, name: str, trust: dict, description: str) -> tuple[str, bool]:
-    try:
-        return iam.get_role(RoleName=name)["Role"]["Arn"], False
-    except iam.exceptions.NoSuchEntityException:
-        arn = iam.create_role(RoleName=name, AssumeRolePolicyDocument=json.dumps(trust), Description=description,
-                              Tags=[{"Key": k, "Value": v} for k, v in TAGS.items()])["Role"]["Arn"]
-        print(f"• Role created: {arn}")
-        return arn, True
+    return zip_dir(pkg, BUILD / "quant_lambda.zip")
 
 
 # ---------- Lambda ----------
@@ -366,7 +332,7 @@ def main() -> None:
         return
     if not args.test_only:
         iam = session.client("iam")
-        lambda_role, new1 = ensure_role(iam, LAMBDA_ROLE, LAMBDA_TRUST, "AlphaForge quant tools Lambda (box 6)")
+        lambda_role, new1 = ensure_role(iam, LAMBDA_ROLE, LAMBDA_TRUST, "AlphaForge quant tools Lambda (box 6)", TAGS)
         iam.attach_role_policy(RoleName=LAMBDA_ROLE,
                                PolicyArn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole")
         if curated_s3():  # read-only access to the curated Parquet prefix (L14)
@@ -392,8 +358,8 @@ def main() -> None:
                 time.sleep(10)
         lambda_arn = deploy_lambda(session.client("lambda"), build_zip(), lambda_role)
 
-        gw_role, new2 = ensure_role(iam, GATEWAY_ROLE, gateway_trust(account),
-                                    "AlphaForge AgentCore Gateway: may invoke the quant tools Lambda only")
+        gw_role, new2 = ensure_role(iam, GATEWAY_ROLE, trust_policy("bedrock-agentcore.amazonaws.com", account),
+                                    "AlphaForge AgentCore Gateway: may invoke the quant tools Lambda only", TAGS)
         iam.put_role_policy(RoleName=GATEWAY_ROLE, PolicyName="invoke-quant-lambda", PolicyDocument=json.dumps({
             "Version": "2012-10-17",
             "Statement": [{"Effect": "Allow", "Action": "lambda:InvokeFunction", "Resource": lambda_arn}]}))

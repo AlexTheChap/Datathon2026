@@ -34,7 +34,9 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
-ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _aws import ROOT, ensure_bucket, load_dotenv  # noqa: E402
+
 FRONTEND = ROOT / "frontend"
 COMMENT = "alphaforge-web"
 OAC_NAME = "alphaforge-web-oac"
@@ -159,22 +161,6 @@ def find_distribution(cf) -> dict | None:
     return None
 
 
-def ensure_bucket(s3, bucket: str, region: str) -> None:
-    try:
-        s3.head_bucket(Bucket=bucket)
-        print(f"• Existing bucket: s3://{bucket}")
-    except s3.exceptions.ClientError:
-        kwargs = {} if region == "us-east-1" else {"CreateBucketConfiguration": {"LocationConstraint": region}}
-        s3.create_bucket(Bucket=bucket, **kwargs)
-        s3.get_waiter("bucket_exists").wait(Bucket=bucket)
-        print(f"• Bucket created: s3://{bucket}")
-    s3.put_public_access_block(Bucket=bucket, PublicAccessBlockConfiguration={
-        "BlockPublicAcls": True, "IgnorePublicAcls": True, "BlockPublicPolicy": True, "RestrictPublicBuckets": True})
-    s3.put_bucket_encryption(Bucket=bucket, ServerSideEncryptionConfiguration={
-        "Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]})
-    s3.put_bucket_tagging(Bucket=bucket, Tagging={"TagSet": [{"Key": k, "Value": v} for k, v in TAGS.items()]})
-
-
 def upload(s3, bucket: str, config_text: str) -> None:
     for key, path in site_files():
         s3.put_object(Bucket=bucket, Key=key, Body=path.read_bytes(), ContentType=content_type(key),
@@ -261,9 +247,6 @@ def main() -> None:
     import boto3
 
     if not args.profile:
-        sys.path.insert(0, str(Path(__file__).resolve().parent))
-        from deploy_context_lambda import load_dotenv  # AWS_* from the git-ignored .env, never overrides
-
         load_dotenv()
     region = args.region or os.environ.get("AWS_REGION", "us-east-1")
     session = boto3.Session(profile_name=args.profile, region_name=region)
@@ -298,7 +281,7 @@ def main() -> None:
         return
 
     s3, cf = session.client("s3"), session.client("cloudfront")
-    ensure_bucket(s3, bucket, region)
+    ensure_bucket(s3, bucket, region, TAGS)
     upload(s3, bucket, config_text)
     dist = ensure_distribution(cf, bucket, region, args.api_url)
     s3.put_bucket_policy(Bucket=bucket, Policy=json.dumps(bucket_policy(bucket, dist["ARN"])))

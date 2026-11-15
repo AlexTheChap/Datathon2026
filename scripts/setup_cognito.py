@@ -40,7 +40,7 @@ DEMO_DOMAIN = "alphaforge.example"  # RFC 2606: reserved, can never receive mail
 TAGS = {"project": "alphaforge", "component": "sign-in"}
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from deploy_context_lambda import load_dotenv  # noqa: E402  (same .env reader as the other deploy scripts)
+from _aws import load_dotenv  # noqa: E402  (same .env reader as the other deploy scripts)
 
 
 def upsert_env(values: dict[str, str | None]) -> None:

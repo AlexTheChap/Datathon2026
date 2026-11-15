@@ -34,14 +34,11 @@ from pathlib import Path
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
-BUILD = ROOT / "build"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _aws import BUILD, ROOT, ensure_bucket, ensure_role, load_dotenv, trust_policy  # noqa: E402
+
 CORPUS = BUILD / "kb"
 STATE = BUILD / "news_kb.json"
-sys.path.insert(0, str(ROOT / "backend"))
-sys.path.insert(0, str(ROOT / "scripts"))
-
-from deploy_context_lambda import load_dotenv  # noqa: E402
 
 KB_NAME = "alphaforge-news-docs"
 ROLE = "alphaforge-kb"
@@ -101,21 +98,6 @@ def build_corpus() -> dict[str, int]:
 
 # ---------- 2. S3 ----------
 
-def ensure_bucket(s3, bucket: str, region: str) -> None:
-    try:
-        s3.head_bucket(Bucket=bucket)
-    except Exception:
-        kwargs = {} if region == "us-east-1" else {"CreateBucketConfiguration": {"LocationConstraint": region}}
-        s3.create_bucket(Bucket=bucket, **kwargs)
-        s3.put_public_access_block(Bucket=bucket, PublicAccessBlockConfiguration={
-            "BlockPublicAcls": True, "IgnorePublicAcls": True, "BlockPublicPolicy": True,
-            "RestrictPublicBuckets": True})
-        s3.put_bucket_encryption(Bucket=bucket, ServerSideEncryptionConfiguration={
-            "Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]})
-        s3.put_bucket_tagging(Bucket=bucket, Tagging={"TagSet": [{"Key": k, "Value": v} for k, v in TAGS.items()]})
-        print(f"• Bucket created: s3://{bucket}")
-
-
 def sync_corpus(s3, bucket: str) -> None:
     """Upload build/kb/ to the bucket and delete objects that are no longer in the corpus."""
     local = {p.relative_to(CORPUS).as_posix(): p for p in CORPUS.rglob("*") if p.is_file()}
@@ -153,19 +135,9 @@ def ensure_vector_index(sv, vbucket: str) -> str:
 
 # ---------- 4. IAM ----------
 
-def ensure_role(iam, account: str, region: str, bucket: str, index_arn: str) -> tuple[str, bool]:
-    trust = {"Version": "2012-10-17", "Statement": [{
-        "Effect": "Allow", "Principal": {"Service": "bedrock.amazonaws.com"}, "Action": "sts:AssumeRole",
-        "Condition": {"StringEquals": {"aws:SourceAccount": account}}}]}
-    created = False
-    try:
-        arn = iam.get_role(RoleName=ROLE)["Role"]["Arn"]
-    except iam.exceptions.NoSuchEntityException:
-        arn = iam.create_role(RoleName=ROLE, AssumeRolePolicyDocument=json.dumps(trust),
-                              Description="AlphaForge Bedrock Knowledge Base (news & docs, S3 Vectors)",
-                              Tags=[{"Key": k, "Value": v} for k, v in TAGS.items()])["Role"]["Arn"]
-        print(f"• Role created: {arn}")
-        created = True
+def ensure_kb_role(iam, account: str, region: str, bucket: str, index_arn: str) -> tuple[str, bool]:
+    arn, created = ensure_role(iam, ROLE, trust_policy("bedrock.amazonaws.com", account),
+                               "AlphaForge Bedrock Knowledge Base (news & docs, S3 Vectors)", TAGS)
     policy = {"Version": "2012-10-17", "Statement": [
         {"Effect": "Allow", "Action": "bedrock:InvokeModel",
          "Resource": f"arn:aws:bedrock:{region}::foundation-model/{EMBED_MODEL}"},
@@ -401,10 +373,10 @@ def main() -> None:
     if not args.test_only:
         build_corpus()
         s3 = session.client("s3")
-        ensure_bucket(s3, bucket, region)
+        ensure_bucket(s3, bucket, region, TAGS)
         sync_corpus(s3, bucket)
         index_arn = ensure_vector_index(session.client("s3vectors"), vbucket)
-        role_arn, created = ensure_role(session.client("iam"), account, region, bucket, index_arn)
+        role_arn, created = ensure_kb_role(session.client("iam"), account, region, bucket, index_arn)
         if created:
             time.sleep(10)
         ag = session.client("bedrock-agent")

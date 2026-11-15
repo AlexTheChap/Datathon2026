@@ -24,24 +24,22 @@ import argparse
 import json
 import os
 import shutil
-import subprocess
 import sys
 import time
-import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _aws import (  # noqa: E402
+    BASIC_EXECUTION, BUILD, LAMBDA_TRUST, ROOT, ensure_bucket, ensure_role, load_dotenv, pip_install_linux, zip_dir,
+)
+
 APP = ROOT / "backend" / "app"
-BUILD = ROOT / "build"
 FUNCTION = "alphaforge-context"
 ROLE = "alphaforge-context-lambda"
 RUNTIME = "python3.12"
 PREFIX = "prompts/"
 DEPS = ["pydantic>=2.7", "pyyaml>=6"]
 TAGS = {"project": "alphaforge", "component": "context-resolution"}
-
-TRUST = {"Version": "2012-10-17", "Statement": [
-    {"Effect": "Allow", "Principal": {"Service": "lambda.amazonaws.com"}, "Action": "sts:AssumeRole"}]}
 
 
 def read_policy(bucket: str) -> dict:
@@ -53,62 +51,21 @@ def read_policy(bucket: str) -> dict:
     ]}
 
 
-def load_dotenv(path: Path = ROOT / ".env") -> None:
-    """Minimal .env reader (no extra dependency). Never overrides variables already set."""
-    if not path.is_file():
-        return
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if line and not line.startswith("#") and "=" in line:
-            key, value = line.split("=", 1)
-            key = key.removeprefix("export ").removeprefix("$env:")  # pasted bash / PowerShell lines
-            value = value.strip().strip('"').strip("'")
-            if value:
-                os.environ.setdefault(key.strip(), value)
-
-
 # ---------- Build ----------
 
 def build_zip() -> Path:
     pkg = BUILD / "context_pkg"
     shutil.rmtree(pkg, ignore_errors=True)
     pkg.mkdir(parents=True)
-    print("• Installing dependencies (Linux wheels, Python 3.12)...")
-    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--target", str(pkg),
-                    "--platform", "manylinux2014_x86_64", "--implementation", "cp", "--python-version", "3.12",
-                    "--only-binary=:all:", *DEPS], check=True)
+    pip_install_linux(pkg, DEPS)
     ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".gitkeep")
     for sub in ("context", "schemas", "core", "prompts"):  # only what box ④ imports or reads
         shutil.copytree(APP / sub, pkg / "app" / sub, ignore=ignore)
 
-    zip_path = BUILD / "context_lambda.zip"
-    zip_path.unlink(missing_ok=True)
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in sorted(pkg.rglob("*")):
-            if f.is_file() and "__pycache__" not in f.parts:
-                z.write(f, f.relative_to(pkg).as_posix())
-    print(f"• Package: {zip_path} ({zip_path.stat().st_size / 1e6:.1f} MB)")
-    return zip_path
+    return zip_dir(pkg, BUILD / "context_lambda.zip")
 
 
 # ---------- S3 ----------
-
-def ensure_bucket(s3, bucket: str, region: str) -> None:
-    try:
-        s3.head_bucket(Bucket=bucket)
-        print(f"• Existing bucket: s3://{bucket}")
-    except s3.exceptions.ClientError:
-        kwargs = {} if region == "us-east-1" else {"CreateBucketConfiguration": {"LocationConstraint": region}}
-        s3.create_bucket(Bucket=bucket, **kwargs)
-        s3.get_waiter("bucket_exists").wait(Bucket=bucket)
-        print(f"• Bucket created: s3://{bucket}")
-    s3.put_public_access_block(Bucket=bucket, PublicAccessBlockConfiguration={
-        "BlockPublicAcls": True, "IgnorePublicAcls": True, "BlockPublicPolicy": True, "RestrictPublicBuckets": True})
-    s3.put_bucket_versioning(Bucket=bucket, VersioningConfiguration={"Status": "Enabled"})
-    s3.put_bucket_encryption(Bucket=bucket, ServerSideEncryptionConfiguration={
-        "Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]})
-    s3.put_bucket_tagging(Bucket=bucket, Tagging={"TagSet": [{"Key": k, "Value": v} for k, v in TAGS.items()]})
-
 
 def publish_prompts(s3, bucket: str) -> None:
     files = sorted((APP / "prompts").glob("explainer.*.md"))
@@ -120,18 +77,11 @@ def publish_prompts(s3, bucket: str) -> None:
 
 # ---------- IAM ----------
 
-def ensure_role(iam, bucket: str) -> str:
-    try:
-        arn = iam.get_role(RoleName=ROLE)["Role"]["Arn"]
-        print(f"• Existing role: {arn}")
-    except iam.exceptions.NoSuchEntityException:
-        arn = iam.create_role(RoleName=ROLE, AssumeRolePolicyDocument=json.dumps(TRUST),
-                              Description="AlphaForge Context resolution Lambda (box 4)",
-                              Tags=[{"Key": k, "Value": v} for k, v in TAGS.items()])["Role"]["Arn"]
-        print(f"• Role created: {arn}")
+def ensure_context_role(iam, bucket: str) -> str:
+    arn, created = ensure_role(iam, ROLE, LAMBDA_TRUST, "AlphaForge Context resolution Lambda (box 4)", TAGS)
+    if created:
         time.sleep(10)  # IAM propagation before Lambda can assume it
-    iam.attach_role_policy(RoleName=ROLE,
-                           PolicyArn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole")
+    iam.attach_role_policy(RoleName=ROLE, PolicyArn=BASIC_EXECUTION)
     iam.put_role_policy(RoleName=ROLE, PolicyName="read-prompts", PolicyDocument=json.dumps(read_policy(bucket)))
     return arn
 
@@ -266,9 +216,9 @@ def main() -> None:
     if not args.test_only:
         zip_path = build_zip()
         s3 = session.client("s3")
-        ensure_bucket(s3, bucket, region)
+        ensure_bucket(s3, bucket, region, TAGS, versioning=True)
         publish_prompts(s3, bucket)
-        role_arn = ensure_role(session.client("iam"), bucket)
+        role_arn = ensure_context_role(session.client("iam"), bucket)
         deploy(lam, zip_path, role_arn, bucket)
         print(f"• Ready: {FUNCTION} in {region}, prompts in s3://{bucket}/{PREFIX}")
     if args.test or args.test_only:

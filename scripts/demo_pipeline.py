@@ -33,7 +33,7 @@ def main() -> None:
     args = ap.parse_args()
 
     if args.mode == "bedrock":
-        from deploy_context_lambda import load_dotenv  # AWS_* from the git-ignored .env, never overrides
+        from app.core.dotenv import load_dotenv  # AWS_* from the git-ignored .env, never overrides
 
         load_dotenv()
         try:  # Windows: let Python see the system certificates

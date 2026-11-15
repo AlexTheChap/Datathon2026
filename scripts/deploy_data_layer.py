@@ -29,36 +29,16 @@ import tempfile
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-BUILD = ROOT / "build"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _aws import BUILD, ROOT, ensure_bucket, load_dotenv  # noqa: E402
+from app.tools import curated_store as cs  # noqa: E402
+
 PARQUET = BUILD / "curated_parquet"
 STATE = BUILD / "data_layer.json"
-sys.path.insert(0, str(ROOT / "backend"))
-sys.path.insert(0, str(ROOT / "scripts"))
-
-from app.tools import curated_store as cs  # noqa: E402
-from deploy_context_lambda import load_dotenv  # noqa: E402
 
 TABLE = "alphaforge"
 PREFIX = "curated/"
 TAGS = {"project": "alphaforge", "component": "data-layer"}
-
-
-def ensure_bucket(s3, bucket: str, region: str) -> None:
-    try:
-        s3.head_bucket(Bucket=bucket)
-        return
-    except Exception:
-        pass
-    kwargs = {} if region == "us-east-1" else {"CreateBucketConfiguration": {"LocationConstraint": region}}
-    s3.create_bucket(Bucket=bucket, **kwargs)
-    s3.put_public_access_block(Bucket=bucket, PublicAccessBlockConfiguration={
-        "BlockPublicAcls": True, "IgnorePublicAcls": True, "BlockPublicPolicy": True, "RestrictPublicBuckets": True})
-    s3.put_bucket_encryption(Bucket=bucket, ServerSideEncryptionConfiguration={
-        "Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]})
-    s3.put_bucket_versioning(Bucket=bucket, VersioningConfiguration={"Status": "Enabled"})
-    s3.put_bucket_tagging(Bucket=bucket, Tagging={"TagSet": [{"Key": k, "Value": v} for k, v in TAGS.items()]})
-    print(f"• Bucket created: s3://{bucket}")
 
 
 def publish_parquet(s3, bucket: str) -> dict[str, int]:
@@ -181,7 +161,7 @@ def main() -> None:
         return
     if not args.test_only:
         s3 = session.client("s3")
-        ensure_bucket(s3, bucket, region)
+        ensure_bucket(s3, bucket, region, TAGS, versioning=True)
         rows = publish_parquet(s3, bucket)
         t = ensure_table(session.client("dynamodb"))
         BUILD.mkdir(exist_ok=True)

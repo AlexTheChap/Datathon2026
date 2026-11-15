@@ -29,19 +29,15 @@ import argparse
 import json
 import os
 import shutil
-import subprocess
 import sys
 import time
-import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-BUILD = ROOT / "build"
-sys.path.insert(0, str(ROOT / "backend"))
-sys.path.insert(0, str(ROOT / "scripts"))
-
-from deploy_context_lambda import load_dotenv  # noqa: E402
-from deploy_quant_gateway import LAMBDA_TRUST, ensure_role  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _aws import (  # noqa: E402
+    BASIC_EXECUTION, BUILD, LAMBDA_TRUST, ROOT, ensure_role, invoke as _invoke, load_dotenv, pip_install_linux,
+    trust_policy, zip_dir,
+)
 
 FUNCTION = ROLE = SCHEDULE = "alphaforge-news-alerts"
 SCHEDULER_ROLE = "alphaforge-news-alerts-scheduler"
@@ -59,37 +55,25 @@ def build_zip() -> Path:
     shutil.rmtree(pkg, ignore_errors=True)
     for d in ("notify", "schemas", "store"):
         (pkg / "app" / d).mkdir(parents=True)
-    print("• Installing pydantic (Linux wheels, Python 3.12)...")
-    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--target", str(pkg),
-                    "--platform", "manylinux2014_x86_64", "--implementation", "cp", "--python-version", "3.12",
-                    "--only-binary=:all:", *DEPS], check=True)
+    pip_install_linux(pkg, DEPS, "pydantic")
     src = ROOT / "backend" / "app"
     for f in ("contacts.py", "news.py", "messages.py", "alerts.py"):
         shutil.copy(src / "notify" / f, pkg / "app" / "notify" / f)
     for f in (src / "schemas").glob("*.py"):
         shutil.copy(f, pkg / "app" / "schemas" / f.name)
     shutil.copy(src / "store" / "profiles.py", pkg / "app" / "store" / "profiles.py")
-    zip_path = BUILD / "alerts_lambda.zip"
-    zip_path.unlink(missing_ok=True)
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in pkg.rglob("*"):
-            if f.is_file() and "__pycache__" not in f.parts and not f.name.endswith(".pyc"):
-                z.write(f, f.relative_to(pkg).as_posix())
-    print(f"• Package: {zip_path} ({zip_path.stat().st_size / 1e6:.1f} MB)")
-    return zip_path
+    return zip_dir(pkg, BUILD / "alerts_lambda.zip")
 
 
 def ensure_roles(iam, account: str, region: str, table_arn: str) -> tuple[str, str]:
-    arn, new1 = ensure_role(iam, ROLE, LAMBDA_TRUST, "AlphaForge news-alert agent (SEC news -> SMS)")
-    iam.attach_role_policy(RoleName=ROLE, PolicyArn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole")
+    arn, new1 = ensure_role(iam, ROLE, LAMBDA_TRUST, "AlphaForge news-alert agent (SEC news -> SMS)", TAGS)
+    iam.attach_role_policy(RoleName=ROLE, PolicyArn=BASIC_EXECUTION)
     iam.put_role_policy(RoleName=ROLE, PolicyName="news-alerts", PolicyDocument=json.dumps({
         "Version": "2012-10-17", "Statement": [
             {"Effect": "Allow", "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Scan"], "Resource": table_arn},
             {"Effect": "Allow", "Action": "sns:Publish", "Resource": "*"}]}))
-    trust = {"Version": "2012-10-17", "Statement": [{
-        "Effect": "Allow", "Principal": {"Service": "scheduler.amazonaws.com"}, "Action": "sts:AssumeRole",
-        "Condition": {"StringEquals": {"aws:SourceAccount": account}}}]}
-    sched_arn, new2 = ensure_role(iam, SCHEDULER_ROLE, trust, "EventBridge Scheduler: invoke the news-alert agent")
+    sched_arn, new2 = ensure_role(iam, SCHEDULER_ROLE, trust_policy("scheduler.amazonaws.com", account),
+                                  "EventBridge Scheduler: invoke the news-alert agent", TAGS)
     iam.put_role_policy(RoleName=SCHEDULER_ROLE, PolicyName="invoke-alerts", PolicyDocument=json.dumps({
         "Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "lambda:InvokeFunction",
                                                 "Resource": f"arn:aws:lambda:{region}:{account}:function:{FUNCTION}"}]}))
@@ -137,11 +121,7 @@ def ensure_schedule(sch, fn_arn: str, role_arn: str) -> None:
 
 
 def invoke(lam, payload: dict) -> dict:
-    r = lam.invoke(FunctionName=FUNCTION, InvocationType="RequestResponse", Payload=json.dumps(payload).encode())
-    body = json.loads(r["Payload"].read() or b"null")
-    if r.get("FunctionError"):
-        raise RuntimeError(f"{FUNCTION} failed: {body}")
-    return body
+    return _invoke(lam, FUNCTION, payload)
 
 
 def delete_all(session) -> None:
