@@ -30,7 +30,9 @@ from app.store.ledger import EvidenceLedger, make_ledger
 from app.tools import agent_tools
 from app.tools.context import current_as_of, current_profile, default_as_of
 from strands import Agent
-from strands.models import BedrockModel
+from strands.models import BedrockModel, CacheConfig
+
+_CACHE = CacheConfig(strategy="auto")   # static system prompt + tools: cache the prefix (see BedrockModel)
 
 
 log = logging.getLogger(__name__)
@@ -120,7 +122,7 @@ def build_orchestrator(inp: OrchestratorInput, ledger: EvidenceLedger | None = N
 
     def make(session_manager) -> Agent:
         return Agent(
-            model=BedrockModel(model_id=s.model_orchestrator, region_name=s.aws_region),
+            model=BedrockModel(model_id=s.model_orchestrator, region_name=s.aws_region, cache_config=_CACHE),
             system_prompt=system_prompt(),
             tools=[agent_tools.governance_check, *subagents],
             hooks=[EvidenceHook(led, inp.run_id)],
@@ -190,7 +192,7 @@ def run_orchestrator(inp: OrchestratorInput, settings: Settings | None = None) -
             from app.agents.graph import run as run_graph
 
             synthesis = Agent(
-                model=BedrockModel(model_id=s.model_orchestrator, region_name=s.aws_region),
+                model=BedrockModel(model_id=s.model_orchestrator, region_name=s.aws_region, cache_config=_CACHE),
                 system_prompt=render_prompt(
                     "synthesis",
                     persona_block=persona_block(inp.profile, inp.language),

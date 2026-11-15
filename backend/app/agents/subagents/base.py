@@ -31,7 +31,7 @@ from app.tools.context import current_profile
 from app.tools.risk_tools import _eid
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from strands import Agent, tool
-from strands.models import BedrockModel
+from strands.models import BedrockModel, CacheConfig
 
 # Set by the orchestrator for each run so sub-agents write into the same ledger.
 run_context: ContextVar[dict[str, Any] | None] = ContextVar("af_subagent_ctx", default=None)
@@ -203,7 +203,10 @@ def make_subagent_tool(tool_name: str, system_prompt: Any, tools: Any,
             is_simulated = bool(_resolve(simulated))
             toolset = _resolve(tools)
             agent = Agent(
-                model=BedrockModel(model_id=s.model_subagent, region_name=s.aws_region),
+                # cache_config: the system prompt and tool specs are static per sub-agent — Bedrock
+                # caches that prefix instead of re-reading it on every fork (latency and cost).
+                model=BedrockModel(model_id=s.model_subagent, region_name=s.aws_region,
+                                   cache_config=CacheConfig(strategy="auto")),
                 system_prompt=_resolve(system_prompt),
                 tools=toolset,
                 hooks=[EvidenceHook(ledger, run_id, agent=tool_name)],

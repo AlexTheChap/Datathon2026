@@ -150,9 +150,19 @@ def test_request_sent_to_bedrock(make_profile):
     assert call["model"] == "test-model" and call["output_format"] is ExplainerDraft
     assert call["output_config"] == {"effort": "low"}
     assert call["system"][0]["cache_control"] == {"type": "ephemeral"} and "Explainer" in call["system"][0]["text"]
-    payload = json.loads(call["messages"][0]["content"])
+    first = call["messages"][0]["content"]
+    assert first[0]["cache_control"] == {"type": "ephemeral"}   # the payload block is cached for the retry
+    payload = json.loads(first[0]["text"])
     assert payload["question"].startswith("I'm thinking of putting 20%") and payload["reader"]["experience"] == "advanced"
     assert {g["verdict"] for g in payload["governance"]} == {"BLOCK", "PASS"}  # the orchestrator's final verdicts only
+
+
+def test_retry_reuses_the_cached_payload_unchanged(make_profile):
+    bad = draft(key_points=[{"text": "Nvidia returned +35% in 2022.", "evidence": ["ev-c5f01b9379"]}])
+    client = FakeClient(bad, draft())
+    run_explain(make_run(make_profile), client)
+    assert client.calls[0]["messages"][0]["content"] == client.calls[1]["messages"][0]["content"]
+    assert len(client.calls[1]["messages"]) == 3                # payload, then the draft, then the feedback
 
 
 def test_retry_fixes_the_answer(make_profile):

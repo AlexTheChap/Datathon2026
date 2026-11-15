@@ -160,7 +160,11 @@ def explain(run: Any, orchestrator: Optional[dict], records: list[dict], *, clie
         client = AnthropicBedrock(aws_region=s.aws_region)
     system = [{"type": "text", "text": template.body, "cache_control": {"type": "ephemeral"}}]
     payload = json.dumps(build_input(run, orchestrator, catalog), ensure_ascii=False, default=str)
-    messages: list[dict] = [{"role": "user", "content": payload}]
+    # cache_control on the payload: the retry ask re-sends this block unchanged, so Bedrock
+    # skips re-reading the evidence catalogue (the system template above is cached too).
+    messages: list[dict] = [{"role": "user",
+                             "content": [{"type": "text", "text": payload,
+                                          "cache_control": {"type": "ephemeral"}}]}]
     context = context_numbers(_dump(run.profile), _dump(run.request))
 
     def ask(msgs: list[dict]):

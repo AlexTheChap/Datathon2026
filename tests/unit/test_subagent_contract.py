@@ -137,6 +137,20 @@ def test_valid_answer_becomes_an_envelope_with_the_nested_evidence(fake):
     assert len(FakeAgent.calls) == 1
 
 
+def test_the_model_is_built_with_prompt_caching(fake, monkeypatch):
+    """The sub-agent's BedrockModel caches its static system prompt + tools (strategy=auto)."""
+    kw_seen: dict = {}
+
+    def model(**kw):
+        kw_seen.update(kw)
+        return object()
+
+    monkeypatch.setattr(base, "BedrockModel", model)
+    FakeAgent.script = [([record(EV1)], json.dumps(finding()))]
+    sub()(subject="q")
+    assert kw_seen["cache_config"].strategy == "auto"
+
+
 def test_a_rejected_answer_gets_one_repair_with_the_reasons(fake):
     FakeAgent.script = [([record(EV1)], json.dumps(finding(details=[f"invented {EV2}"]))),
                         ([], json.dumps(finding()))]
