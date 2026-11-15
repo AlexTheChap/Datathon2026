@@ -20,7 +20,9 @@ from app.schemas import Profile, Request
 from app.schemas.execution_plan import ExecutionPlan
 from app.schemas.prompt_ref import PromptRef
 
-RunStatus = Literal["QUEUED", "RUNNING", "DONE", "FAILED"]
+RunStatus = Literal["QUEUED", "RUNNING", "DRAFTED", "DONE", "FAILED"]
+# DRAFTED: the orchestrator's working draft is written back and visible while the Explainer writes the
+# checked answer over it (perceived latency: the reader reads the draft ~15-20s sooner). Never final.
 
 
 def _now() -> str:

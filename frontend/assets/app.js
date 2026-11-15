@@ -874,6 +874,15 @@ function profileForm(saved) {
 }
 /* ---------------- Run (the plan) ---------------- */
 
+/** The orchestrator's working draft (markdown-lite) as plain paragraphs: bold markers and heading hashes
+ * stripped, table rows joined into one line. A preview only — the checked answer replaces it. */
+const draftLines = (md) => md.split("\n").map((l) => l.replace(/\*\*/g, "").replace(/^#+\s*/, "").trim())
+  .filter(Boolean)
+  .map((l) => l.startsWith("|")
+    ? l.split("|").map((c) => c.trim()).filter((c) => c && !/^-+$/.test(c)).join(" \u00b7 ")
+    : l)
+  .map((l) => h("p", { class: "answer__text" }, l));
+
 /* ---------------- The answer (box ⑤ Explainer) ---------------- */
 
 const VERDICTS = {
@@ -889,6 +898,13 @@ function drawAnswer(run, { scope = "page", chat = false, animate = false } = {})
   const section = h(chat ? "div" : "section", { class: chat ? "answer answer--chat" : "panel answer", "aria-labelledby": titleId },
     h(chat ? "h3" : "h2", { id: titleId, class: chat ? "visually-hidden" : null }, "Answer"));
   if (!a) {
+    const draft = run.result && run.result.summary;
+    if (run.status === "DRAFTED" && draft) { // the analyses are done: show the working draft while it is checked
+      section.append(
+        h("p", { class: "muted small" }, "Working draft: every number below is being checked against its sources. The checked answer replaces it shortly."),
+        h("div", { class: "answer__draft" }, draftLines(draft)));
+      return section;
+    }
     const waiting = run.status === "QUEUED" || run.status === "RUNNING";
     section.append(h("div", { class: chat ? "stack-sm" : "empty" },
       h("p", null, run.status === "FAILED" ? "No answer: the analysis stopped before the end." : "The answer will appear here."),
@@ -1103,7 +1119,7 @@ function renderRun(main, runId) {
       }
       return;
     }
-    const waiting = (run.status === "QUEUED" || run.status === "RUNNING") && !run.result;
+    const waiting = run.status === "QUEUED" || run.status === "RUNNING" || run.status === "DRAFTED";
     const stopped = waiting && polls >= POLL_MAX;
     const key = JSON.stringify([run.status, run.result, run.updated_at, stopped]);
     if (key !== shown) {
@@ -1119,7 +1135,7 @@ function renderRun(main, runId) {
     }
   }
 
-  function statusWord(s) { return { QUEUED: "Queued", RUNNING: "Running", DONE: "Done", FAILED: "Failed" }[s] || s; }
+  function statusWord(s) { return { QUEUED: "Queued", RUNNING: "Running", DRAFTED: "Draft ready", DONE: "Done", FAILED: "Failed" }[s] || s; }
 
   function drawRun(run, stoppedPolling = false) {
     const plan = run.execution_plan;

@@ -1051,3 +1051,7 @@ summary { cursor: pointer; font-weight: var(--weight-mid); min-height: 44px; dis
 .whatif__result { display: grid; gap: var(--space-xs); padding: var(--space-md); border-radius: var(--radius-card); background: var(--color-surface-2); transition: opacity var(--dur-short) var(--ease); }
 .whatif__result.is-loading { opacity: 0.6; }
 .whatif__result:empty::before { content: "Measuring the fit…"; color: var(--color-muted); font-size: var(--text-sm); }
+
+/* The orchestrator's working draft, shown while the explainer checks it (run status DRAFTED). */
+.answer__draft { border-left: 3px solid var(--line, #d8dee6); padding: .25rem 0 .25rem .85rem; display: grid; gap: .4rem; }
+.answer__draft .answer__text { opacity: .92; }

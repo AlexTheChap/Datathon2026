@@ -53,7 +53,8 @@ def test_dispatcher_stores_a_checked_answer():
     InlineDispatcher(svc.runs, run_fn=fake_orchestrator, explain_fn=explainer_with(FakeClient(draft())),
                      records_fn=FakeLedger().records).dispatch(run)
     saved = svc.runs.get(run.run_id)
-    assert statuses == ["RUNNING", "DONE"]
+    assert statuses == ["RUNNING", "DRAFTED", "DONE"]   # DRAFTED: the working draft goes live while the
+                                                    # explainer checks it (the poller reads result.summary)
     assert saved.result["summary"] == "draft"                       # the orchestrator's fields stay
     answer = saved.result["answer"]
     assert answer["kind"] == "explained" and answer["verification"]["claims_checked"] == 5

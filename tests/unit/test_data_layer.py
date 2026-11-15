@@ -125,7 +125,8 @@ def test_inline_dispatcher_writes_running_then_done(make_profile, make_request):
 
     InlineDispatcher(store, run_fn=fake_orchestrator).dispatch(run)
     saved = store.get("run-x")
-    assert statuses == ["RUNNING", "DONE"] and saved.result["evidence_ids"] == ["ev-1"]
+    assert statuses == ["RUNNING", "DRAFTED", "DONE"] and saved.result["evidence_ids"] == ["ev-1"]
+                                                                             # DRAFTED: draft live while the explainer runs
     assert orchestrator_input(saved).execution_plan == run.execution_plan
 
 
