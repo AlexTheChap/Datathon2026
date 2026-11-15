@@ -12,7 +12,8 @@
 %% BUILT: ⑤ orchestrator (Strands Agent, Claude Sonnet via Bedrock) · 6 sub-agents exposed
 %%   as tools (Claude Haiku; news = SIMULATED placeholder) · prompt loader + en templates ·
 %%   governance_check as a deterministic TOOL (no LLM — see GOV) · evidence hook
-%%   (AfterToolCallEvent) → local JSONL ledger (data/runs/<run_id>.jsonl, DynamoDB-shaped
+%%   (Before/AfterToolCallEvent, with per-call duration_ms) → local JSONL ledger (data/runs/<run_id>.jsonl,
+%%   DynamoDB-shaped
 %%   interface) · quant + analysis tools in-process (agent_tools.py, analysis_tools.py over
 %%   data/curated CSVs) · AgentCore entrypoint (app/entrypoint.py, not yet deployed) ·
 %%   AF_* / .env config · sub-agents chosen from the ④ ExecutionPlan (L6).
@@ -179,11 +180,12 @@ flowchart TB
   %%      CURRENT: in-process pandas reads over data/curated CSVs (returns_daily_cad,
   %%      macro_daily_asof, rate_sensitivity, esg_index_screen, controversies…).
   GW --> S3
-  %% L15 Tools → Evidence ledger: a Strands hook (AfterToolCallEvent) fires after every tool
-  %%      call. TARGET sink: DynamoDB (RUN#id / EVID#ev-<hash>). CURRENT: local JSONL ledger
+  %% L15 Tools → Evidence ledger: a Strands hook (Before/AfterToolCallEvent) fires around every
+  %%      tool call. TARGET sink: DynamoDB (RUN#id / EVID#ev-<hash>). CURRENT: local JSONL ledger
   %%      data/runs/<run_id>.jsonl behind the same EvidenceLedger interface — every call is
-  %%      one record (seq, caller agent tag, tool, inputs, envelope), incl. nested sub-agent
-  %%      calls and failures. Viewer: scripts/show_run.py.
+  %%      one record (seq, caller agent tag, tool, inputs, envelope, wall-time duration_ms),
+  %%      incl. nested sub-agent calls and failures; graph fork nodes also record their
+  %%      execution_time as duration_ms. Viewer: scripts/show_run.py (ms column + per-caller totals).
   GW -->|"each call = 1 evidence"| DDB
   %% L16 DynamoDB → Explainer: reads the run's ledger (EvidenceLedger.records) and builds an evidence catalogue
   %%      (every evidence_id, nested ones linked to their parent); the claim check compares each stated

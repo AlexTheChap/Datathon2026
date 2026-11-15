@@ -84,15 +84,25 @@ def main() -> int:
         return 1
 
     print(f"Run {run_id} — {len(recs)} calls, started {recs[0]['ts']}\n")
-    print(f"{'seq':6} {'caller':18} {'tool':20} output")
+    print(f"{'seq':6} {'caller':18} {'tool':20} {'ms':>7} output")
     print("-" * 100)
     for r in recs:
         caller = r.get("agent") or "orchestrator"
-        line = f"{r['seq']:6} {caller:18} {r['tool']:20} {_summarize(r, args.full)}"
+        ms = r.get("duration_ms")
+        ms_txt = "-" if ms is None else f"{ms:>7}"
+        line = f"{r['seq']:6} {caller:18} {r['tool']:20} {ms_txt} {_summarize(r, args.full)}"
         print(line)
         if args.full:
             print("      input:", json.dumps(r.get("tool_input"), default=str)[:200])
             print("      output:", json.dumps(r.get("payload"), default=str)[:600])
+    by_caller: dict[str, list[int]] = {}
+    for r in recs:
+        if r.get("duration_ms") is not None:
+            by_caller.setdefault(r.get("agent") or "orchestrator", []).append(r["duration_ms"])
+    if by_caller:
+        print("\nWall time per caller (ms; fork callers run in parallel — the slowest sets the pace):")
+        for caller, mss in sorted(by_caller.items(), key=lambda kv: -sum(kv[1])):
+            print(f"  {caller:20} calls={len(mss):2}  total={sum(mss):6}  max={max(mss):6}")
     ids = led.evidence_ids(run_id)
     print(f"\nUnique evidence ({len(ids)}): {', '.join(ids)}")
     print("Verification rule: every number in the agent's summary must cite one of these ids.")

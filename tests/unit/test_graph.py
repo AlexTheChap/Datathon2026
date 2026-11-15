@@ -84,3 +84,16 @@ def test_run_passes_structured_args_to_each_node():
     run([("risk", risk), ("news", news)], "q", {"NVDA": 0.2}, ["NVDA"])
     assert seen["risk"]["weights"] == {"NVDA": 0.2} and seen["risk"]["tickers"] == ["NVDA"]
     assert seen["news"]["subject"] == "q"
+
+
+def test_run_records_each_node_wall_time():
+    """The graph already measures every node: the finding and its ledger record carry the ms."""
+    led = InMemoryLedger()
+    out = run([("risk", lambda **kw: {"evidence_id": "ev-r", "tool": "risk_subagent", "say": "s"})],
+              "q", None, None, synthesis_agent=None, ledger=led, run_id="run-t")
+
+    (f,) = out["findings"]
+    assert isinstance(f["_duration_ms"], int) and f["_duration_ms"] >= 0
+    (rec,) = led.records("run-t")
+    assert isinstance(rec["duration_ms"], int) and rec["duration_ms"] >= 0
+    assert "duration_ms" not in rec["payload"]      # the evidence envelope stays pristine

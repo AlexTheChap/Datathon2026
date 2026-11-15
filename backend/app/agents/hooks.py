@@ -1,16 +1,19 @@
 """Hook L15: every tool call becomes one evidence record in the ledger.
 
-Strands HookProvider (Agent(hooks=[…])): register_hooks subscribes
-_on_tool_call to AfterToolCallEvent. The risk_tools already return a complete
-evidence envelope (evidence_id, say, assumptions): we record it as-is,
-including when the tool fails (exception field).
+Strands HookProvider (Agent(hooks=[…])): register_hooks subscribes a
+BeforeToolCallEvent callback (start time, per tool-use id) and `_on_tool_call`
+to AfterToolCallEvent, so each record also carries the call's wall time
+(`duration_ms`). The risk_tools already return a complete evidence envelope
+(evidence_id, say, assumptions): we record it as-is, including when the tool
+fails (exception field).
 """
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 
-from strands.hooks.events import AfterToolCallEvent
+from strands.hooks.events import AfterToolCallEvent, BeforeToolCallEvent
 
 from app.store.ledger import EvidenceLedger, _truncate
 
@@ -72,9 +75,22 @@ class EvidenceHook:
         self.ledger = ledger
         self.run_id = run_id
         self.agent = agent
+        self._started: dict[str, float] = {}   # toolUseId -> perf_counter at BeforeToolCallEvent
+
+    @staticmethod
+    def _tool_use_id(tool_use: Any) -> str:
+        if isinstance(tool_use, dict):
+            return str(tool_use.get("toolUseId") or "")
+        return str(getattr(tool_use, "toolUseId", "") or "")
 
     def register_hooks(self, registry, **kwargs) -> None:
+        registry.add_callback(BeforeToolCallEvent, self._on_before_tool_call)
         registry.add_callback(AfterToolCallEvent, self._on_tool_call)
+
+    def _on_before_tool_call(self, event: BeforeToolCallEvent) -> None:
+        id = self._tool_use_id(getattr(event, "tool_use", None))
+        if id:
+            self._started[id] = time.perf_counter()
 
     def _on_tool_call(self, event: AfterToolCallEvent) -> None:
         tool_use = getattr(event, "tool_use", None)
@@ -87,6 +103,9 @@ class EvidenceHook:
             "tool": name,
             "tool_input": getattr(tool_use, "input", None),
         }
+        started = self._started.pop(self._tool_use_id(tool_use), None)
+        if started is not None:
+            record["duration_ms"] = int((time.perf_counter() - started) * 1000)
         if self.agent:
             record["agent"] = self.agent
         if getattr(event, "exception", None) is not None:

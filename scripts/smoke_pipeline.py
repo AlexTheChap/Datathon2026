@@ -130,10 +130,20 @@ def main() -> int:
     if answer.note:
         print(f"  note: {answer.note}")
     print(f"\nEvidence ({len(out.evidence_ids)}): {', '.join(out.evidence_ids)}")
+    recs = make_ledger(s).records(out.run_id)
     print(f"\nTrace: .venv/bin/python scripts/show_run.py {out.run_id}")
-    for r in make_ledger(s).records(out.run_id):
+    for r in recs:
         caller = r.get("agent") or "orchestrator"
-        print(f"  {r['seq']} [{caller}] {r['tool']}")
+        ms = r.get("duration_ms")
+        print(f"  {r['seq']} [{caller}] {r['tool']}" + (f" ({ms} ms)" if ms is not None else ""))
+    by_caller: dict[str, list[int]] = {}
+    for r in recs:
+        if r.get("duration_ms") is not None:
+            by_caller.setdefault(r.get("agent") or "orchestrator", []).append(r["duration_ms"])
+    if by_caller:
+        print("\nWall time per caller (ms; fork callers run in parallel — the slowest sets the pace):")
+        for caller, mss in sorted(by_caller.items(), key=lambda kv: -sum(kv[1])):
+            print(f"  {caller:22} calls={len(mss):2}  total={sum(mss):6}  max={max(mss):6}")
     return 0 if getattr(v, "ok", True) else 1     # an answer with an unknown citation is a failed smoke test
 
 

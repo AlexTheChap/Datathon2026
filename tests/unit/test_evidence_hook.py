@@ -8,16 +8,22 @@ from app.store.ledger import JsonlLedger
 
 
 class _ToolUse:
-    def __init__(self, name: str, tool_input: dict | None = None):
+    def __init__(self, name: str, tool_input: dict | None = None, tool_use_id: str = ""):
         self.name = name
         self.input = tool_input or {}
+        self.toolUseId = tool_use_id or f"tu-{name}"
+
+
+class _FakeBeforeToolCallEvent:
+    def __init__(self, tool_use):
+        self.tool_use = tool_use
 
 
 class _FakeAfterToolCallEvent:
     """Stand-in for the Strands event (tool_use / result / exception are enough)."""
 
-    def __init__(self, tool_name: str, result, exception: Exception | None = None):
-        self.tool_use = _ToolUse(tool_name)
+    def __init__(self, tool_name: str, result, exception: Exception | None = None, tool_use_id: str = ""):
+        self.tool_use = _ToolUse(tool_name, tool_use_id=tool_use_id)
         self.result = result
         self.exception = exception
 
@@ -95,3 +101,16 @@ def test_hook_tags_nested_subagent_calls(tmp_path: Path):
     hook._on_tool_call(_FakeAfterToolCallEvent("esg_screen", {"evidence_id": "ev-nested"}))
     (r,) = led.records("run-6")
     assert r["agent"] == "esg_subagent" and r["evidence_id"] == "ev-nested"
+
+
+def test_hook_records_each_call_wall_time(tmp_path: Path):
+    """A Before->After pair for the same tool-use id: the record carries the call's wall time;
+    an After without its Before (older traces, direct calls) simply has no duration."""
+    led = JsonlLedger(tmp_path)
+    hook = EvidenceHook(led, "run-7")
+    hook._on_before_tool_call(_FakeBeforeToolCallEvent(_ToolUse("metrics", tool_use_id="tu-1")))
+    hook._on_tool_call(_FakeAfterToolCallEvent("metrics", {"evidence_id": "ev-ms"}, tool_use_id="tu-1"))
+    hook._on_tool_call(_FakeAfterToolCallEvent("metrics", {"evidence_id": "ev-x"}, tool_use_id="tu-other"))
+    r1, r2 = led.records("run-7")
+    assert isinstance(r1["duration_ms"], int) and r1["duration_ms"] >= 0
+    assert "duration_ms" not in r2

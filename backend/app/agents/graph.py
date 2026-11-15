@@ -118,11 +118,17 @@ def run(enabled: list[tuple[str, Callable[..., dict]]], subject: str,
             r = inner.get(key).result if inner and key in inner else None
         return None
 
+    def _node_ms(key: str) -> int:
+        """Wall time of a fork node, as measured by the graph (outer NodeResult.execution_time)."""
+        node = result.results.get(key)
+        return int(getattr(node, "execution_time", 0) or 0)
+
     findings = []
     for key, _fn in enabled:
         envelope = _envelope(key) or {"error": f"{key} produced no result",
                                       "note": "The node failed before returning an evidence envelope."}
-        findings.append({**envelope, "_key": key, "_tool_name": _tool_name(key, _fn)})
+        findings.append({**envelope, "_duration_ms": _node_ms(key),
+                         "_key": key, "_tool_name": _tool_name(key, _fn)})
 
     synthesis_result = result.results.get("synthesis")
     summary = str(synthesis_result.result) if synthesis_result is not None else ""
@@ -133,5 +139,6 @@ def run(enabled: list[tuple[str, Callable[..., dict]]], subject: str,
             ledger.append(run_id, {"payload": envelope, "agent": f["_tool_name"],
                                    "tool": f["_tool_name"],
                                    "evidence_id": envelope.get("evidence_id"),
-                                   "say": envelope.get("say", "")})
+                                   "say": envelope.get("say", ""),
+                                   "duration_ms": f["_duration_ms"]})
     return {"summary": summary, "findings": findings}
