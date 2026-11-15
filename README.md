@@ -48,7 +48,7 @@ cd backend && AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app
 ```
 
 Open http://127.0.0.1:8000. The first log line says which sign-in mode the API runs in, and the page follows it.
-A new user sets up the profile one question at a time (or fills it from a PDF / Word file AlphaForge reads), and
+A new user sets up the profile one question at a time , and
 asks questions in a chat. The home page is **My portfolio**: once a profile is saved, AlphaForge builds a simulated portfolio from it (about a
 minute) and shows it as a dashboard whose level of detail follows the user's experience.
 `AF_INTAKE_MODE=bedrock` (with the `.env` keys) uses the real Claude Haiku intake. Each question runs the

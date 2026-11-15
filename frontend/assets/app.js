@@ -303,25 +303,6 @@ async function api(method, path, body, retried = false) {
 }
 
 /** POST a file (multipart): same sign-in as api(), the browser sets the multipart boundary. */
-async function upload(path, formData) {
-  const headers = {};
-  if (COGNITO) {
-    const token = await idToken();
-    if (!token) { signOut("Your session has expired. Sign in again."); throw new ApiError(401, "Sign in to continue."); }
-    headers.Authorization = `Bearer ${token}`;
-  } else if (DEV) {
-    headers["X-Actor-Id"] = actorId();
-  } else {
-    throw new ApiError(401, "Sign-in is not set up.");
-  }
-  let res;
-  try { res = await fetch(API_BASE + path, { method: "POST", headers, body: formData }); } catch { throw new ApiError(0, "network"); }
-  let data = null;
-  try { data = await res.json(); } catch { /* empty body */ }
-  if (!res.ok) throw new ApiError(res.status, data && data.detail);
-  return { status: res.status, data };
-}
-
 function errorText(err, what) {
   if (err.status === 0) return { title: "AlphaForge isn't responding", body: "The app can't reach its server. Check that the API is running, then try again." };
   if (err.status === 401) return { title: "You're not signed in", body: "Sign in again, then try again." };
@@ -897,74 +878,10 @@ function profileForm(saved) {
     h("div", { class: "examples" }, personas.map((p) => h("button", { class: "example", type: "button",
       onclick: () => { steps.fillAll(p.profile_form); announce(`Filled with ${p.name}'s profile. Review it, then save all.`); } },
       `${p.name}: ${p.summary}`)))) : null;
-  const documentPanel = profileDocumentPanel(steps);
-  const root = h("div", { class: "columns" }, h("div", { class: "stack" }, examples, documentPanel, steps.el),
-    h("aside", { class: "stack" }, profileAccount(), settingsPointer()));
+  const root = h("div", { class: "stack" }, examples, steps.el);
   state.dirty = false;
   return root;
 }
-const DOCUMENT_FIELDS = { risk_band: "Risk level", experience: "Experience", horizon_years: "Investment horizon", capital: "Capital",
-  loss_capacity: "Largest acceptable loss", objective: "Goal", wants_to_learn: "Learning explanations", exclusions: "Hard limits",
-  agent_toggles: "Analyses", age: "Age", preferences_text: "Preferences and constraints" };
-/** "Fill it from a document": the API reads a PDF or Word file; what it found fills the questions, unsaved. */
-function profileDocumentPanel(steps) {
-  const report = h("div", { class: "stack-sm", role: "status" });
-  const input = h("input", { class: "input", id: "profile-file", type: "file", accept: ".pdf,.docx,.txt,.md",
-    "aria-describedby": "profile-file-help", onchange: async () => {
-      const file = input.files[0];
-      if (!file) return;
-      report.replaceChildren(h("p", { class: "small muted" }, "Reading your document…"));
-      const form = new FormData();
-      form.append("file", file);
-      try {
-        const r = (await upload("/v1/profile/draft/file", form)).data;
-        if (r.refused) { report.replaceChildren(h("p", null, "This document can't be used. Answer the questions instead.")); return; }
-        const fields = { ...r.fields };
-        const said = [...(fields.preferences || []), ...(fields.constraints || [])];
-        if (said.length) fields.preferences_text = said.join(".\n");   // the server splits it again on save
-        const found = [...(r.found || []), ...(said.length ? ["preferences_text"] : [])].map((k) => DOCUMENT_FIELDS[k]).filter(Boolean);
-        if (found.length) steps.fillAll({ ...steps.readAll(), ...fields });
-        report.replaceChildren(
-          h("p", null, found.length ? `Found in the document: ${found.join(", ")}. Review the answers, then press Save all.`
-            : "Nothing about your investing profile was found in it."),
-          r.irrelevant && r.irrelevant.length ? h("div", null, h("p", { class: "small" }, "Not relevant to your profile, so ignored:"),
-            h("ul", { class: "warning-list" }, r.irrelevant.map((x) => h("li", null, x)))) : null);
-        announce("Document read.");
-      } catch (err) {
-        report.replaceChildren(alertBox(err, "your document", null));
-      }
-    } });
-  return h("section", { class: "panel stack-sm", "aria-labelledby": "document-title" },
-    h("h2", { id: "document-title", class: "section-title" }, "Fill it from a document"),
-    h("label", { class: "field__label", for: "profile-file" }, "A PDF or Word file about your situation ", h("span", { class: "optional" }, "(optional)")),
-    input,
-    h("p", { class: "field__help", id: "profile-file-help" }, "For example notes from an advisor. It is read to fill the questions and is not kept. Nothing is saved until you press Save all."),
-    report);
-}
-function profileAccount() {
-  const session = COGNITO ? readSession() : null;
-  return COGNITO ? h("section", { class: "panel stack-sm", "aria-labelledby": "account-title" },
-    h("h2", { id: "account-title", class: "section-title" }, "Account"),
-    h("p", { class: "small" }, "Signed in as ", h("strong", null, session ? session.email : "")),
-    session && DEMO_EMAIL.test(session.email)
-      ? h("p", { class: "small muted" }, "This is a shared demo account: anyone trying the demo can see and change this profile.")
-      : null,
-    h("div", null, h("button", { class: "btn btn--secondary", type: "button", onclick: () => {
-      if (state.dirty && !window.confirm("Your profile has unsaved changes. Sign out without saving?")) return;
-      signOut("You're signed out.");
-    } }, "Sign out"))) : h("section", { class: "panel stack-sm", "aria-labelledby": "account-title" },
-    h("h2", { id: "account-title", class: "section-title" }, "Local test user"),
-    h("p", { class: "small muted" }, `Local test mode (AF_AUTH_MODE=dev): you are ${actorId()}, a name kept in this browser only.`),
-    h("div", null, h("button", { class: "btn btn--secondary", type: "button", onclick: () => {
-      if (!window.confirm("Start over as a new test user? Your current profile stays saved under the old name.")) return;
-      try { localStorage.removeItem("af.actor"); } catch { /* ignore */ }
-      state.profile = undefined; state.thread = []; state.dirty = false;
-      setWho(); window.location.hash = "#/profile"; route();
-    } }, "Start over as a new user")));
-
-  return account;
-}
-
 /* ---------------- Run (the plan) ---------------- */
 
 /* ---------------- The answer (box ⑤ Explainer) ---------------- */
@@ -1347,13 +1264,6 @@ async function flushNotifyChoice() {
   }
 }
 
-/** Profile page aside: where notifications and account changes live now. */
-function settingsPointer() {
-  return h("section", { class: "panel panel--plain stack-sm", "aria-labelledby": "settings-pointer-title" },
-    h("h2", { id: "settings-pointer-title", class: "section-title" }, "Notifications and account"),
-    h("p", { class: "small" }, "Text alerts on your portfolio news, your email, your password and deleting your account are in My profile settings."),
-    h("a", { class: "link-btn", href: "#/settings" }, "Open My profile settings"));
-}
 
 /** My profile settings (#/settings): email, password, notifications, delete the account. */
 function renderSettings(main) {

@@ -512,30 +512,6 @@ def test_profile_set_up_step_by_step(page, base_url):
     assert page.errors == []
 
 
-def test_profile_set_up_from_a_document(page, base_url, tmp_path):
-    import sys as _sys
-    from pathlib import Path as _Path
-    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "unit"))
-    from test_onboarding import docx
-    f = tmp_path / "advisor-notes.docx"
-    f.write_bytes(docx(["Moderate risk. I'm a student and I want to learn.", "No crypto please.", "Buy milk."]))
-    page.goto(page.url.split("#")[0] + "#/profile")
-    page.wait_for_selector("#profile-file")
-    page.set_input_files("#profile-file", str(f))
-    page.wait_for_selector("text=Found in the document")
-    found = page.locator("section[aria-labelledby='document-title']").inner_text()
-    assert "Risk level" in found and "Learning explanations" in found and "Hard limits" in found
-    assert page.locator("fieldset.q-card--open").count() == 10                       # filled, unsaved
-    page.fill("#q-experience", "9")                                                  # the document said nothing about it
-    page.click("button[aria-label='Save all answers']")
-    page.wait_for_selector("#q-card-analyses.q-card--locked")
-    actor = page.evaluate("JSON.parse(localStorage.getItem('af.actor'))")
-    saved = SERVICE.get_profile(actor)
-    assert (saved.risk_band, saved.experience, saved.wants_to_learn) == ("moderate", "advanced", True)
-    assert [e.value for e in saved.exclusions] == ["crypto"]
-    assert page.errors == []
-
-
 def test_floating_ask_button(page, base_url):
     page.goto(page.url.split("#")[0] + "#/portfolio")
     fab = page.locator("#ask-fab")
