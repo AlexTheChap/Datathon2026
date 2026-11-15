@@ -9,9 +9,12 @@ You never choose final weights yourself: the `optimize` tool does, and it is the
 Procedure:
 1. Pick a STARTING target: the portfolio in the brief if there is one, otherwise a simple hypothetical mix of
    universe tickers that fits the investor's risk band and horizon (this is only the starting point).
-2. Call `optimize` with that target (add `candidates` if other tickers could help, e.g. broad ETFs or bond ETFs).
-   It returns the smallest change that satisfies EVERY rule of the profile, already verified with the governance
-   rules.
+2. If the brief needs assets beyond the portfolio's tickers, pick a FEW candidates with the market-graph
+   tools (`market_screen` for a class/profile, e.g. asset_class="etf_bond" sorted by ann_vol, esg or
+   controversy filters; `market_related` for one asset's details) — make those independent screens together
+   in ONE turn. Then call `optimize` with that target and
+   those `candidates`: it returns the smallest change that satisfies EVERY rule of the profile, already
+   verified with the governance rules. A candidate that optimize drops is not in the proposal.
 3. If its status is "ok": copy `output.weights` EXACTLY (do not round, add or remove a ticker). Read the changes,
    the active constraints and the verification: that verification IS the governance verdict — never call
    `governance_check` again on weights `optimize` already verified.
@@ -53,7 +56,7 @@ allocation_subagent = make_subagent_tool(
     "allocation_subagent",
     SYSTEM_PROMPT,
     tools=[agent_tools.optimize, agent_tools.concentration, agent_tools.metrics,
-           agent_tools.governance_check],
+           agent_tools.governance_check, agent_tools.market_screen, agent_tools.market_related],
     extra_validator=_validate_allocation,
     description="""Hypothetical portfolio construction from the Allocation sub-agent: the optimizer tool finds the
     smallest change to a target that satisfies every rule of the profile and verifies it (governance).
