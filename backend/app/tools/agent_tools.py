@@ -139,9 +139,7 @@ def governance_check(weights: dict[str, float]) -> dict:
     total = sum(weights.values())
     inputs = {"weights": {k: round(v / total, 6) for k, v in sorted(weights.items())},
               "profile": profile.get("id"), "as_of": run_as_of(), "rules_version": result.get("rules_version")}
-    flagged = [f"{c['id']} {c['status']}" for c in result["checks"] if c["status"] != "PASS"]
-    say = (f"Governance verdict {result['verdict']} for this profile"
-           + (f" ({', '.join(flagged)})." if flagged else ": every check passes."))
+    say = _gov.plain_verdict(result)
     # Evidence envelope (same shape as every tool) around the check, so the verdict can be cited.
     return {**result, "evidence_id": _eid("governance_check", inputs), "tool": "governance_check",
             "inputs": inputs, "output": result, "say": say, "currency": "CAD", "as_of": run_as_of(),

@@ -283,18 +283,21 @@ export function heroSummary({ level, learn = false, weights, universe = {}, gove
       + `${risk ? `, for a ${risk} risk level` : ""}${years ? ` over ${years} year${years === 1 ? "" : "s"}` : ""}.`);
     if (t0) out.push(`The largest is ${t0} (${plain(t0)}), at ${pctText(w0, 1)}.`);
     if (vol) out.push(`Volatility: about ${pctText(vol, 1)} a year, measured on the last 5 years.`);
-    out.push({ PASS: "It passes every check of your profile.",
-      WARN: `It passes, with a warning on: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
-      BLOCK: `It is blocked by: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
-    }[verdict] || `Not every check could be run: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`);
+    out.push({ PASS: "It fits every limit of your profile.",
+      WARN: `It fits your profile, with a point worth a look: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
+      BLOCK: `It goes against your profile on: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
+    }[verdict] || `Some limits could not be checked, so it is not confirmed: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`);
   } else {
     out.push(`Weights: ${holdings.map(([t, w]) => `${t} ${pctText(w, 1)}`).join(", ")}.`);
     out.push(`Asset classes: ${pctText(stocks, 1)} equity, ${pctText(bonds, 1)} fixed income`
       + `${risk ? `; risk band ${risk}` : ""}${years ? `, horizon ${years} y` : ""}.`);
     if (vol) out.push(`Annualised volatility ${pctText(vol, 1)} (5 years of daily returns, CAD).`);
     const n = ((governance && governance.checks) || []).length;
-    out.push(`Governance verdict: ${verdict}${n ? ` on ${n} check${n === 1 ? "" : "s"}` : ""}`
-      + `${flagged.length ? ` (${flagged.map((c) => `${checkName(c.id, true)}: ${c.status}`).join("; ")})` : ""}.`);
+    const overall = { PASS: "fits every limit", WARN: "fits, with points worth a look", BLOCK: "goes against the profile" }[verdict]
+      || "not confirmed (some limits could not be checked)";
+    const status = { WARN: "worth a look", BLOCK: "not met", UNVERIFIED: "not confirmed" };
+    out.push(`Profile check: ${overall}${n ? `, ${n} limit${n === 1 ? "" : "s"} checked` : ""}`
+      + `${flagged.length ? ` (${flagged.map((c) => `${checkName(c.id, true)}: ${status[c.status] || "not confirmed"}`).join("; ")})` : ""}.`);
   }
   out.push("This is a simulation, not advice.");
 
