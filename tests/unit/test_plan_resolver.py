@@ -193,3 +193,13 @@ def test_plan_rejects_duplicate_or_missing_agents():
                 run_governance=True, intake_confidence=0.9)
     with pytest.raises(ValidationError):
         ExecutionPlan(**base, enabled_agents=[{"agent": "risk", "reason": "x"}], disabled_agents=[])
+
+
+def test_typed_holdings_count_as_a_portfolio(make_profile, make_request):
+    """The dispatcher uses weighted positions from the message as the portfolio: no "no portfolio" warning."""
+    typed = make_request("persona-robert", "allocation_proposal", portfolio_ref=None,
+                         positions=[{"ticker": "XIU.TO", "weight": 0.6}, {"ticker": "XBB.TO", "weight": 0.4}])
+    named = make_request("persona-robert", "risk_review", portfolio_ref=None,
+                         positions=[{"ticker": "NVDA", "weight": None}])
+    assert not [w for w in resolve_plan(make_profile("robert"), typed).warnings if w.startswith("no portfolio_ref")]
+    assert [w for w in resolve_plan(make_profile("robert"), named).warnings if w.startswith("no portfolio_ref")]

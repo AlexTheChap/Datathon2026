@@ -197,6 +197,8 @@ _MONEY = re.compile(
     re.I,
 )
 _PCT = re.compile(r"(\d+(?:\.\d+)?)\s*%")
+_PCT_REACH = 25          # max characters between a percentage and the asset it belongs to
+_CLAUSE_BREAK = re.compile(r"[,;.]\s")  # "XBB.TO 30%, ZST.TO 10%": the 30% belongs to XBB.TO
 _LOSS = re.compile(r"(?:lose|loss)\D{0,30}?(\d+(?:\.\d+)?)\s*%", re.I)
 _TICKER_TOKEN = re.compile(r"\b[A-Z]{2,5}(?:\.TO|-USD)?\b")
 _LEARN_ON = re.compile(r"\b(?:i'?m|i am)\s+(?:a\s+)?(?:student|learning)\b|\bwant\s+to\s+(?:learn|understand)\b|"
@@ -282,25 +284,39 @@ class MockBackend:
         self._aliases = sorted(aliases(self.universe).items(), key=lambda kv: -len(kv[0]))
 
     def _positions(self, text: str, benchmark: Optional[str]) -> list[Position]:
-        found: dict[str, int] = {}  # ticker -> character offset in the text
+        found: dict[str, tuple[int, int]] = {}  # ticker -> (start, end) of its first mention
         for tok in _TICKER_TOKEN.finditer(text):
             t = tok.group(0)
             ticker = t if t in self.universe else next((t + s for s in (".TO", "-USD") if t + s in self.universe), None)
             if ticker and ticker != benchmark:
-                found.setdefault(ticker, tok.start())
+                found.setdefault(ticker, (tok.start(), tok.end()))
         low = text.lower()
         for alias, ticker in self._aliases:
             if ticker == benchmark or ticker in found:
                 continue
             if m := re.search(rf"(?<![\w-]){re.escape(alias)}(?![\w-])", low):
-                found[ticker] = m.start()
+                found[ticker] = (m.start(), m.end())
+        pcts = list(_PCT.finditer(text))
+        best: dict[str, tuple[tuple[bool, int], int]] = {}  # ticker -> ((crosses a clause, gap length), pct index)
+        for ticker, (start, end) in found.items():
+            others = [s for t, (s, _) in found.items() if t != ticker]
+            for i, m in enumerate(pcts):
+                lo, hi = (m.end(), start) if m.end() <= start else (end, m.start()) if m.start() >= end else (None, None)
+                if lo is None or hi - lo > _PCT_REACH or any(lo <= o < hi for o in others):
+                    continue  # overlapping, too far, or another asset sits in between
+                gap = text[lo:hi]
+                score = (bool(_CLAUSE_BREAK.search(gap)), len(gap))  # same clause first ("ZST.TO 10%"), then nearest
+                if ticker not in best or score < best[ticker][0]:
+                    best[ticker] = (score, i)
+        # A percentage reached only across a clause break is not taken from the asset it sits with:
+        # "Nvidia at 20%; the rest in XBB.TO" gives XBB.TO no weight.
+        own = {i for (crosses, _), i in best.values() if not crosses}
         positions = []
-        for ticker, pos in sorted(found.items(), key=lambda kv: kv[1]):
-            start = max(0, pos - 30)
-            window = text[start: pos + 30]
-            pcts = [(abs(m.start() - (pos - start)), m.group(1)) for m in _PCT.finditer(window)]
-            weight = float(min(pcts)[1]) / 100 if pcts else None  # closest percentage to the asset name
-            positions.append(Position(ticker=ticker, weight=weight))
+        for ticker, _span in sorted(found.items(), key=lambda kv: kv[1]):
+            match = best.get(ticker)
+            if match and match[0][0] and match[1] in own:
+                match = None
+            positions.append(Position(ticker=ticker, weight=float(pcts[match[1]].group(1)) / 100 if match else None))
         return positions
 
     def extract(self, text: str, known_profile: Optional[dict], feedback: Optional[str] = None) -> IntakeDraft:

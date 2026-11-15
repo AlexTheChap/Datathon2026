@@ -182,3 +182,20 @@ def test_json_store_roundtrip(tmp_path, mock):
     run_intake(ROBERT_PROFILE, "robert", backend=mock, store=store)
     assert store.get("robert").risk_band == "low_moderate"
     assert '"PK": "ACTOR#robert"' in (tmp_path / "robert.json").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("My portfolio: XIU.TO 30%, XBB.TO 30%, ZST.TO 10%, RY.TO 10%, FTS.TO 10%, JNJ 10%. "
+     "I'm thinking of putting 20% in Nvidia.",
+     {"XIU.TO": 0.3, "XBB.TO": 0.3, "ZST.TO": 0.1, "RY.TO": 0.1, "FTS.TO": 0.1, "JNJ": 0.1, "NVDA": 0.2}),
+    ("I hold 30% XIU.TO, 30% XBB.TO, 10% ZST.TO, 10% RY.TO, 10% FTS.TO, 10% JNJ.",
+     {"XIU.TO": 0.3, "XBB.TO": 0.3, "ZST.TO": 0.1, "RY.TO": 0.1, "FTS.TO": 0.1, "JNJ": 0.1}),
+    ("Split 60% XIU.TO and 40% XBB.TO", {"XIU.TO": 0.6, "XBB.TO": 0.4}),
+    ("Nvidia at 20%; the rest in XBB.TO", {"NVDA": 0.2, "XBB.TO": None}),
+    ("Is Nvidia too risky? I can't lose more than 15%.", {"NVDA": None}),
+])
+def test_offline_intake_reads_each_weight_next_to_its_asset(mock, text, expected):
+    """The offline intake is the fallback if Bedrock fails during the demo: weights must be read right
+    whether the percentage comes before or after the ticker."""
+    positions = mock.extract(text, {}).request.positions
+    assert {p.ticker: p.weight for p in positions} == expected
