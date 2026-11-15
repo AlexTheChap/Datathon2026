@@ -514,3 +514,38 @@ def test_my_portfolio_questions_know_the_portfolio_without_opening_the_dashboard
     asked = [r for r in SERVICE.runs.list_for_actor(run.actor_id, 10) if r.request.user_message.startswith("Is my portfolio")][0]
     assert {p.ticker: p.weight for p in asked.request.positions} == {"SPY": 0.3481, "XBB.TO": 0.3054, "XIU.TO": 0.2509, "QQQ": 0.0956}
     assert page.errors == []
+
+
+def test_profile_page_is_drawn_once_when_the_user_navigates_during_its_load(page, base_url):
+    """Leaving and coming back while the profile loads used to add the form twice (Hard limits, Analyses twice)."""
+    page.add_init_script("""const f = window.fetch; window.fetch = async (u, o) => {
+      if (String(u).includes('/v1/personas')) await new Promise((r) => setTimeout(r, 700)); return f(u, o); };""")
+    fill_profile_form(page, risk=6, experience=5)
+    page.click("button:has-text('Save profile')")
+    page.wait_for_selector("text=Saved at")
+    page.goto(page.url.split("#")[0] + "#/portfolio")
+    for h in ("#/profile", "#/ask", "#/profile"):
+        page.evaluate(f"window.location.hash = '{h}'")
+        page.wait_for_timeout(120)
+    page.wait_for_selector("text=Hard limits")
+    page.wait_for_timeout(1500)
+    assert page.locator("main legend:has-text('Hard limits')").count() == 1
+    assert page.locator("main legend:has-text('Analyses')").count() == 1
+    assert page.errors == []
+
+
+def test_switching_an_analysis_off_hides_it_without_rebuilding(page, base_url):
+    run = _portfolio_for(page)
+    page.goto(page.url.split("#")[0] + "#/portfolio")
+    page.wait_for_selector("#esg-title")                                           # ESG shown while it is on
+    page.goto(page.url.split("#")[0] + "#/profile/form")
+    page.wait_for_selector("#toggle-esg")
+    page.uncheck("#toggle-esg")
+    page.click("button:has-text('Save profile')")
+    page.wait_for_selector("text=Your portfolio stays the same")                  # explained, no rebuild
+    page.click("a.nav__link:has-text('My portfolio')")
+    page.wait_for_selector(".hero-card")
+    assert page.locator("#esg-title").count() == 0
+    assert [r.request.user_message for r in SERVICE.runs.list_for_actor(run.actor_id, 20)].count(
+        "Build a simulated portfolio that fits my profile.") == 1                  # no new build
+    assert page.errors == []

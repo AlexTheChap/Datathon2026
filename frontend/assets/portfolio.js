@@ -223,8 +223,9 @@ export async function renderPortfolio(main, ctx) {
       level === "detailed" && risk.metrics ? metricsSection(view) : null,
       level === "detailed" && risk.correlation ? correlationSection(view) : null,
       checksSection(view),
-      level !== "simple" && p.esg && wantsEsg(profile) ? esgSection(view) : null,
-      level !== "simple" && p.news.length ? newsSection(view) : null,
+      // The analyses switched off in the profile are not shown (they don't change the mix: no rebuild needed).
+      level !== "simple" && p.esg && wantsEsg(profile) && analysisOn(profile, "esg") ? esgSection(view) : null,
+      level !== "simple" && p.news.length && (analysisOn(profile, "news") || analysisOn(profile, "fundamentals")) ? newsSection(view) : null,
       explanationSection(view),
       history(ctx, runs, run.run_id)].filter(Boolean));
   }
@@ -485,6 +486,8 @@ function checksSection(view) {
     })) : h("p", { class: "muted" }, "No governance check was recorded for this portfolio."),
     learnNote(view, "your profile sets limits, for example how big one company can be. AlphaForge's rules check every limit; a portfolio that breaks one is never proposed."));
 }
+
+const analysisOn = (profile, agent) => !(profile.agent_toggles && profile.agent_toggles[agent] === false);
 
 function wantsEsg(profile) {
   const prefs = (profile.preferences || []).join(" ").toLowerCase();

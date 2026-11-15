@@ -416,6 +416,7 @@ const routes = [
 ];
 
 let currentHash = null;
+let routeSeq = 0; // one number per page shown: a view that loads asynchronously draws only while it is still current
 const HOME = "#/portfolio";
 
 /** What the profile conversation (onboarding.js) needs from the app. */
@@ -462,6 +463,7 @@ function route() {
   placeNavIndicator();
   document.title = `${match.title}, AlphaForge`;
   const main = document.getElementById("main");
+  routeSeq += 1;
   main.replaceChildren();
   const params = hash.match(match.re) || [];
   match.view(main, ...params.slice(1));
@@ -814,11 +816,14 @@ function renderProfile(main, mode = "auto") {
       h("p", null, "AlphaForge uses it to decide what to analyse and how to explain the results. Only your risk level and experience are required.")),
     h("a", { class: "btn btn--secondary btn--sm", href: "#/profile/assistant" }, "Set it up as a conversation")));
 
+  const seq = routeSeq;
   Promise.all([loadProfile(true), loadPersonas()]).then(([profile]) => {
+    if (seq !== routeSeq) return; // the person went elsewhere (or came back) meanwhile: never draw twice
     if (!profile && mode === "auto") { renderOnboarding(main, onboardingContext()); return; } // first time: the conversation
     main.append(head, band("body", body));
     body.replaceChildren(profileForm(profile));
   }).catch((err) => {
+    if (seq !== routeSeq) return;
     main.replaceChildren(head, band("body", alertBox(err, "your profile", () => { main.replaceChildren(); renderProfile(main, mode); })));
   });
 }
@@ -1040,9 +1045,11 @@ function profileForm(saved, initialStatus = null) {
       // A new or changed profile gets a new portfolio, built in the background (portfolio.js).
       const building = onProfileSaved(dashboardContext(), before, fresh);
       // Rebuild from what the server saved (e.g. a chat quote it dropped), keeping the confirmation.
+      const toggled = before && JSON.stringify(before.agent_toggles) !== JSON.stringify(fresh.agent_toggles);
       const confirmation = h("span", { class: "saved" }, icon("check", 14),
         `Saved at ${new Date().toLocaleTimeString("en-CA", { timeStyle: "short" })}.`,
-        building ? [" Building your portfolio (about a minute). ", h("a", { href: HOME }, "See my portfolio")] : null);
+        building ? [" Building your portfolio (about a minute). ", h("a", { href: HOME }, "See my portfolio")]
+          : toggled ? " Your portfolio stays the same: the analyses change what AlphaForge looks at in its answers, not what the portfolio holds." : null);
       const next = profileForm(fresh, confirmation);
       root.replaceWith(next);
       next.querySelector('button[type="submit"]').focus();
