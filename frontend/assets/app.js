@@ -1268,15 +1268,24 @@ async function flushNotifyChoice() {
 /** My profile settings (#/settings): email, password, notifications, delete the account. */
 function renderSettings(main) {
   const session = COGNITO ? readSession() : null;
+  // Shared demo accounts: their password is public, so email, password and deletion stay locked for everyone.
+  const demo = Boolean(session && DEMO_EMAIL.test(session.email));
   main.append(
     band("head", h("div", { class: "page-head" },
       h("h1", null, "My profile settings"),
       h("p", null, "Your account, your notifications, and deleting your account. Your investor profile is in \u201CSet up my profile\u201D."))),
     band("body", h("div", { class: "settings stack" },
-      COGNITO ? emailSection(session) : localTestNote(),
-      COGNITO ? passwordSection() : null,
+      demo ? demoAccountNote(session) : (COGNITO ? emailSection(session) : localTestNote()),
+      COGNITO && !demo ? passwordSection() : null,
       notifySection(session),
-      deleteSection(session))));
+      demo ? null : deleteSection(session))));
+}
+
+function demoAccountNote(session) {
+  return h("section", { class: "panel stack-sm" }, h("h2", { class: "section-title" }, "Account"),
+    h("p", { class: "small" }, "Signed in as ", h("strong", null, session.email)),
+    h("p", { class: "small muted" }, "This is a shared demo account: its email and password can't be changed and it "
+      + "can't be deleted, so the demo keeps working for everyone. Create your own account to use these settings."));
 }
 
 function localTestNote() {

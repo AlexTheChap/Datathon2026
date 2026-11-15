@@ -11,29 +11,14 @@ Runtime, IAM roles replace keys.
 """
 from __future__ import annotations
 
-import os
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# backend/app/core/config.py -> backend/app/core -> backend/app -> backend -> repo root
-REPO_ROOT = Path(__file__).resolve().parents[3]
+from app.core.dotenv import REPO_ROOT, load_dotenv
 
-
-def _load_dotenv(path: Path) -> None:
-    """Inject variables from .env (KEY=value) without overriding the real environment."""
-    if not path.exists():
-        return
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
-
-
-_load_dotenv(REPO_ROOT / ".env")
+load_dotenv(REPO_ROOT / ".env")
 
 
 class Settings(BaseSettings):

@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal, Optional, Protocol
 
@@ -37,10 +38,15 @@ from app.schemas import PortfolioRef, Profile
 from app.schemas.models import profile_from_persona
 from app.schemas.profile import AgentToggles
 from app.store.profiles import InMemoryProfileStore, ProfileStore
-from app.store.runs import InMemoryRunStore, RunRecord, RunStore, new_run_id, new_session_id
+from app.store.runs import InMemoryRunStore, RunRecord, RunStore, _now, new_run_id, new_session_id
 
 MAX_TEXT_CHARS = 4000
 MAX_PREFERENCES_TEXT = 2000   # = Profile.preferences_text max_length (checked in tests)
+# A run still RUNNING this long after its last update is dead: on AWS the analysis runs in a Lambda invocation
+# capped at 15 minutes, and a timed-out invocation cannot write its own outcome (AF_RUN_STALE_MINUTES overrides).
+RUN_STALE_AFTER = timedelta(minutes=float(os.environ.get("AF_RUN_STALE_MINUTES") or 20))
+STALE_RUN_ERROR = ("The analysis stopped before it finished (time limit reached) and was marked as failed. "
+                   "Ask again to start a new one.")
 PERSONAS_PATH = Path(__file__).resolve().parents[1] / "core" / "personas.json"
 
 
@@ -208,11 +214,28 @@ class ApiService:
         run = self.runs.get(run_id)
         if run is None or run.actor_id != actor_id:  # never reveal another user's run
             raise ApiError(404, "Run not found.")
+        return self._expire_if_stale(run)
+
+    def _expire_if_stale(self, run: RunRecord, now: Optional[datetime] = None) -> RunRecord:
+        """A RUNNING run whose worker died (Lambda timeout, crash, restart) would poll forever: past
+        RUN_STALE_AFTER without an update it is saved as FAILED with a plain explanation."""
+        if run.status != "RUNNING":
+            return run
+        try:
+            updated = datetime.fromisoformat(run.updated_at)
+        except (TypeError, ValueError):
+            return run
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+        if (now or datetime.now(timezone.utc)) - updated < RUN_STALE_AFTER:
+            return run
+        run = run.model_copy(update={"status": "FAILED", "error": STALE_RUN_ERROR, "updated_at": _now()})
+        self.runs.put(run)
         return run
 
     # ----- GET /v1/runs (history for the dashboard) -----
     def list_runs(self, actor_id: str, limit: int = 50) -> list[RunSummary]:
-        return [RunSummary.from_run(r) for r in self.runs.list_for_actor(actor_id, limit)]
+        return [RunSummary.from_run(self._expire_if_stale(r)) for r in self.runs.list_for_actor(actor_id, limit)]
 
     # ----- GET /v1/runs/{run_id}/replay (dashboard "if 2022 happened again" chart) -----
     def get_replay(self, actor_id: str, run_id: str) -> dict[str, Any]:
@@ -398,9 +421,13 @@ class ApiService:
         return notify_view(c)
 
     # ----- DELETE /v1/account (My profile settings > Delete account) -----
-    def delete_account(self, actor_id: str) -> dict[str, Any]:
+    def delete_account(self, actor_id: str, demo_persona: Optional[str] = None) -> dict[str, Any]:
         """Erase what AlphaForge keeps about the person: profile, notification choice (phone, email, texts sent),
-        analyses and their evidence. The sign-in account itself is deleted by the page (Cognito DeleteUser)."""
+        analyses and their evidence. The sign-in account itself is deleted by the page (Cognito DeleteUser).
+        A shared demo account (amira/mateo/robert.demo@…) is refused: its password is public, so one visitor must
+        not be able to remove it for everyone."""
+        if demo_persona:
+            raise ApiError(403, "This is a shared demo account: it can't be deleted.")
         run_ids = self.runs.delete_for_actor(actor_id)
         ledger = self._ledger()
         for run_id in run_ids:
@@ -432,7 +459,7 @@ def notify_view(c: SmsContact | None) -> dict[str, Any]:
 def sms_view(opt_in: bool, phone: Optional[str], consent_at: Optional[str]) -> dict[str, Any]:
     """The owner's own preferences (the phone is shown back to them so the form can be edited)."""
     return {"opt_in": opt_in, "phone": phone, "phone_masked": mask(phone), "consent_at": consent_at,
-            "what": "News on the stocks you hold (SEC filings), at most one text a day. Information only."}
+            "what": "News on the stocks you hold (SEC filings), one text per new filing batch, never the same news twice. Information only."}
 
 
 def example_personas(path: Path = PERSONAS_PATH) -> list[dict[str, Any]]:

@@ -161,6 +161,31 @@ def test_the_orchestrator_agent_gets_the_session_manager_and_the_soft_preference
     assert "never override the investor's profile" in agent.system_prompt.replace("\n", " ")
 
 
+def test_graph_mode_synthesis_agent_gets_the_session_manager(inp, tmp_path):
+    """Graph mode (the default) keeps the short-term conversation too: the synthesis agent carries the session."""
+    from app.store.ledger import InMemoryLedger
+    manager = FileSessionManager(session_id="sess-conv-1", storage_dir=str(tmp_path))
+    binding = MemoryBinding(enabled=True, memory_id="m", actor_id="persona-robert", session_id="sess-conv-1",
+                            session_manager=manager, preferences=["Generally prefers broad ETFs over single stocks"])
+    agent = orchestrator.build_synthesis(inp, InMemoryLedger(), Settings(runs_dir=tmp_path), "2026-11-12", binding)
+    assert agent._session_manager is manager
+    assert "Generally prefers broad ETFs over single stocks" in agent.system_prompt
+
+
+def test_graph_mode_synthesis_falls_back_to_no_memory(inp, tmp_path):
+    from app.store.ledger import InMemoryLedger
+
+    class Exploding(FileSessionManager):
+        def initialize(self, agent, **kwargs):
+            raise RuntimeError("ResourceNotFoundException: session")
+    binding = MemoryBinding(enabled=True, memory_id="m", session_id="s",
+                            session_manager=Exploding(session_id="s", storage_dir=str(tmp_path)),
+                            preferences=["Prefers ETFs"])
+    agent = orchestrator.build_synthesis(inp, InMemoryLedger(), Settings(runs_dir=tmp_path), "2026-11-12", binding)
+    assert agent._session_manager is None and binding.enabled is False
+    assert "Prefers ETFs" not in agent.system_prompt
+
+
 def test_without_memory_the_agent_has_no_session_manager_and_no_preferences(inp, tmp_path):
     agent = orchestrator.build_orchestrator(inp, settings=Settings(runs_dir=tmp_path, memory_id=None))
     assert agent._session_manager is None

@@ -24,10 +24,6 @@ from app.core.config import get_settings
 log = logging.getLogger(__name__)
 
 
-def gateway_enabled() -> bool:
-    return bool(get_settings().gateway_url)
-
-
 def news_kb_enabled() -> bool:
     return bool(get_settings().kb_id)
 

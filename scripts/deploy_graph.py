@@ -32,20 +32,16 @@ import argparse
 import json
 import os
 import shutil
-import subprocess
 import sys
 import time
-import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-BUILD = ROOT / "build"
-sys.path.insert(0, str(ROOT / "backend"))
-sys.path.insert(0, str(ROOT / "scripts"))
-
-from deploy_context_lambda import load_dotenv  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _aws import (  # noqa: E402
+    BASIC_EXECUTION, BUILD, LAMBDA_TRUST, ROOT, ensure_role, invoke, load_dotenv, pip_install_linux, trust_policy,
+    zip_dir,
+)
 from deploy_quant_gateway import FUNCTION as QUANT_FUNCTION  # noqa: E402
-from deploy_quant_gateway import LAMBDA_TRUST, ensure_role  # noqa: E402
 
 NAME = "alphaforge-graph"
 CLUSTER = NAME
@@ -192,22 +188,12 @@ def build_zip() -> Path:
     shutil.rmtree(pkg, ignore_errors=True)
     (pkg / "app" / "tools").mkdir(parents=True)
     (pkg / "app" / "market").mkdir(parents=True)
-    print("• Installing numpy/pandas/fastparquet/yfinance (Linux wheels, Python 3.12)...")
-    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--target", str(pkg),
-                    "--platform", "manylinux2014_x86_64", "--implementation", "cp", "--python-version", "3.12",
-                    "--only-binary=:all:", *DEPS], check=True)
+    pip_install_linux(pkg, DEPS, "numpy/pandas/fastparquet/yfinance")
     for f in ("curated_store.py", "risk_tools.py"):
         shutil.copy(ROOT / "backend" / "app" / "tools" / f, pkg / "app" / "tools" / f)
     for f in (ROOT / "backend" / "app" / "market").glob("*.py"):
         shutil.copy(f, pkg / "app" / "market" / f.name)
-    zip_path = BUILD / "market_lambda.zip"
-    zip_path.unlink(missing_ok=True)
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in pkg.rglob("*"):
-            if f.is_file() and "__pycache__" not in f.parts and not f.name.endswith(".pyc"):
-                z.write(f, f.relative_to(pkg).as_posix())
-    print(f"• Package: {zip_path} ({zip_path.stat().st_size / 1e6:.1f} MB)")
-    return zip_path
+    return zip_dir(pkg, BUILD / "market_lambda.zip")
 
 
 # ---------- 4. IAM ----------
@@ -223,9 +209,9 @@ def s3_statements(bucket: str, read: list[str], write: list[str]) -> list[dict]:
 
 
 def ensure_roles(iam, account: str, region: str, bucket: str, curated_prefix: str, neptune: dict) -> dict:
-    basic = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+    basic = BASIC_EXECUTION
     vpc_access = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
-    refresh_arn, n1 = ensure_role(iam, REFRESH_ROLE, LAMBDA_TRUST, "AlphaForge market refresh (Yahoo -> S3)")
+    refresh_arn, n1 = ensure_role(iam, REFRESH_ROLE, LAMBDA_TRUST, "AlphaForge market refresh (Yahoo -> S3)", TAGS)
     iam.attach_role_policy(RoleName=REFRESH_ROLE, PolicyArn=basic)
     iam.put_role_policy(RoleName=REFRESH_ROLE, PolicyName="market-refresh", PolicyDocument=json.dumps({
         "Version": "2012-10-17", "Statement": [
@@ -233,7 +219,7 @@ def ensure_roles(iam, account: str, region: str, bucket: str, curated_prefix: st
             {"Effect": "Allow", "Action": "lambda:InvokeFunction",
              "Resource": f"arn:aws:lambda:{region}:{account}:function:{LOADER}"}]}))
 
-    loader_arn, n2 = ensure_role(iam, LOADER_ROLE, LAMBDA_TRUST, "AlphaForge graph loader (S3 -> Neptune)")
+    loader_arn, n2 = ensure_role(iam, LOADER_ROLE, LAMBDA_TRUST, "AlphaForge graph loader (S3 -> Neptune)", TAGS)
     for p in (basic, vpc_access):
         iam.attach_role_policy(RoleName=LOADER_ROLE, PolicyArn=p)
     iam.put_role_policy(RoleName=LOADER_ROLE, PolicyName="graph-loader", PolicyDocument=json.dumps({
@@ -244,10 +230,8 @@ def ensure_roles(iam, account: str, region: str, bucket: str, curated_prefix: st
                                            "neptune-db:GetQueryStatus", "neptune-db:CancelQuery"],
              "Resource": f"arn:aws:neptune-db:{region}:{account}:{neptune['resource_id']}/*"}]}))
 
-    sched_trust = {"Version": "2012-10-17", "Statement": [{
-        "Effect": "Allow", "Principal": {"Service": "scheduler.amazonaws.com"}, "Action": "sts:AssumeRole",
-        "Condition": {"StringEquals": {"aws:SourceAccount": account}}}]}
-    sched_arn, n3 = ensure_role(iam, SCHEDULER_ROLE, sched_trust, "EventBridge Scheduler: invoke the market refresh")
+    sched_arn, n3 = ensure_role(iam, SCHEDULER_ROLE, trust_policy("scheduler.amazonaws.com", account),
+                                "EventBridge Scheduler: invoke the market refresh", TAGS)
     iam.put_role_policy(RoleName=SCHEDULER_ROLE, PolicyName="invoke-refresh", PolicyDocument=json.dumps({
         "Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "lambda:InvokeFunction",
                                                 "Resource": f"arn:aws:lambda:{region}:{account}:function:{REFRESH}"}]}))
@@ -322,14 +306,6 @@ def ensure_schedules(sch, refresh_arn: str, role_arn: str) -> None:
 
 
 # ---------- run / test ----------
-
-def invoke(lam, name: str, payload: dict) -> dict:
-    r = lam.invoke(FunctionName=name, InvocationType="RequestResponse", Payload=json.dumps(payload).encode())
-    body = json.loads(r["Payload"].read() or b"null")
-    if r.get("FunctionError"):
-        raise RuntimeError(f"{name} failed: {body}")
-    return body
-
 
 def run_now(session) -> None:
     lam = session.client("lambda")
