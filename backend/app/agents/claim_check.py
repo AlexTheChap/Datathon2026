@@ -59,26 +59,29 @@ def stated_numbers(text: str) -> list[Stated]:
     return out
 
 
-def _supported(s: Stated, pool: set[float]) -> bool:
-    for c in pool:
-        a, t = abs(c), abs(s.value)
+def _supported(s: Stated, pool: set[tuple[str, float]]) -> bool:
+    """A percentage needs a fraction from a data field (0.242 for "24%") or a percentage written as such in a text
+    ("51%"): never a count or a plain number, so an invented "up 100%" is not backed by a stray "1"."""
+    t = abs(s.value)
+    for kind, c in pool:
+        a = abs(c)
         if s.kind == "pct":
-            if abs(a - t / 100) <= 0.006 or abs(a - t) <= 0.6:   # fraction in the data, or a % already in a say text
+            if (kind == "frac" and abs(a - t / 100) <= 0.006) or (kind == "pct_text" and abs(a - t) <= 0.6):
                 return True
         elif s.kind == "money":
-            if t and abs(a - t) <= max(0.02 * t, 1.0):           # "$97k" for 96,712; "$400,000"
+            if kind != "pct_text" and t and abs(a - t) <= max(0.02 * t, 1.0):  # "$97k" for 96,712; "$400,000"
                 return True
         else:
-            if abs(a - t) <= max(0.6, 0.02 * t) or abs(a * 100 - t) <= 0.6:
+            if abs(a - t) <= max(0.6, 0.02 * t) or (kind == "frac" and abs(a * 100 - t) <= 0.6):
                 return True
     return False
 
 
-def context_numbers(profile: dict, request: dict) -> set[float]:
+def context_numbers(profile: dict, request: dict) -> set[tuple[str, float]]:
     """Numbers the reader gave themselves: capital, horizon, loss limit, weights named in the question."""
     from app.agents.evidence import _numbers
 
-    pool: set[float] = set()
+    pool: set[tuple[str, float]] = set()
     for key in ("capital", "loss_capacity", "horizon_years"):
         _numbers(profile.get(key), pool)
     for key in ("capital", "positions"):
@@ -97,7 +100,8 @@ def _texts(draft: ExplainerDraft) -> Iterable[tuple[str, int, str, list[str], Op
         yield "limitations", i, p.text, p.evidence, None
 
 
-def check(draft: ExplainerDraft, catalog: dict[str, EvidenceItem], context: set[float]) -> tuple[list[Issue], int]:
+def check(draft: ExplainerDraft, catalog: dict[str, EvidenceItem],
+          context: set[tuple[str, float]]) -> tuple[list[Issue], int]:
     """Return (issues, number of unknown ids cited). The draft itself is not modified."""
     issues: list[Issue] = []
     unknown = 0

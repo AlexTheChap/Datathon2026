@@ -8,7 +8,9 @@ results carry no id at all. The catalogue indexes all of them:
 - a record with no id at all → one item under its ledger number (e.g. "E-015").
 
 Each item keeps a compact view for the model (`say`, period, a few facts) and, separately, every number it
-contains, which the claim check (claim_check.py) compares with the numbers the answer states.
+contains with its kind, which the claim check (claim_check.py) compares with the numbers the answer states:
+"frac" (a float field: 0.242 for a 24.2% drop), "int" (an integer field: a count, an amount), "pct_text" (a number
+written with % in a text: "51%") and "text" (any other number in a text).
 """
 from __future__ import annotations
 
@@ -16,7 +18,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Optional
 
-NUMBER_IN_TEXT = re.compile(r"-?\d+(?:,\d{3})*(?:\.\d+)?")
+NUMBER_IN_TEXT = re.compile(r"-?\d+(?:,\d{3})*(?:\.\d+)?(?P<pct>\s?%)?")
 _MAX_FACTS = 30
 _SKIP_KEYS = {"series", "daily", "returns", "values", "path", "history", "weights_path"}
 
@@ -34,7 +36,7 @@ class EvidenceItem:
     data_sources: list[str] = field(default_factory=list)
     verdict: Optional[str] = None
     weights: Optional[dict[str, float]] = None
-    numbers: set[float] = field(default_factory=set)
+    numbers: set[tuple[str, float]] = field(default_factory=set)  # (kind, value), see the module docstring
     seq: Optional[str] = None
     parent: Optional[str] = None   # the item this one was found inside (e.g. a governance verdict)
 
@@ -60,15 +62,18 @@ class EvidenceItem:
         return out
 
 
-def _numbers(value: Any, out: set[float]) -> None:
+def _numbers(value: Any, out: set[tuple[str, float]]) -> None:
     if isinstance(value, bool):
         return
-    if isinstance(value, (int, float)):
-        out.add(float(value))
+    if isinstance(value, int):
+        out.add(("int", float(value)))
+    elif isinstance(value, float):
+        out.add(("frac", value))
     elif isinstance(value, str):
-        for tok in NUMBER_IN_TEXT.findall(value):
+        for m in NUMBER_IN_TEXT.finditer(value):
+            number = m.group(0).removesuffix("%").strip()
             try:
-                out.add(float(tok.replace(",", "")))
+                out.add(("pct_text" if m.group("pct") else "text", float(number.replace(",", ""))))
             except ValueError:
                 pass
     elif isinstance(value, dict):
@@ -133,7 +138,7 @@ def _item_from_envelope(env: dict, record: dict) -> EvidenceItem:
         facts_source = {"verdict": env.get("verdict"),
                         "checks": [{k: c.get(k) for k in ("id", "status", "value", "limit", "detail")}
                                    for c in env.get("checks") or [] if isinstance(c, dict)]}
-    nums: set[float] = set()
+    nums: set[tuple[str, float]] = set()
     _numbers(env, nums)
     weights = (env.get("inputs") or {}).get("weights") if isinstance(env.get("inputs"), dict) else None
     return EvidenceItem(
@@ -148,7 +153,7 @@ def _item_from_envelope(env: dict, record: dict) -> EvidenceItem:
 
 def _item_from_nested(d: dict, parent: EvidenceItem) -> EvidenceItem:
     """An id referenced inside another item (e.g. the evidence behind one governance check)."""
-    nums: set[float] = set()
+    nums: set[tuple[str, float]] = set()
     _numbers(d, nums)
     label = d.get("id") or d.get("metric") or d.get("tool") or "detail"
     status = f": {d['status']}" if d.get("status") else ""

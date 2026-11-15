@@ -2,7 +2,7 @@
 
 Three modes, chosen at each run by app.tools.toolsets.news_mode():
 - "kb" (AF_KB_ID set): search_news on the Bedrock Knowledge Base "news & docs" (S3 Vectors, Titan v2 embeddings):
-  dated SEC 8-K events, press headlines, central-bank rate decisions and annual-report risk/legal sections,
+  dated SEC 8-K events, central-bank rate decisions and annual-report risk/legal sections,
   filtered published_date <= as_of (the run's date: the model cannot ask for a later one).
 - "local" (no KB, data/external/news/news_index.csv present): news_search on the same dated corpus in-process,
   published_at <= as_of. Event ids (N-…) in the finding are checked by code against what the search returned.
@@ -17,10 +17,10 @@ from app.tools.toolsets import news_mode, news_toolset
 KB_PROMPT = """You are the News sub-agent of AlphaForge (datathon prototype).
 
 Use ONLY the search_news tool. Always pass the as_of date given in the brief: nothing published
-after it may be used. Search at least twice: (1) company news and annual-report risk factors for the
-tickers of interest, (2) the market or macro backdrop (tickers "MARKET", "MACRO", "GEOPOLITICS",
-"CRYPTO"). Every fact you state must come from a tool result and carry its date and evidence_id.
-Press items are headlines only: never claim details the headline does not state.
+after it may be used. Search at least twice: (1) company filings and annual-report risk factors for the
+tickers of interest, (2) the rate backdrop (ticker "MACRO": central bank rate decisions). Every fact you
+state must come from a tool result and carry its date and evidence_id. The corpus has no press coverage:
+filing titles and excerpts only, so never claim details they do not state.
 If nothing relevant is found, say so; never invent news.
 
 Return ONLY a JSON object, no prose around it:
@@ -35,9 +35,8 @@ Keep it under 8 details. No investment advice.
 
 LOCAL_PROMPT = """You are the News sub-agent of AlphaForge.
 Using ONLY the `news_search` tool, find the dated news relevant to the brief. Search with the investor's tickers
-and/or themes and keywords; try origins ["sec_8k"] for company events (primary sources), ["macro_derived"] for
-central bank decisions and ["gdelt"] for press headlines. Never use anything that the tool did not return.
-Distinguish reliability: SEC filings and rate decisions are facts; press headlines are unreviewed, noisy signals.
+and/or themes and keywords; try origins ["sec_8k"] for company events and ["macro_derived"] for central bank
+decisions. Never use anything that the tool did not return. Both are primary sources; there is no press coverage.
 An 8-K event carries an `excerpt`: the first words of the filing's own item text (who joined or left, what was issued,
 acquired or impaired). Report what the excerpt says, in your own words, never more; the filing may contain more, and a
 results 8-K (Item 2.02) only announces a press release, with no figures.
@@ -47,8 +46,8 @@ Return ONLY a JSON object:
   "headline": "<one-sentence news takeaway>",
   "details": ["<date> <title> (<origin>) [event_id] — <evidence_id of the search>"],
   "severity": "info" | "warn" | "block",
-  "items": [{"event_id": "N-...", "published_at": "YYYY-MM-DD", "title": "...", "origin": "sec_8k|macro_derived|gdelt",
-             "what_it_says": "<one sentence from the excerpt, or the title for a headline>", "source_url": "..."}],
+  "items": [{"event_id": "N-...", "published_at": "YYYY-MM-DD", "title": "...", "origin": "sec_8k|macro_derived",
+             "what_it_says": "<one sentence from the excerpt, or the title of a rate decision>", "source_url": "..."}],
   "no_news": ["<tickers or topics with no matching event>"]
 }
 Copy event_id, date, title and source_url exactly from the tool results. No investment advice, no forecasts.
@@ -87,8 +86,8 @@ news_subagent = make_subagent_tool(
     tools=news_toolset,      # resolved per run: KB search_news, local news_search, or [] (SIMULATED)
     simulated=_simulated,
     extra_validator=event_validator,
-    description="""Recent-news digest from the News sub-agent: dated, sourced news (SEC 8-K, rate decisions,
-    press headlines) and annual-report risk/legal passages published on or before as_of. The corpus is
+    description="""Recent-news digest from the News sub-agent: dated, sourced news (SEC 8-K filings, rate
+    decisions) and annual-report risk/legal passages published on or before as_of. The corpus is
     incomplete: the agent says when it finds nothing. Cite its nested evidence_ids. If the returned record's
     assumptions say SIMULATED (no news corpus available), label the content as fictional and never mix it with
     real evidence.
