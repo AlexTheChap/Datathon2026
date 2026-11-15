@@ -35,6 +35,9 @@ TABLES: dict[str, dict[str, Any]] = {
     "esg_index_screen": {"dtype": str, "keep_default_na": False},
     "controversies": {"dtype": str, "keep_default_na": False},
     "asset_risk_metrics": {},
+    # projections (app.quant.projection): correlations + the GARCH job's output (sagemaker/garch_job)
+    "correlation_full": {"index_col": "ticker"},
+    "vol_forecast": {"dtype": {"ticker": str, "model": str, "fallback_reason": str, "job_name": str}},
 }
 
 
