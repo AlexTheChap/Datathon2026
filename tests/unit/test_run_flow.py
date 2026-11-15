@@ -1,7 +1,7 @@
 """Run flow with the Explainer: dispatcher → orchestrator → Explainer → RunRecord.result["answer"], the background
-thread, and GET /v1/runs/{id}/evidence. No AWS: fake orchestrator, fake Bedrock client, real ledger fixture."""
+thread (LocalDispatcher), and GET /v1/runs/{id}/evidence/catalog. No AWS: fake orchestrator, fake Bedrock client, real ledger fixture."""
 import json
-import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -9,8 +9,9 @@ from fastapi.testclient import TestClient
 
 from app.agents.explainer import explain
 from app.api.app import create_app
-from app.api.dispatch import BackgroundDispatcher, InlineDispatcher
-from app.api.service import ApiService, MessageIn, NoDispatcher, service_from_env
+from app.api.dispatch import InlineDispatcher
+from app.api.dispatcher import LocalDispatcher
+from app.api.service import ApiService, MessageIn, service_from_env
 from app.context.prompt_loader import LocalPromptSource
 from app.intake import MockBackend
 from app.schemas.models import OrchestratorOutput
@@ -84,37 +85,36 @@ def test_failed_orchestrator_still_gets_an_honest_answer():
     assert saved.status == "FAILED" and saved.result["answer"]["kind"] == "fallback" and client.calls == []
 
 
-def test_background_dispatcher_returns_at_once():
-    started, release = threading.Event(), threading.Event()
+def test_local_dispatcher_runs_the_explainer_in_the_background():
+    runs = InMemoryRunStore()
+    svc = ApiService(intake_backend=MockBackend(), runs=runs, dispatcher=LocalDispatcher(
+        runs, runner=fake_orchestrator, explain_fn=explainer_with(FakeClient(draft())), records_fn=FakeLedger().records))
+    status, out = svc.post_message("robert", MessageIn(text="I'm thinking of putting 20% in Nvidia.", profile_form=FORM))
+    assert status == 202  # the API answered at once; the analysis runs in a thread
+    end = time.time() + 5
+    while runs.get(out.run_id).status != "DONE" and time.time() < end:
+        time.sleep(0.01)
+    answer = runs.get(out.run_id).result["answer"]
+    assert answer["kind"] == "explained" and answer["verification"]["claims_checked"] == 5
 
-    class Slow:
-        def dispatch(self, run):
-            started.set()
-            release.wait(5)
 
-    svc = ApiService(intake_backend=MockBackend(), dispatcher=BackgroundDispatcher(Slow()))
-    status, _ = svc.post_message("robert", MessageIn(text="Is my portfolio too risky?", profile_form=FORM))
-    assert status == 202 and started.wait(5)  # the API answered while the analysis was still running
-    release.set()
-
-
-def test_dispatch_mode_from_env():
-    assert isinstance(service_from_env({}).dispatcher, NoDispatcher)
-    svc = service_from_env({"AF_DISPATCH": "inline"})
-    assert isinstance(svc.dispatcher, BackgroundDispatcher) and isinstance(svc.dispatcher.inner, InlineDispatcher)
-    assert svc.dispatcher.inner.runs is svc.runs
+def test_every_dispatch_mode_gets_the_explainer():
+    assert isinstance(service_from_env({}).dispatcher, LocalDispatcher)              # default with the memory store
+    assert isinstance(service_from_env({"AF_DISPATCH": "inline"}).dispatcher, InlineDispatcher)
     with pytest.raises(ValueError):
         service_from_env({"AF_DISPATCH": "lambda"})
 
 
-def test_evidence_endpoint_is_owner_only(monkeypatch):
+def test_evidence_catalog_endpoint_is_owner_only(monkeypatch):
     monkeypatch.setenv("AF_AUTH_MODE", "dev")
     svc = ApiService(intake_backend=MockBackend(), runs=InMemoryRunStore(), ledger=FakeLedger())
     client = TestClient(create_app(svc))
     run_id = client.post("/v1/runs", json={"text": "Is my portfolio too risky?", "profile_form": FORM},
                          headers={"X-Actor-Id": "robert"}).json()["run_id"]
-    items = client.get(f"/v1/runs/{run_id}/evidence", headers={"X-Actor-Id": "robert"}).json()
+    items = client.get(f"/v1/runs/{run_id}/evidence/catalog", headers={"X-Actor-Id": "robert"}).json()
     by_id = {i["id"]: i for i in items}
     assert "ev-9de6c73e44" in by_id and by_id["ev-c5f01b9379"]["say"].startswith("In 2022")
     assert by_id["ev-c5f01b9379"]["data_sources"]  # sources shown in the panel
-    assert client.get(f"/v1/runs/{run_id}/evidence", headers={"X-Actor-Id": "mallory"}).status_code == 404
+    assert client.get(f"/v1/runs/{run_id}/evidence/catalog", headers={"X-Actor-Id": "mallory"}).status_code == 404
+    raw = client.get(f"/v1/runs/{run_id}/evidence", headers={"X-Actor-Id": "robert"}).json()
+    assert raw == LEDGER  # the raw ledger stays available for the dashboard

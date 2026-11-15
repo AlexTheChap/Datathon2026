@@ -12,7 +12,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas import Benchmark, Exclusion, Position, Profile, Request, Scenario, Task
+from app.schemas import Benchmark, Exclusion, Position, Profile, Request, Task
 from app.schemas.execution_plan import AgentName
 from app.schemas.profile import Experience, Language, RiskBand
 
@@ -67,7 +67,6 @@ class RequestDraft(BaseModel):
     task: Task
     positions: list[Position] = Field(default_factory=list)
     capital: Optional[float] = None
-    scenarios: list[Scenario] = Field(default_factory=list)
     benchmark: Optional[Benchmark] = None
     stress_tests: bool = False
     include_rag: bool = False

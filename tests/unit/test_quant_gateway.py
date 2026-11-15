@@ -21,10 +21,6 @@ CASES = [
      lambda rt: rt.correlation(["XIU.TO", "XBB.TO"], start="2022-01-01", end="2022-12-31")),
     ("risk___risk_contribution", {"weights": ROBERT_NVDA}, lambda rt: rt.risk_contribution(ROBERT_NVDA)),
     ("risk___concentration", {"weights": ROBERT_NVDA}, lambda rt: rt.concentration(ROBERT_NVDA)),
-    ("scenarios___stress", {"weights": ROBERT_NVDA, "window": "2022", "capital": 400000},
-     lambda rt: rt.stress(ROBERT_NVDA, window="2022", capital=400000.0)),
-    ("optimizer___max_position", {"base_weights": ROBERT, "asset": "NVDA", "max_drawdown_limit": 0.15},
-     lambda rt: rt.max_position(ROBERT, "NVDA", 0.15)),
 ]
 
 
@@ -51,22 +47,15 @@ def test_macro_family_point_in_time(tool, args, direct):
     assert out["output"]["date"] <= args["as_of"]
 
 
-def test_robert_nvdia_numbers_match_the_risk_subagent_run():
-    out = qg.handler({"base_weights": ROBERT, "asset": "NVDA", "max_drawdown_limit": 0.15},
-                     ctx("optimizer___max_position"))
-    assert out["output"]["max_weight"] == pytest.approx(0.09)
-
-
 def test_weights_also_accepted_as_a_list_of_pairs():
     as_list = [{"ticker": k, "weight": v} for k, v in ROBERT_NVDA.items()]
-    a = qg.handler({"weights": as_list, "capital": 400000}, ctx("scenarios___stress"))
-    b = qg.handler({"weights": ROBERT_NVDA, "capital": 400000}, ctx("scenarios___stress"))
+    a = qg.handler({"weights": as_list}, ctx("risk___concentration"))
+    b = qg.handler({"weights": ROBERT_NVDA}, ctx("risk___concentration"))
     assert a["output"] == b["output"]
 
 
 @pytest.mark.parametrize("tool, args", [
     ("metrics___metrics", {"tickers": ["NOT_A_TICKER"]}),
-    ("scenarios___stress", {"weights": ROBERT, "window": "1929"}),
     ("risk___risk_contribution", {}),
 ])
 def test_bad_arguments_return_an_error_the_agent_can_fix(tool, args):
@@ -76,7 +65,7 @@ def test_bad_arguments_return_an_error_the_agent_can_fix(tool, args):
 
 def test_unknown_tool():
     out = qg.handler({}, ctx("quant___buy_now"))
-    assert out["error"].startswith("Unknown tool") and "stress" in out["available"]
+    assert out["error"].startswith("Unknown tool") and "metrics" in out["available"]
 
 
 def test_schemas_use_only_fields_the_gateway_accepts():
@@ -93,4 +82,4 @@ def test_schemas_use_only_fields_the_gateway_accepts():
         for spec in specs:
             walk(spec["inputSchema"])
             assert set(spec["inputSchema"].get("required", [])) <= set(spec["inputSchema"]["properties"])
-    assert set(qg.TARGETS) == {"metrics", "risk", "scenarios", "optimizer", "macro"}
+    assert set(qg.TARGETS) == {"metrics", "risk", "macro"}

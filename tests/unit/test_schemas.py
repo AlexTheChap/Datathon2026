@@ -31,7 +31,7 @@ def test_profile_example():
 
 def test_execution_plan_example():
     plan = ExecutionPlan.model_validate(json.loads((EXAMPLES / "execution_plan.example.json").read_text()))
-    assert [a.agent for a in plan.enabled_agents] == ["risk", "macro_scenarios"]
+    assert [a.agent for a in plan.enabled_agents] == ["risk"]
     assert plan.run_governance and plan.run_explainer
 
 

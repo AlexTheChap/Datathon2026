@@ -15,4 +15,4 @@ def test_risk_subagent_briefs_carry_the_quant_toolset():
     # the real quant tools exist on the orchestrator side; the sub-agent's own
     # toolset is validated by the live run (nested evidence in the ledger)
     names = [t.tool_spec["name"] for t in ALL_TOOLS]
-    assert {"metrics", "stress", "concentration", "max_position", "governance_check"} <= set(names)
+    assert {"metrics", "concentration", "correlation", "risk_contribution", "governance_check"} <= set(names)

@@ -39,8 +39,8 @@ cd backend && AF_AUTH_MODE=dev AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicor
 
 Open <http://127.0.0.1:8000>. The API serves this folder at `/` (same origin, no CORS). With
 `AF_INTAKE_MODE=bedrock` and the keys in `.env` loaded, questions are read by Claude Haiku on Bedrock.
-`AF_DISPATCH=inline` runs the analysis and the Explainer after each question, so the answer appears in the
-analysis view (polled every 4 s for 3 min). `AF_AUTH_MODE=dev` lets the browser choose a demo user (`X-Actor-Id`); never enable it on a deployed API.
+Each question runs the analysis and the Explainer in a background thread (`AF_DISPATCH=local`, the default;
+`none` keeps the plan only), so the answer appears in the analysis view (polled every 4 s for 3 min). `AF_AUTH_MODE=dev` lets the browser choose a demo user (`X-Actor-Id`); never enable it on a deployed API.
 On AWS the folder is meant for S3 + CloudFront behind the Cognito login (not deployed yet).
 
 ## Screens and the API calls behind them
@@ -50,7 +50,7 @@ On AWS the folder is meant for S3 + CloudFront behind the Cognito login (not dep
 | **Ask** (`#/ask`) | Writes a question, or picks an example that fills the box. Gets one of three replies: a missing detail to choose inline (risk level, experience), a message (e.g. create a profile first), or an analysis plan. A toggle said in chat ("I don't care about the news") is confirmed with an Undo. | `POST /v1/runs`, `PUT /v1/profile` (undo), `GET /v1/profile` (side summary) |
 | **Sign in** (`#/signin`) | Signs in with a demo account (one click) or email + password; creates an account (code by email); resets a forgotten password. Returns to the page they were going to. | Amazon Cognito (from the browser), `GET /v1/me` |
 | **Profile** (`#/profile`) | Fills the investor profile, or starts from Amira, Mateo or Robert. Risk level and experience are required. "Explain things so I learn" asks for answers that teach the terms (beginner and intermediate). Analyses can be switched off; a switch changed from chat shows the user's words. | `GET /v1/personas`, `GET /v1/profile`, `PUT /v1/profile` |
-| **Analysis** (`#/runs/<id>`) | Sees what AlphaForge looks at and why, what was left out and why, then the answer: a short answer, the profile checks (BLOCK / WARN / PASS), key points, a glossary for learners, limits, what was not analysed, and what the automatic check removed. Numbered chips after each sentence open the evidence it rests on (tool, period, sources). Technical details sit behind a disclosure. | `GET /v1/runs/{id}` (polled while running), `GET /v1/runs/{id}/evidence` |
+| **Analysis** (`#/runs/<id>`) | Sees what AlphaForge looks at and why, what was left out and why, then the answer: a short answer, the profile checks (BLOCK / WARN / PASS), key points, a glossary for learners, limits, what was not analysed, and what the automatic check removed. Numbered chips after each sentence open the evidence it rests on (tool, period, sources). Technical details sit behind a disclosure. | `GET /v1/runs/{id}` (polled while running), `GET /v1/runs/{id}/evidence/catalog` |
 
 Recent analyses are remembered in this browser (`localStorage`), per demo user.
 

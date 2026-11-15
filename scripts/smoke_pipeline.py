@@ -4,6 +4,7 @@
   ④ Context     resolve_context(p, r)         — deterministic: ExecutionPlan + prompt_ref
   ⑤ Orchestrator run_orchestrator(inp)         — plan-driven sub-agents (Claude Sonnet + Haiku)
   ⑥ Tools       the sub-agents' toolsets      — deterministic pandas over data/curated
+  ⑤ Explainer   explain(run, out, ledger)     — Claude Sonnet: the checked answer for this reader
 
 Persona test: Robert (conservative) says "I'm thinking of putting 20% in Nvidia…".
 The profile comes from the persona file (as if created via the profile form).
@@ -28,6 +29,7 @@ from app.schemas.execution_plan import ExecutionPlan  # noqa: E402
 from app.schemas.models import OrchestratorInput  # noqa: E402
 from app.agents.orchestrator import run_orchestrator  # noqa: E402
 from app.store.ledger import make_ledger  # noqa: E402
+from app.tools.context import default_as_of  # noqa: E402
 
 MESSAGES = {
     "robert": "I'm thinking of putting 20% in Nvidia, everyone is talking about it.",
@@ -87,7 +89,7 @@ def main() -> int:
         run_id=f"pipe-{uuid.uuid4().hex[:8]}",
         actor_id=actor_id,
         language=intake.profile.language,
-        as_of=intake.request.as_of.isoformat() if intake.request.as_of else "2026-11-12",
+        as_of=intake.request.as_of.isoformat() if intake.request.as_of else default_as_of(),
         profile=intake.profile,
         request=intake.request,
         execution_plan=plan,
@@ -98,14 +100,40 @@ def main() -> int:
     if out.error:
         print(f"  ERROR: {out.error}")
         return 1
+    # ---- ⑤ Explainer: the answer the user reads, every claim checked (Sonnet, live) ---------
+    from types import SimpleNamespace
+
+    from app.agents.explainer import explain
+    from app.core.config import get_settings
+    from app.schemas.prompt_ref import PromptRef
+    from app.store.ledger import make_ledger
+
+    run = SimpleNamespace(profile=intake.profile, request=intake.request, execution_plan=plan,
+                          prompt_ref=PromptRef(**ctx["prompt_ref"]))
+    answer = explain(run, out.model_dump(mode="json"), make_ledger(get_settings()).records(out.run_id))
+    v = answer.verification
+    print(f"\n[⑤ Explainer] {answer.kind} · template {answer.prompt.key if answer.prompt else '-'} · "
+          f"{answer.duration_ms} ms")
     print("\n--- answer ---")
-    print(out.summary)
+    print(answer.short_answer)
+    for c in answer.checks:
+        print(f"  [{c.verdict}] {c.allocation}: {c.text}  {c.evidence}")
+    for pt in answer.key_points:
+        print(f"  - {pt.text}  {pt.evidence}")
+    for g in answer.glossary:
+        print(f"  * {g.term}: {g.meaning}")
+    if v:
+        print(f"\n[claim check] {v.claims_checked} claims · retried={v.retried} · removed={len(v.removed)}")
+        for r in v.removed:
+            print(f"  removed ({r.section}): {r.reason}")
+    if answer.note:
+        print(f"  note: {answer.note}")
     print(f"\nEvidence ({len(out.evidence_ids)}): {', '.join(out.evidence_ids)}")
     print(f"\nTrace: .venv/bin/python scripts/show_run.py {out.run_id}")
     for r in make_ledger(s).records(out.run_id):
         caller = r.get("agent") or "orchestrator"
         print(f"  {r['seq']} [{caller}] {r['tool']}")
-    return 0
+    return 0 if v.get("ok", True) else 1     # an answer with an unknown citation is a failed smoke test
 
 
 if __name__ == "__main__":

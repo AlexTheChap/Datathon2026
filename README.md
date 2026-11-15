@@ -37,7 +37,7 @@ to observable data and execution steps.
 Before writing or reviewing any code, read it. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Run the app locally (boxes ① + ② + ③ + ④, and ⑤ with `AF_DISPATCH=inline`)
+## Run the app locally (boxes ① to ⑤)
 
 ```bash
 .venv/bin/pip install -e ".[dev,api]"
@@ -50,9 +50,10 @@ cd backend && AF_AUTH_MODE=dev AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicor
 ```
 
 Open http://127.0.0.1:8000. The first log line says which sign-in mode the API runs in, and the page follows it.
-`AF_INTAKE_MODE=bedrock` (with the `.env` keys) uses the real Claude Haiku intake. Add `AF_DISPATCH=inline` to
-run the analysis and the Explainer (Claude Sonnet) after each question, in a background thread: the page shows the
-plan at once and the answer about a minute later. Without it, runs stay QUEUED (plan only). The Explainer writes
+`AF_INTAKE_MODE=bedrock` (with the `.env` keys) uses the real Claude Haiku intake. Each question runs the
+analysis and the Explainer (Claude Sonnet on Bedrock) in a background thread (`AF_DISPATCH=local`, the default): the
+page shows the plan at once and the answer about a minute later. `AF_DISPATCH=none` keeps runs QUEUED (plan only).
+The Explainer writes
 for the reader's profile: plain and short for beginners, technical for advanced readers, and with a glossary for
 beginners and intermediates who want to learn (the "Explain things so I learn" switch, or saying "I'm a student").
 Every number it states is checked against the evidence it cites; what fails is retried once, then removed.

@@ -82,7 +82,9 @@ class OrchestratorOutput(BaseModel):
     run_id: str
     status: Literal["DONE", "FAILED"] = "DONE"
     language: Language = "en"
-    summary: str = ""
+    summary: str = ""                                 # the orchestrator's working draft (the Explainer writes the answer)
+    as_of: Optional[str] = None
+    memory: Optional[dict[str, Any]] = None           # AgentCore Memory binding of the run (enabled, ids, error)
     evidence_ids: list[str] = []
     model: str = ""
     session_id: Optional[str] = None

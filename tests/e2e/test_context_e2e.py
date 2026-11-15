@@ -98,9 +98,9 @@ INTAKE = {
 
 EXPECTED = {
     # persona: (enabled agents, forced agents, template key)
-    "amira": ({"risk", "news", "macro_scenarios", "allocation"}, set(), "explainer.intermediate.md"),
+    "amira": ({"risk", "news", "allocation"}, set(), "explainer.intermediate.md"),
     "mateo": ({"risk", "esg", "allocation"}, {"esg"}, "explainer.intermediate.md"),
-    "robert": ({"risk", "macro_scenarios"}, set(), "explainer.advanced.md"),
+    "robert": ({"risk"}, set(), "explainer.advanced.md"),
 }
 
 
@@ -144,7 +144,7 @@ def test_mateo_news_disabled_by_his_toggle_is_explained(s3):
 def test_robert_parameters_reach_the_orchestrator(s3):
     _, payload = _run_chain(*INTAKE["robert"])
     params = {a["agent"]: a["parameters"] for a in payload["execution_plan"]["enabled_agents"]}
-    assert params == {"risk": {"benchmark": "XIU.TO"}, "macro_scenarios": {"scenarios": ["2022"]}}
+    assert params == {"risk": {"benchmark": "XIU.TO"}}
 
 
 def test_out_of_scope_chain(s3):

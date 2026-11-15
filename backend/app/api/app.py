@@ -1,8 +1,12 @@
 """Box ② API (FastAPI): routes of docs/architecture.mmd, link L1 (frontend → API Gateway → Lambda).
 
     POST /v1/runs           {text, profile_form?, portfolio_ref?} → 200 question/message, or 202 {run_id}
+    GET  /v1/runs           → the user's runs, newest first (dashboard history)
     GET  /v1/runs/{run_id}  → the run (status, plan, result once box ⑤ writes it, incl. the Explainer's answer)
-    GET  /v1/runs/{run_id}/evidence → the run's evidence catalogue (each item: id, tool, say, period, sources)
+    GET  /v1/runs/{run_id}/evidence → the run's evidence ledger (every tool call: inputs, output, source)
+    GET  /v1/runs/{run_id}/evidence/catalog → what the answer can cite (each item: id, tool, say, period,
+                            sources), nested ids included: the web app's evidence panel
+    GET  /v1/runs/{run_id}/replay   → the run's portfolios replayed day by day over the 2022 crisis (dashboard)
     GET  /v1/profile        → the stored profile
     PUT  /v1/profile        → save the profile form
     GET  /v1/personas       → the brief's three example profiles (Amira, Mateo, Robert) as profile forms
@@ -33,7 +37,7 @@ from app.store.runs import RunRecord
 
 from .auth import AuthError, Identity, identify
 
-from .service import ApiError, ApiService, MessageIn, MessageOut, example_personas, service_from_env
+from .service import ApiError, ApiService, MessageIn, MessageOut, RunSummary, example_personas, service_from_env
 
 FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
 
@@ -96,13 +100,25 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
         status, out = svc.post_message(actor_id, body)
         return JSONResponse(status_code=status, content=out.model_dump(mode="json", exclude_none=True))
 
+    @api.get("/v1/runs", response_model=list[RunSummary])
+    def list_runs(limit: int = 50, actor_id: str = Depends(actor_id_from)) -> list[RunSummary]:
+        return svc.list_runs(actor_id, max(1, min(limit, 200)))
+
+    @api.get("/v1/runs/{run_id}/replay")
+    def get_replay(run_id: str, actor_id: str = Depends(actor_id_from)) -> dict[str, Any]:
+        return svc.get_replay(actor_id, run_id)
+
+    @api.get("/v1/runs/{run_id}/evidence")
+    def get_evidence(run_id: str, actor_id: str = Depends(actor_id_from)) -> list[dict[str, Any]]:
+        return svc.get_evidence(actor_id, run_id)
+
     @api.get("/v1/runs/{run_id}", response_model=RunRecord)
     def get_run(run_id: str, actor_id: str = Depends(current_actor)) -> RunRecord:
         return svc.get_run(actor_id, run_id)
 
-    @api.get("/v1/runs/{run_id}/evidence")
-    def get_evidence(run_id: str, actor_id: str = Depends(current_actor)) -> list[dict[str, Any]]:
-        return svc.get_evidence(actor_id, run_id)
+    @api.get("/v1/runs/{run_id}/evidence/catalog")
+    def get_evidence_catalog(run_id: str, actor_id: str = Depends(current_actor)) -> list[dict[str, Any]]:
+        return svc.get_evidence_catalog(actor_id, run_id)
 
     @api.get("/v1/profile", response_model=Profile)
     def get_profile(actor_id: str = Depends(current_actor)) -> Profile:

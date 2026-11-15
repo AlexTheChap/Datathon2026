@@ -8,14 +8,14 @@ from app.agents.subagents.news import KB_PROMPT, SIMULATED_PROMPT, news_subagent
 from app.agents.subagents.risk import risk_subagent
 from app.tools import toolsets
 
-LOCAL_NAMES = ["metrics", "stress", "concentration", "correlation", "risk_contribution", "max_position"]
+LOCAL_NAMES = ["metrics", "concentration", "correlation", "risk_contribution"]
 
 
 @pytest.fixture
 def settings(monkeypatch):
     """Settings with no AWS box 6 by default; each test turns on what it needs."""
     s = SimpleNamespace(gateway_url=None, kb_id=None, aws_region="us-east-1",
-                        model_subagent="test-model")
+                        model_subagent="test-model", news_dir=None)
     monkeypatch.setattr(toolsets, "get_settings", lambda: s)
     monkeypatch.setattr(base, "get_settings", lambda: s)
     return s
@@ -29,8 +29,15 @@ def fake_agent(monkeypatch):
     class FakeAgent:
         def __init__(self, **kwargs):
             seen.append(kwargs)
+            self.kwargs = kwargs
 
         def __call__(self, brief):
+            # A sub-agent with tools must call one (output contract): record one evidence and cite it.
+            if self.kwargs.get("tools"):
+                hook = self.kwargs["hooks"][0]
+                hook.ledger.append(hook.run_id, {"tool": "t", "agent": hook.agent, "evidence_id": "ev-0000000001",
+                                                 "payload": {"evidence_id": "ev-0000000001", "tool": "t"}})
+                return '{"headline": "h", "details": ["fact ev-0000000001"], "severity": "info"}'
             return '{"headline": "h", "details": [], "severity": "info"}'
 
     monkeypatch.setattr(base, "Agent", FakeAgent)
@@ -83,3 +90,16 @@ def test_news_subagent_real_with_kb(settings, fake_agent):
 def test_orchestrator_facing_specs_unchanged():
     for sub in (risk_subagent, news_subagent):
         assert {"subject", "weights", "tickers"} <= set(sub.tool_spec["inputSchema"]["json"]["properties"])
+
+
+def test_local_news_corpus_is_used_without_a_kb(settings, fake_agent, tmp_path):
+    from app.agents.subagents.news import LOCAL_PROMPT
+    (tmp_path / "news_index.csv").write_text("event_id,published_at\n")
+    settings.news_dir, settings.abs_path = tmp_path, (lambda p: p)
+    assert toolsets.news_mode() == "local"
+    assert [t.tool_name for t in toolsets.news_toolset()] == ["news_search"]
+    ev = news_subagent._tool_func("NVDA news")
+    assert fake_agent[-1]["system_prompt"] == LOCAL_PROMPT
+    assert all("SIMULATED" not in a for a in ev["assumptions"])
+    settings.kb_id = "KB123"
+    assert toolsets.news_mode() == "kb"                      # the Knowledge Base wins when configured

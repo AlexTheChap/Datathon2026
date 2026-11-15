@@ -20,10 +20,10 @@ Minimal usage:
     from risk_tools import RiskTools
     rt = RiskTools("data/curated")
     rt.metrics(["NVDA", "XBB.TO"], start="2022-01-01", end="2022-12-31")
-    rt.stress({"NVDA": 0.2, "XBB.TO": 0.5, "XIU.TO": 0.3}, "2022")
 """
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 from pathlib import Path
@@ -40,11 +40,6 @@ BASE_ASSUMPTIONS = [
     "Crypto sampled on this calendar (weekend moves included on Monday).",
     "Past returns do not predict future returns. Universe chosen in 2026 (survivorship bias).",
 ]
-STRESS_WINDOWS = {
-    "2022": ("2021-12-31", "2022-12-30", "in 2022 (rate hikes: stocks and bonds fell together)"),
-    "2022_H1": ("2021-12-31", "2022-06-30", "in the first half of 2022"),
-}
-
 
 def _eid(tool: str, inputs: dict) -> str:
     h = hashlib.sha1(json.dumps([tool, inputs], sort_keys=True, default=str).encode()).hexdigest()
@@ -108,6 +103,20 @@ class RiskTools:
                                      sector=("sector", "first"), asset_class=("asset_class", "first"),
                                      currency=("currency", "first"))
                   .sort_values("weight", ascending=False))
+
+    def at(self, as_of: str | None) -> "RiskTools":
+        """Point-in-time view: the same tools, with no return or price after `as_of`.
+        `governance_check.check` takes no `as_of` argument: give it this view
+        so that a window which ends after `as_of` is cut at `as_of`."""
+        if not as_of:
+            return self
+        cut = pd.Timestamp(as_of)
+        view = copy.copy(self)
+        view.rets = self.rets.loc[:cut]
+        view.prices = self.prices.loc[:cut]
+        if view.rets.empty:
+            raise ValueError(f"No data on or before as_of={as_of}.")
+        return view
 
     # ---------- helpers ----------
     def _window(self, start=None, end=None, as_of=None) -> pd.DataFrame:
@@ -187,26 +196,6 @@ class RiskTools:
                               out, say, r.index,
                               "Volatility = daily standard deviation × √252; maximum drawdown = worst peak-to-trough drop; "
                               "historical daily 95% VaR/CVaR.")
-
-    def stress(self, weights: dict, window: str = "2022", capital: float | None = None) -> dict:
-        if window not in STRESS_WINDOWS:
-            raise KeyError(f"Unknown window: {window}. Available: {list(STRESS_WINDOWS)}")
-        s, e, label = STRESS_WINDOWS[window]
-        pr = self.portfolio_returns(weights, start=s, end=e).iloc[1:]
-        st = self._stats(pr)
-        per_asset = {t: round(float((1 + self.rets.loc[s:e, t].iloc[1:]).prod() - 1), 6) for t in weights}
-        out = {"window": window, "label": label, "portfolio": st, "per_asset_total_return": per_asset}
-        if capital:
-            out["capital"] = capital
-            out["value_end"] = round(capital * (1 + st["total_return"]), 2)
-            out["loss_at_trough"] = round(capital * st["max_drawdown"], 2)
-        say = f"{label[0].upper() + label[1:]}, this portfolio would have returned {_pct(st['total_return'])} (worst point {_pct(st['max_drawdown'])}, in CAD)."
-        if capital:
-            say += f" On {_money(capital)}, that is {_money(out['loss_at_trough'])} at the worst point."
-        return self._evidence("stress", {"weights": weights, "window": window, "capital": capital},
-                              out, say, pr.index,
-                              "Historical replay of a fixed allocation (daily rebalancing) over the window.",
-                              ["Historical scenario, not a forecast."])
 
     def concentration(self, weights: dict, holdings: dict[str, pd.DataFrame] | None = None,
                       look_through: bool = True, top_n: int = 25) -> dict:
@@ -290,33 +279,3 @@ class RiskTools:
         return self._evidence("replay", {"weights": weights, "capital": capital, "start": start, "end": end},
                               out, say, pr.index, "Historical replay of a fixed allocation, rebalanced daily.",
                               ["Historical scenario, not a forecast. No fees or taxes."])
-
-    def max_position(self, base_weights: dict, asset: str, max_drawdown_limit: float,
-                     window: str = "2022", step: float = 0.005) -> dict:
-        """Largest share of `asset` (other positions scaled down pro rata) such that
-        the portfolio's maximum drawdown over the window stays ≥ -max_drawdown_limit."""
-        self._check([asset, *base_weights])
-        s, e, label = STRESS_WINDOWS[window]
-        base = self._normalize({k: v for k, v in base_weights.items() if k != asset})
-        best, curve = 0.0, []
-        for x in np.arange(0, 1 + 1e-9, step):
-            w = {k: v * (1 - x) for k, v in base.items()}
-            w[asset] = w.get(asset, 0) + x
-            mdd = self._stats(self.portfolio_returns(w, start=s, end=e).iloc[1:])["max_drawdown"]
-            curve.append((round(float(x), 4), mdd))
-            if mdd >= -max_drawdown_limit:
-                best = float(x)
-            else:
-                break
-        out = {"asset": asset, "max_weight": round(best, 4), "limit": -max_drawdown_limit,
-               "window": window, "curve": curve}
-        pct = round(best * 100, 1)
-        say = (f"With your profile's loss limit (-{max_drawdown_limit * 100:.0f}%) {label}, "
-               f"{asset} can go up to about {pct}% of the portfolio.")
-        return self._evidence("max_position",
-                              {"base_weights": base_weights, "asset": asset,
-                               "max_drawdown_limit": max_drawdown_limit, "window": window},
-                              out, say, self.rets.loc[s:e].index,
-                              "Step search: increase the asset's share (other positions scaled down pro rata) "
-                              "until the maximum tolerated loss in the scenario is exceeded.",
-                              ["Based on a single historical scenario; another scenario would give a different limit."])

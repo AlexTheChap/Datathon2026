@@ -11,9 +11,6 @@
   "positions": [],
   "capital": null,
   "parameters": {
-    "scenarios": [
-      "2022"
-    ],
     "benchmark": "SPY"
   },
   "toggles": {

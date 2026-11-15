@@ -27,11 +27,6 @@ def test_registry_covers_every_task_and_known_triggers():
     assert all(r.trigger in TRIGGERS for r in reg.triggers)
 
 
-def test_registry_default_scenario_matches_rules_yaml():
-    rules = yaml.safe_load((APP / "core" / "rules.yaml").read_text(encoding="utf-8"))
-    assert default_registry().default_scenarios == [rules["stress_window"]]
-
-
 def test_agent_names_match_profile_toggles():
     assert set(AGENTS) == set(AgentToggles.model_fields)
 
@@ -107,20 +102,6 @@ def test_out_of_scope_runs_no_agent_and_no_governance(make_profile, make_request
 
 # ---------- Triggers and toggles ----------
 
-def test_stress_tests_enable_macro_with_default_scenario(make_profile, make_request):
-    r = make_request("persona-robert", "risk_review", toggles={"stress_tests": True})
-    agents = _by_agent(resolve_plan(make_profile("robert"), r))
-    assert agents["macro_scenarios"].parameters == {"scenarios": ["2022"]}
-    assert "toggles.stress_tests = true" in agents["macro_scenarios"].reason
-
-
-def test_explicit_scenarios_are_passed_through(make_profile, make_request):
-    r = make_request("persona-robert", "risk_review", parameters={"scenarios": ["2022_H1"], "benchmark": "XIU.TO"})
-    agents = _by_agent(resolve_plan(make_profile("robert"), r))
-    assert agents["macro_scenarios"].parameters == {"scenarios": ["2022_H1"]}
-    assert agents["risk"].parameters == {"benchmark": "XIU.TO"}
-
-
 def test_include_rag_enables_news(make_profile, make_request):
     r = make_request("persona-amira", "risk_review", toggles={"include_rag": True})
     assert "news" in resolve_plan(make_profile("amira"), r).enabled_names
@@ -172,12 +153,12 @@ def test_mateo_esg_added_for_any_task(make_profile, make_request):
     assert "esg" in plan.enabled_names
 
 
-def test_robert_nvidia_demo_runs_risk_and_stress(make_profile, make_request):
-    """Robert: '20% in Nvidia' → risk + 2022 scenario so that governance can BLOCK."""
+def test_robert_nvidia_demo_runs_risk(make_profile, make_request):
+    """Robert: '20% in Nvidia' → the Risk agent runs and governance still checks the plan."""
     r = make_request("persona-robert", "risk_review", toggles={"stress_tests": True},
                      user_message="I'm thinking of putting 20% in Nvidia, everyone is talking about it.")
     plan = resolve_plan(make_profile("robert"), r)
-    assert set(plan.enabled_names) == {"risk", "macro_scenarios"}
+    assert set(plan.enabled_names) == {"risk"}
     assert plan.run_governance
 
 

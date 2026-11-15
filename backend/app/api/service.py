@@ -26,7 +26,7 @@ from app.schemas import PortfolioRef, Profile
 from app.schemas.models import profile_from_persona
 from app.schemas.profile import AgentToggles
 from app.store.profiles import InMemoryProfileStore, ProfileStore
-from app.store.runs import InMemoryRunStore, RunRecord, RunStore, new_run_id
+from app.store.runs import InMemoryRunStore, RunRecord, RunStore, new_run_id, new_session_id
 
 MAX_TEXT_CHARS = 4000
 PERSONAS_PATH = Path(__file__).resolve().parents[1] / "core" / "personas.json"
@@ -55,6 +55,28 @@ class MessageIn(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_TEXT_CHARS)
     profile_form: Optional[dict[str, Any]] = None
     portfolio_ref: Optional[PortfolioRef] = None
+    # Conversation id returned by the previous answer: keeps the session (short-term memory) across turns.
+    session_id: Optional[str] = Field(default=None, min_length=1, max_length=100, pattern=r"^[A-Za-z0-9][A-Za-z0-9_\-]*$")
+
+
+class RunSummary(BaseModel):
+    """One line of GET /v1/runs."""
+
+    run_id: str
+    status: str
+    task: str
+    created_at: str
+    updated_at: str
+    question: str
+    enabled_agents: list[str]
+    n_evidence: int = 0
+
+    @classmethod
+    def from_run(cls, run: RunRecord) -> "RunSummary":
+        return cls(run_id=run.run_id, status=run.status, task=run.request.task, created_at=run.created_at,
+                   updated_at=run.updated_at, question=run.request.user_message[:200],
+                   enabled_agents=run.execution_plan.enabled_names,
+                   n_evidence=len((run.result or {}).get("evidence_ids") or []))
 
 
 class MessageOut(BaseModel):
@@ -66,6 +88,7 @@ class MessageOut(BaseModel):
     missing_fields: list[str] = Field(default_factory=list)
     message: Optional[str] = None
     run_id: Optional[str] = None
+    session_id: Optional[str] = None
     run_status: Optional[str] = None
     enabled_agents: list[str] = Field(default_factory=list)
     toggle_changes: list[AgentToggleChange] = Field(default_factory=list)
@@ -83,8 +106,16 @@ class ApiService:
     profiles: ProfileStore = field(default_factory=InMemoryProfileStore)
     runs: RunStore = field(default_factory=InMemoryRunStore)
     dispatcher: Dispatcher = field(default_factory=NoDispatcher)
-    ledger: Any = None  # evidence ledger (L15/L16); built from the settings on first use
     intake_backend: Optional[IntakeBackend] = None
+    ledger: Optional[Any] = None   # EvidenceLedger; None -> chosen from the settings (JSONL or DynamoDB)
+
+    def _ledger(self):
+        if self.ledger is None:
+            from app.core.config import get_settings
+            from app.store.ledger import make_ledger
+
+            self.ledger = make_ledger(get_settings())
+        return self.ledger
 
     def _backend(self) -> IntakeBackend:
         self.intake_backend = self.intake_backend or get_backend()
@@ -112,12 +143,14 @@ class ApiService:
         if ctx["status"] == "profile_required":
             return 200, MessageOut(kind="message", message=ctx["message"], **common)
 
-        run = RunRecord(run_id=new_run_id(), actor_id=actor_id, profile=res.profile, request=res.request,
+        session_id = body.session_id or new_session_id()
+        run = RunRecord(run_id=new_run_id(), actor_id=actor_id, session_id=session_id,
+                        profile=res.profile, request=res.request,
                         execution_plan=ctx["execution_plan"], prompt_ref=ctx["prompt_ref"],
                         note=getattr(self.dispatcher, "note", None))
         self.runs.put(run)
         self.dispatcher.dispatch(run)
-        return 202, MessageOut(kind="run", run_id=run.run_id, run_status=run.status,
+        return 202, MessageOut(kind="run", run_id=run.run_id, session_id=session_id, run_status=run.status,
                                enabled_agents=run.execution_plan.enabled_names, **common)
 
     # ----- Demo accounts -----
@@ -137,18 +170,32 @@ class ApiService:
             raise ApiError(404, "Run not found.")
         return run
 
-    # ----- GET /v1/runs/{run_id}/evidence -----
-    def get_evidence(self, actor_id: str, run_id: str) -> list[dict[str, Any]]:
-        """The run's evidence catalogue for the evidence panel (owner only, like the run itself)."""
-        self.get_run(actor_id, run_id)
-        if self.ledger is None:
-            from app.core.config import get_settings
-            from app.store.ledger import make_ledger
+    # ----- GET /v1/runs (history for the dashboard) -----
+    def list_runs(self, actor_id: str, limit: int = 50) -> list[RunSummary]:
+        return [RunSummary.from_run(r) for r in self.runs.list_for_actor(actor_id, limit)]
 
-            self.ledger = make_ledger(get_settings())
+    # ----- GET /v1/runs/{run_id}/replay (dashboard "if 2022 happened again" chart) -----
+    def get_replay(self, actor_id: str, run_id: str) -> dict[str, Any]:
+        run = self.get_run(actor_id, run_id)
+        from app.api.replay import replay
+        from app.tools.quant_gateway import tools
+
+        capital = run.request.capital or run.profile.capital
+        return replay(self._ledger().records(run_id), capital, tools(),
+                      start="2022-01-03", end="2022-12-30")
+
+    # ----- GET /v1/runs/{run_id}/evidence (ledger L15/L16: what the dashboard charts) -----
+    def get_evidence(self, actor_id: str, run_id: str) -> list[dict[str, Any]]:
+        self.get_run(actor_id, run_id)  # same ownership check: 404 for someone else's run
+        return self._ledger().records(run_id)
+
+    # ----- GET /v1/runs/{run_id}/evidence/catalog (L16: what the Explainer's answer can cite) -----
+    def get_evidence_catalog(self, actor_id: str, run_id: str) -> list[dict[str, Any]]:
+        """Every citable item of the run, nested ids included, for the web app's evidence panel (owner only)."""
+        self.get_run(actor_id, run_id)
         from app.agents.evidence import build_catalog
 
-        return [item.for_user() for item in build_catalog(self.ledger.records(run_id)).values()]
+        return [item.for_user() for item in build_catalog(self._ledger().records(run_id)).values()]
 
     # ----- GET / PUT /v1/profile -----
     def get_profile(self, actor_id: str) -> Profile:
@@ -197,29 +244,40 @@ def example_personas(path: Path = PERSONAS_PATH) -> list[dict[str, Any]]:
     return out
 
 
+def _dispatcher(runs: RunStore, dispatch: str) -> Dispatcher:
+    if dispatch == "local":
+        from .dispatcher import LocalDispatcher
+
+        return LocalDispatcher(runs)
+    if dispatch == "inline":
+        from .dispatch import InlineDispatcher
+
+        return InlineDispatcher(runs)
+    return NoDispatcher()
+
+
 def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
     """AF_STORE=memory (default, local) | dynamodb (AF_TABLE, default "alphaforge").
-    AF_DISPATCH=none (default: runs stay QUEUED) | inline (orchestrator + Explainer in a background thread;
-    calls Bedrock, needs AWS credentials)."""
+    AF_DISPATCH=local (default with the memory store: the orchestrator runs in a background thread) | none
+    (default with DynamoDB: the run stays QUEUED until the AgentCore dispatcher is deployed) | inline (the
+    orchestrator runs before POST /v1/runs returns: app.api.dispatch.InlineDispatcher, used by the Streamlit
+    dashboard so the run is DONE when the page shows it)."""
     env = os.environ if env is None else env
     kind = env.get("AF_STORE", "memory").lower()
+    dispatch = env.get("AF_DISPATCH", "local" if kind == "memory" else "none").lower()
+    if dispatch not in ("local", "none", "inline"):
+        raise ValueError(f"Unknown AF_DISPATCH: {dispatch!r} (expected: local, none or inline)")
     if kind == "memory":
-        svc = ApiService()
-    elif kind == "dynamodb":
+        runs = InMemoryRunStore()
+        return ApiService(runs=runs, dispatcher=_dispatcher(runs, dispatch))
+    if kind == "dynamodb":
         import boto3
 
         from app.store.profiles import DynamoDBProfileStore
         from app.store.runs import DynamoDBRunStore
 
-        table = boto3.resource("dynamodb").Table(env.get("AF_TABLE", "alphaforge"))
-        svc = ApiService(profiles=DynamoDBProfileStore(table), runs=DynamoDBRunStore(table))
-    else:
-        raise ValueError(f"Unknown AF_STORE: {kind!r} (expected: memory or dynamodb)")
-    mode = env.get("AF_DISPATCH", "none").lower()
-    if mode == "inline":
-        from app.api.dispatch import BackgroundDispatcher, InlineDispatcher
-
-        svc.dispatcher = BackgroundDispatcher(InlineDispatcher(svc.runs))
-    elif mode != "none":
-        raise ValueError(f"Unknown AF_DISPATCH: {mode!r} (expected: none or inline)")
-    return svc
+        table = boto3.resource("dynamodb", region_name=env.get("AWS_REGION", "us-east-1")).Table(
+            env.get("AF_TABLE", "alphaforge"))
+        runs = DynamoDBRunStore(table)
+        return ApiService(profiles=DynamoDBProfileStore(table), runs=runs, dispatcher=_dispatcher(runs, dispatch))
+    raise ValueError(f"Unknown AF_STORE: {kind!r} (expected: memory or dynamodb)")

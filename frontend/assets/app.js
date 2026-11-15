@@ -991,7 +991,7 @@ function drawAnswer(run) {
 async function loadEvidence(runId, order, box) {
   let items;
   try {
-    items = (await api("GET", `/v1/runs/${encodeURIComponent(runId)}/evidence`)).data;
+    items = (await api("GET", `/v1/runs/${encodeURIComponent(runId)}/evidence/catalog`)).data;
   } catch (err) {
     box.replaceChildren(h("h3", { id: "evidence-title" }, "Evidence"), alertBox(err, "the evidence", () => loadEvidence(runId, order, box)));
     return;

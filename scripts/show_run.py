@@ -42,10 +42,6 @@ def _summarize(r: dict, full: bool) -> str:
     if "verdict" in out and "checks" in out:
         flags = [f"{c['id']}:{c['status']}" for c in out.get("checks", []) if c.get("status") != "PASS"]
         return f"verdict={out['verdict']}" + (f" | flags: {', '.join(flags)}" if flags else " | all PASS")
-    if "portfolio" in out and "max_drawdown" in out["portfolio"]:
-        pf = out["portfolio"]
-        return f"return={pf.get('total_return'):.1%} worst={pf.get('max_drawdown'):.1%}" + \
-               (f" loss_on_capital={out.get('loss_at_trough'):,.0f}$" if out.get("loss_at_trough") else "")
     if out and all(isinstance(v, dict) and "ann_vol" in v for v in out.values()):
         t, m = next(iter(out.items()))
         return f"{t}: vol={m['ann_vol']:.0%} worst={m['max_drawdown']:.1%}"

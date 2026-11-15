@@ -105,11 +105,11 @@ def test_form_beats_free_text(mock):
     assert res.profile.risk_band == "moderate"
 
 
-def test_crash_sets_stress_scenario(mock):
+def test_crash_routes_to_scenario_analysis(mock):
     res = run_intake("Show me what would happen to my portfolio in a crash.", "robert",
                      backend=mock, profile_form=ROBERT_FORM)
+    assert res.request.task == "scenario_analysis"
     assert res.request.toggles.stress_tests is True
-    assert res.request.parameters.scenarios == ["2022"]
 
 
 def test_benchmark_is_not_a_position(mock):

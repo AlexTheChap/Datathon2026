@@ -16,9 +16,10 @@
 %%   interface) · quant + analysis tools in-process (agent_tools.py, analysis_tools.py over
 %%   data/curated CSVs) · AgentCore entrypoint (app/entrypoint.py, not yet deployed) ·
 %%   AF_* / .env config · sub-agents chosen from the ④ ExecutionPlan (L6).
-%%   ② API (backend/app/api/: FastAPI, POST/GET /v1/runs, GET/PUT /v1/profile, GET /v1/runs/{id}/evidence,
-%%   DynamoDB-ready stores; not deployed yet) · L6 dispatcher in-process (AF_DISPATCH=inline: a background
-%%   thread runs ⑤ then the Explainer; default `none` leaves runs QUEUED) · ⑤ Explainer (app/agents/
+%%   ② API (backend/app/api/: FastAPI, POST/GET /v1/runs, GET/PUT /v1/profile, GET /v1/runs/{id}/evidence
+%%   [+ /catalog], DynamoDB-ready stores; not deployed yet) · L6 dispatcher in-process (AF_DISPATCH=local, the
+%%   default with the memory store: a background thread runs ⑤ then the Explainer; inline: same, before POST
+%%   returns; none: runs stay QUEUED, the default with DynamoDB) · ⑤ Explainer (app/agents/
 %%   explainer.py: Claude Sonnet on Bedrock, structured sections, deterministic claim check, retry once then
 %%   remove, honest fallback; style from experience × wants_to_learn) · ③ Intake (deployed Lambda
 %%   alphaforge-intake; chat toggles saved in the profile) · ④ plan resolver + Explainer prompt loader
@@ -81,7 +82,7 @@ flowchart TB
   %% ===== 6. Tools & data =====
   %% AWS: AgentCore Gateway (MCP) · Lambda · Bedrock Knowledge Bases · S3 Vectors · S3 · DynamoDB
   subgraph DATA["⑥ Tools & data"]
-    GW["AgentCore Gateway (MCP)<br/>Lambda quant tools: metrics · stress · concentration · correlation<br/>risk_contribution · max_position · macro · rates · esg_screen · optimizer (later)"]
+    GW["AgentCore Gateway (MCP)<br/>Lambda quant tools: metrics · concentration · correlation<br/>risk_contribution · macro · rates · esg_screen · company_fundamentals · optimizer (later)"]
     KB["Bedrock Knowledge Base<br/>news & docs · S3 Vectors"]
     S3[("S3 curated Parquet<br/>prices · FX · macro · point-in-time")]
     DDB[("DynamoDB<br/>profiles · runs · evidence ledger")]
@@ -153,9 +154,9 @@ flowchart TB
   GOV -->|"PASS / WARN"| EXP
   %% L12 Sub-agents → Tools: TARGET: AgentCore Gateway (MCP, SigV4/OAuth auth, optional Cedar
   %%      Policy) → quant tool Lambdas. CURRENT: direct in-process calls — sub-agents own their
-  %%      domain toolsets (risk: metrics/stress/concentration/correlation/risk_contribution/
-  %%      max_position · macro: macro_snapshot/rate_sensitivity/stress · esg+fundamentals:
-  %%      esg_screen · allocation: metrics/max_position/stress/concentration/governance_check).
+  %%      domain toolsets (risk: metrics/concentration/correlation/risk_contribution/
+  %%      macro: macro_snapshot/rate_sensitivity/correlation · esg: esg_screen ·
+  %%      fundamentals: company_fundamentals (SEC XBRL, point-in-time) + news_search(8-K) + esg_screen · allocation: optimize/metrics/concentration/governance_check).
   SUB -->|"tool calls (in-process)"| GW
   %% L13 News → KB: TARGET: Bedrock Knowledge Bases (Retrieve API + metadata filter published
   %%      ≤ as_of), S3 Vectors index. CURRENT: news_subagent is a SIMULATED placeholder (no
@@ -166,17 +167,21 @@ flowchart TB
   %%      macro_daily_asof, rate_sensitivity, esg_index_screen, controversies…).
   GW --> S3
   %% L15 Tools → Evidence ledger: a Strands hook (AfterToolCallEvent) fires after every tool
-  %%      call. TARGET sink: DynamoDB (RUN#id / EVID#E-001). CURRENT: local JSONL ledger
+  %%      call. TARGET sink: DynamoDB (RUN#id / EVID#ev-<hash>). CURRENT: local JSONL ledger
   %%      data/runs/<run_id>.jsonl behind the same EvidenceLedger interface — every call is
   %%      one record (seq, caller agent tag, tool, inputs, envelope), incl. nested sub-agent
   %%      calls and failures. Viewer: scripts/show_run.py.
   GW -->|"each call = 1 evidence"| DDB
   %% L16 DynamoDB → Explainer: reads the run's ledger (EvidenceLedger.records) and builds an evidence catalogue
   %%      (every evidence_id, nested ones linked to their parent); the claim check compares each stated
-  %%      number with the evidence it cites. Same catalogue served by GET /v1/runs/{id}/evidence.
+  %%      number with the evidence it cites. Same catalogue served by GET /v1/runs/{id}/evidence/catalog.
   DDB -.->|"evidence ledger"| EXP
-  %% L17 Orchestrator ↔ Memory: AgentCore Memory (short term: session; long term: preferences
-  %%      per actorId) via the Strands session manager.
+  %% L17 Orchestrator ↔ Memory: AgentCore Memory, on the main agent only (sub-agents stay stateless).
+  %%      Short term: the conversation, stored per (actorId, sessionId) by the Strands session manager and restored
+  %%      on the next turn (the API returns session_id). Long term: userPreferenceMemoryStrategy extracts SOFT
+  %%      preferences into /preferences/{actorId}/; code loads them at each run into the system prompt.
+  %%      They guide tone and emphasis, never override profile or governance, and are not evidence.
+  %%      Setup: scripts/agentcore_memory.py create --write-env (AF_MEMORY_ID). Without it the run goes on, memory off.
   ORCH <-.-> MEM
   %% L18 Explainer → DynamoDB: RunRecord.result["answer"] (RunAnswer: sections, citations, verification,
   %%      model, PromptRef) via the RunStore. Target: S3 if > 400 KB; Guardrails grounding check (not built).

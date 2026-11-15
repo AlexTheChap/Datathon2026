@@ -24,7 +24,7 @@ from typing import Any, Callable, Optional
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from ..schemas import TASKS, Profile, Request, Scenario, Task
+from ..schemas import TASKS, Profile, Request, Task
 from ..schemas.execution_plan import AGENTS, AgentName, DisabledAgent, EnabledAgent, ExecutionPlan
 
 REGISTRY_PATH = Path(__file__).resolve().parents[1] / "core" / "plan_registry.yaml"
@@ -37,10 +37,6 @@ _ESG_EXCLUSIONS = ("controversy", "esg_activity")
 Trigger = Callable[[Profile, Request], Optional[str]]
 
 TRIGGERS: dict[str, Trigger] = {
-    "stress_tests_requested": lambda p, r: "toggles.stress_tests = true" if r.toggles.stress_tests else None,
-    "scenarios_requested": lambda p, r: (
-        f"parameters.scenarios = {json.dumps(list(r.parameters.scenarios))}" if r.parameters.scenarios else None
-    ),
     "rag_requested": lambda p, r: "toggles.include_rag = true" if r.toggles.include_rag else None,
     "esg_preference": lambda p, r: (
         "profile preference mentions ESG" if any(_ESG_WORD.search(x) for x in p.preferences) else None
@@ -82,7 +78,6 @@ class PlanRegistry(BaseModel):
     version: int
     updated: Any = None
     min_intake_confidence: float = Field(ge=0.0, le=1.0)
-    default_scenarios: list[Scenario]
     tasks: dict[Task, _TaskRule]
     triggers: list[_TriggerRule] = Field(default_factory=list)
 
@@ -108,8 +103,6 @@ def _parameters(agent: str, request: Request, registry: PlanRegistry) -> dict[st
     """Parameters taken from the Request only (the profile travels separately to the Orchestrator)."""
     if agent == "risk" and request.parameters.benchmark:
         return {"benchmark": request.parameters.benchmark}
-    if agent == "macro_scenarios":
-        return {"scenarios": list(request.parameters.scenarios or registry.default_scenarios)}
     return {}
 
 

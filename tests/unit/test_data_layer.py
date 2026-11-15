@@ -32,9 +32,9 @@ def test_parquet_reads_back_identical_to_csv(parquet_dir, name):
 
 def test_risk_tools_same_evidence_from_parquet(parquet_dir):
     p, c = RiskTools(parquet_dir), RiskTools(CURATED)
-    for f in (lambda rt: rt.stress(W, "2022", 400000), lambda rt: rt.concentration(W),
+    for f in (lambda rt: rt.concentration(W),
               lambda rt: rt.metrics(["NVDA", "XBB.TO"], as_of="2022-06-30"),
-              lambda rt: rt.max_position({k: v for k, v in W.items() if k != "NVDA"}, "NVDA", 0.15)):
+              lambda rt: rt.correlation(["NVDA", "XBB.TO"], as_of="2022-06-30")):
         x, y = f(p), f(c)
         assert x["evidence_id"] == y["evidence_id"] and x["output"] == y["output"]
 

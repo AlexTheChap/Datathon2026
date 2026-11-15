@@ -36,19 +36,6 @@ def test_zst_less_risky_than_tlt():
     assert m["ZST.TO"]["max_drawdown"] > m["TLT"]["max_drawdown"]
 
 
-def test_stress_deterministic():
-    w = {"XIU.TO": .5, "XBB.TO": .5}
-    assert rt.stress(w)["evidence_id"] == rt.stress(w)["evidence_id"]
-    assert rt.stress(w)["output"] == rt.stress(w)["output"]
-
-
-def test_max_position_monotone_in_limit():
-    base = PERSONAS["robert"]["demo_request"]["simulated_current_portfolio"]
-    tight = rt.max_position(base, "NVDA", 0.10)["output"]["max_weight"]
-    loose = rt.max_position(base, "NVDA", 0.20)["output"]["max_weight"]
-    assert tight <= loose
-
-
 def test_robert_nvda_blocked():
     base = PERSONAS["robert"]["demo_request"]["simulated_current_portfolio"]
     w = {k: v * 0.8 for k, v in base.items()}
