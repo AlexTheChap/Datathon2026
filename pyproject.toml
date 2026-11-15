@@ -2,21 +2,38 @@
 name = "alphaforge"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = ["boto3", "strands-agents", "pydantic", "pandas", "numpy", "pyyaml"]
+dependencies = [
+    "boto3",
+    "strands-agents",
+    "bedrock-agentcore[strands-agents]>=0.4",   # orchestrator entrypoint (node ⑤)
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",                    # AF_* settings
+    "pandas",
+    "numpy",
+    "pyyaml",
+]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+# requests: scripts (nbim_exclusions…) exercised by tests/unit · httpx: FastAPI TestClient (tests/unit/test_api.py)
+dev = ["pytest", "ruff", "requests", "httpx"]
 # Data-collection scripts in scripts/ (network access to SEC, iShares, NBIM, etc.)
 scripts = ["requests", "beautifulsoup4", "lxml", "openpyxl"]
 # Intake agent (box 3) on Bedrock: Claude Haiku with structured outputs via the anthropic SDK (AnthropicBedrock).
 # truststore: on Windows, lets botocore see the system certificates (otherwise CERTIFICATE_VERIFY_FAILED).
 bedrock = ["anthropic>=2.0", "truststore>=0.9"]
+# API (box 2): FastAPI app, run on Lambda behind API Gateway through the Mangum adapter (architecture.mmd L1).
+api = ["fastapi>=0.110", "mangum>=0.17"]
 
-# The repo is not a single importable package yet; this lets `pip install -e .`
-# install dependencies without setuptools auto-discovery failing on the layout.
-[tool.setuptools]
-py-modules = []
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# The backend `app` package (agents, tools, schemas, context) is installed editable so
+# the AgentCore entrypoint and scripts import `app.*` from anywhere.
+[tool.setuptools.packages.find]
+where = ["backend"]
+include = ["app*"]
 
 [tool.pytest.ini_options]
-pythonpath = ["backend"]
-testpaths = ["tests/unit"]
+pythonpath = ["backend"]   # tests also work without `pip install -e .`
+testpaths = ["tests"]      # unit + e2e (all offline: no AWS account, no LLM call)

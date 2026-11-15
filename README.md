@@ -37,6 +37,24 @@ to observable data and execution steps.
 Before writing or reviewing any code, read it. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Run the orchestrator (node ⑤)
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+.venv/bin/pytest -q                                   # unit tests, no AWS needed
+
+# Requires AWS credentials with Bedrock Claude access (default model + region
+# overridable via AF_MODEL_ORCHESTRATOR / AF_AWS_REGION):
+.venv/bin/python scripts/smoke_orchestrator.py          # Robert "20% in Nvidia?" end-to-end
+.venv/bin/python -m app.entrypoint                      # AgentCore Runtime entrypoint on :8080
+
+# Optional long-term memory (L17): create once, then export AF_MEMORY_ID=<id>
+.venv/bin/python scripts/setup_memory.py
+```
+
+Every tool call the agent makes is recorded as evidence in `data/runs/<run_id>.jsonl`
+(evidence_id, inputs, assumptions) — the basis for the Explainer's citations.
+
 ## Repository layout
 
 ```

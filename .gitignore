@@ -21,6 +21,10 @@ venv/
 cdk.out/
 .bedrock_agentcore.yaml
 
+# Local run artifacts / agent session data
+data/runs/
+.zcode/
+
 # Build artifacts (scripts/deploy_intake_lambda.py)
 build/
 

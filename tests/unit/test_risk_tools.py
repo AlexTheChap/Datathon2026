@@ -6,10 +6,8 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "backend/app/tools"))
-sys.path.insert(0, str(ROOT / "backend/app/agents/governance"))
-from risk_tools import RiskTools          # noqa: E402
-from governance_check import check        # noqa: E402
+from app.tools.risk_tools import RiskTools                # noqa: E402
+from app.agents.governance.governance_check import check  # noqa: E402
 
 rt = RiskTools(ROOT / "data/curated")
 PERSONAS = {p["id"]: p for p in json.loads((ROOT / "backend/app/core/personas.json").read_text(encoding="utf-8"))["personas"]}

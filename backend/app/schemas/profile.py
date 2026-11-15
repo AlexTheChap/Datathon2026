@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 RiskBand = Literal["low", "low_moderate", "moderate", "high"]
 Experience = Literal["beginner", "intermediate", "advanced"]
@@ -61,3 +61,16 @@ class Profile(BaseModel):
     loss_capacity: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="Tolerated loss, as a fraction of capital.")
     capital: Optional[float] = Field(default=None, gt=0, description="Simulated capital, in CAD.")
     agent_toggles: AgentToggles = Field(default_factory=AgentToggles)
+    agent_toggle_reasons: dict[str, str] = Field(
+        default_factory=dict,
+        description="Why a toggle was last changed from chat: agent name -> the user's exact words "
+        "(e.g. news -> \"I don't care about the news\"). Lets the Explainer quote the user.",
+    )
+
+    @field_validator("agent_toggle_reasons")
+    @classmethod
+    def _known_agents(cls, v: dict[str, str]) -> dict[str, str]:
+        unknown = set(v) - set(AgentToggles.model_fields)
+        if unknown:
+            raise ValueError(f"agent_toggle_reasons: unknown agents {sorted(unknown)}")
+        return v

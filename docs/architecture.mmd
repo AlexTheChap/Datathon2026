@@ -1,11 +1,33 @@
 %% =====================================================================================
-%% AlphaForge — agent architecture (diagram v2)
-%% Links and nodes are UNCHANGED. Lines starting with "%%" are comments:
-%% Mermaid does not render them. For each link, they list the AWS tools used.
+%% AlphaForge — agent architecture (diagram v3)
+%% Lines starting with "%%" are comments: Mermaid does not render them. For each link,
+%% they list the AWS tools used, plus the CURRENT implementation status.
 %% Glossary of AWS tools (1-2 lines each): at the bottom of this file.
 %% Details and alternatives: docs/AWS.md · Link-by-link explanation: docs/ARCHITECTURE.md
 %% Color legend: orange = AWS service · green = LLM agent · blue = deterministic code
 %%                 violet = JSON data · white = interface
+%% =====================================================================================
+%% IMPLEMENTATION STATUS (main, 2026-11-14)
+%% -------------------------------------------------------------------------------------
+%% BUILT: ⑤ orchestrator (Strands Agent, Claude Sonnet via Bedrock) · 6 sub-agents exposed
+%%   as tools (Claude Haiku; news = SIMULATED placeholder) · prompt loader + en templates ·
+%%   governance_check as a deterministic TOOL (no LLM — see GOV) · evidence hook
+%%   (AfterToolCallEvent) → local JSONL ledger (data/runs/<run_id>.jsonl, DynamoDB-shaped
+%%   interface) · quant + analysis tools in-process (agent_tools.py, analysis_tools.py over
+%%   data/curated CSVs) · AgentCore entrypoint (app/entrypoint.py, not yet deployed) ·
+%%   AF_* / .env config · sub-agents chosen from the ④ ExecutionPlan (L6).
+%%   ② API (backend/app/api/: FastAPI, POST/GET /v1/runs, GET/PUT /v1/profile, DynamoDB-ready stores;
+%%   not deployed yet, runs stay QUEUED: no dispatcher to AgentCore) · ③ Intake (deployed Lambda
+%%   alphaforge-intake; chat toggles saved in the profile) · ④ plan resolver + Explainer prompt loader
+%%   (deployed Lambda alphaforge-context, templates in S3).
+%% DIVERGES from target (by design for the prototype): dispatch = agents-as-tools
+%%   (sequential), Strands graph + parallel nodes = next phase · PURE DELEGATION: the
+%%   orchestrator holds only governance_check, all quant tools live in the sub-agents ·
+%%   tools called in-process (no Gateway/MCP yet) · ledger = JSONL not DynamoDB ·
+%%   news = simulated (no KB feed yet).
+%% NOT BUILT: ① frontend · L6 dispatcher (API → AgentCore Runtime) · Explainer agent ·
+%%   Guardrails (wired in the Intake, needs AF_GUARDRAIL_ID) · Memory (wired, needs AF_MEMORY_ID) ·
+%%   optimizer tool.
 %% =====================================================================================
 flowchart TB
   %% ===== 1. Frontend =====
@@ -14,7 +36,7 @@ flowchart TB
 
   %% ===== 2. API =====
   %% AWS: API Gateway (HTTP API + Cognito JWT authorizer) · Lambda (FastAPI + Mangum)
-  API["② API Gateway HTTP + Lambda (FastAPI)<br/>POST /v1/runs → 202 run_id · GET /v1/runs/id"]
+  API["② API Gateway HTTP + Lambda (FastAPI)<br/>POST /v1/runs → 202 run_id (or 200 question) · GET /v1/runs/id · GET/PUT /v1/profile"]
 
   %% ===== 3. Intake =====
   %% AWS: Bedrock (Claude Haiku, Converse API + structured outputs JSON Schema) · Guardrails (input)
@@ -28,7 +50,7 @@ flowchart TB
   %% AWS: Lambda (plain Python code) · S3 or Bedrock Prompt Management (versioned templates)
   subgraph CTX["④ Context resolution — deterministic code, no LLM"]
     PLAN{{"Plan resolver<br/>task × profile × toggles → enabled sub-agents"}}
-    LOAD{{"Prompt loader<br/>base prompts by language · experience · role<br/>(versioned agent.md templates in S3)"}}
+    LOAD{{"Prompt loader<br/>Explainer prompt by experience level<br/>(versioned explainer.level.md templates in S3)"}}
   end
 
   %% ===== 5. Agents =====
@@ -36,22 +58,22 @@ flowchart TB
   subgraph RT["⑤ Amazon Bedrock AgentCore Runtime — Strands graph"]
     ORCH["Main agent · orchestrator<br/>Claude Sonnet"]
     MEM[("AgentCore Memory<br/>session · soft preferences")]
-    subgraph SUB["Sub-agents · Claude Haiku · only the ones in the plan (run in parallel)"]
+    subgraph SUB["Sub-agents · Claude Haiku · enabled per profile toggles (plan) · agents-as-tools (graph = next phase)"]
       RISK["Risk"]
-      NEWS["News"]
+      NEWS["News (SIMULATED)"]
       ESG["ESG"]
       FUND["Fundamentals"]
       MACRO["Macro & scenarios"]
-      ALLOC["Allocation"]
+      ALLOC["Allocation<br/>(self-verifies via GOV)"]
     end
-    GOV["Governance agent<br/>rules YAML → PASS / WARN / BLOCK"]
+    GOV["Governance check — deterministic<br/>rules.yaml → PASS / WARN / BLOCK"]
     EXP["Explainer agent · Claude Sonnet<br/>cites evidence only + claim verifier"]
   end
 
   %% ===== 6. Tools & data =====
   %% AWS: AgentCore Gateway (MCP) · Lambda · Bedrock Knowledge Bases · S3 Vectors · S3 · DynamoDB
   subgraph DATA["⑥ Tools & data"]
-    GW["AgentCore Gateway (MCP)<br/>Lambda quant tools: metrics · risk · scenarios · optimizer"]
+    GW["AgentCore Gateway (MCP)<br/>Lambda quant tools: metrics · stress · concentration · correlation<br/>risk_contribution · max_position · macro · rates · esg_screen · optimizer (later)"]
     KB["Bedrock Knowledge Base<br/>news & docs · S3 Vectors"]
     S3[("S3 curated Parquet<br/>prices · FX · macro · point-in-time")]
     DDB[("DynamoDB<br/>profiles · runs · evidence ledger")]
@@ -68,20 +90,27 @@ flowchart TB
   %% L1  UI → API: Cognito issues the JWT; the API Gateway JWT authorizer validates it before the Lambda.
   %%      Files go straight to S3 via presigned URL (never through Lambda, 6 MB limit).
   UI -->|"JWT"| API
-  %% L2  API → Intake: Lambda calls Bedrock (Haiku) with structured outputs (JSON schema), via the anthropic
+  %% L2  API → Intake: the API Lambda (backend/app/api/, FastAPI + Mangum) runs the Intake and the context
+  %%      resolution in-process, synchronously (a few s, under API Gateway's 30 s): it answers 200 with the Intake's
+  %%      question or "create your profile first", else saves the run QUEUED and answers 202 {run_id}.
+  %%      Identity = Cognito JWT `sub` (X-Actor-Id header only with AF_AUTH_MODE=dev).
+  %%      The Intake calls Bedrock (Haiku) with structured outputs (JSON schema), via the anthropic
   %%      SDK (AnthropicBedrock client = InvokeModel, messages.parse, inference profile us.anthropic.claude-haiku-5-5);
   %%      code: backend/app/intake/. Guardrails filters the input (prompt attack, personal data): ApplyGuardrail
   %%      when AF_GUARDRAIL_ID is set. Offline mode without an LLM (AF_INTAKE_MODE=mock) for tests and demos.
   API --> ING
   %% L3  Intake → JSON: output validated by schema (Bedrock structured outputs), then Pydantic;
-  %%      the profile is stored in DynamoDB (ACTOR#… / PROFILE#…).
+  %%      the profile is stored in DynamoDB (ACTOR#… / PROFILE#current), including the sub-agent toggles the user
+  %%      switches on/off in chat (with their words: agent_toggle_reasons) and the profile form (PUT /v1/profile).
   ING --> PROF
   ING --> REQ
-  %% L4  JSON → Plan resolver: Lambda, plain Python code; versioned agent/task registry (repo, or AWS AppConfig as an option).
+  %% L4  JSON → Plan resolver: plain Python code; versioned agent/task registry
+  %%      (backend/app/core/plan_registry.yaml, or AWS AppConfig as an option). Output: ExecutionPlan.
   PROF --> PLAN
   REQ --> PLAN
   %% L5  Profile → Prompt loader: Lambda; picks the Explainer template (experience level). Source: Git
-  %%      (agents/prompts/), published to S3 in aws mode (AF_PROMPT_SOURCE); option: Bedrock Prompt Management.
+  %%      (backend/app/prompts/explainer.<level>.md), published to S3 by scripts/deploy_context_lambda.py
+  %%      (AF_PROMPT_SOURCE=s3); option: Bedrock Prompt Management. Output: PromptRef (level, version, sha256).
   PROF --> LOAD
   %% L6  Plan → Orchestrator: DynamoDB (run QUEUED) → "dispatcher" Lambda (asynchronous invocation)
   %%      → AgentCore Runtime (InvokeAgentRuntime). API / agents boundary; IAM for the call.
@@ -89,26 +118,41 @@ flowchart TB
   %% L7  Prompt loader → Explainer: only keys travel (level, version) in the payload
   %%      InvokeAgentRuntime; the Runtime loads the template from S3 / Prompt Management.
   LOAD -.->|"prompts"| EXP
-  %% L8  Orchestrator → Sub-agents: Strands graph in AgentCore Runtime; Bedrock models (Haiku);
-  %%      only the agents in the plan become nodes, running in parallel.
-  ORCH -->|"dispatch"| SUB
-  %% L9  Sub-agents → Governance: in memory inside the Runtime; Python rules (YAML); no external service.
-  SUB -->|"findings"| GOV
-  %% L10 Governance → Orchestrator: conditional edge of the Strands graph (max 2 loops), inside the Runtime.
-  GOV -->|"BLOCK → fix (max 2 loops)"| ORCH
+  %% L8  Orchestrator → Sub-agents: TARGET: Strands graph in AgentCore Runtime, plan-driven
+  %%      parallel nodes. CURRENT: agents-as-tools — ORCH calls each <domain>_subagent
+  %%      tool with a structured payload (subject + weights + tickers); the investor
+  %%      context is rendered into the brief by deterministic code (render_brief).
+  ORCH -->|"dispatch (agents-as-tools)"| SUB
+  %% L9  Governance: TARGET (graph phase): sub-agent findings verified by the GOV node.
+  %%      CURRENT: governance_check is a deterministic TOOL (pure-Python rules, no LLM):
+  %%      ORCH calls it on weights (reference verdict), and ALLOC self-verifies its
+  %%      proposal by iterating until PASS/WARN — L10's "BLOCK → fix" loop, implemented.
+  ORCH -->|"governance_check (tool)"| GOV
+  ALLOC -->|"self-verify loop"| GOV
+  %% L10 Governance → caller: the verdict returns to whoever called the tool (ORCH or ALLOC);
+  %%      max 2 loops implemented inside ALLOC's iterate-to-PASS.
+  GOV -->|"verdict (PASS / WARN / BLOCK)"| ORCH
   %% L11 Governance → Explainer: inside the Runtime; coded findings + checks + disabled agents.
   GOV -->|"PASS / WARN"| EXP
-  %% L12 Sub-agents → Gateway: AgentCore Gateway (MCP, SigV4/OAuth auth, optional Cedar Policy)
-  %%      → quant tool Lambdas.
-  SUB -->|"tool calls"| GW
-  %% L13 News → KB: Bedrock Knowledge Bases (Retrieve API + metadata filter published ≤ as_of),
-  %%      S3 Vectors index, Titan Text Embeddings v2 embeddings.
-  NEWS -->|"RAG · published ≤ as_of"| KB
-  %% L14 Gateway → S3: the tool Lambdas read the Parquet files (pandas/DuckDB, point-in-time filter).
-  %%      Glue + Athena are for exploration, not for this loop.
+  %% L12 Sub-agents → Tools: TARGET: AgentCore Gateway (MCP, SigV4/OAuth auth, optional Cedar
+  %%      Policy) → quant tool Lambdas. CURRENT: direct in-process calls — sub-agents own their
+  %%      domain toolsets (risk: metrics/stress/concentration/correlation/risk_contribution/
+  %%      max_position · macro: macro_snapshot/rate_sensitivity/stress · esg+fundamentals:
+  %%      esg_screen · allocation: metrics/max_position/stress/concentration/governance_check).
+  SUB -->|"tool calls (in-process)"| GW
+  %% L13 News → KB: TARGET: Bedrock Knowledge Bases (Retrieve API + metadata filter published
+  %%      ≤ as_of), S3 Vectors index. CURRENT: news_subagent is a SIMULATED placeholder (no
+  %%      feed, no licence) — content labeled fictional end to end.
+  NEWS -.->|"RAG · published ≤ as_of (later)"| KB
+  %% L14 Tools → Data: TARGET: Gateway Lambdas read S3 Parquet (pandas/DuckDB, point-in-time).
+  %%      CURRENT: in-process pandas reads over data/curated CSVs (returns_daily_cad,
+  %%      macro_daily_asof, rate_sensitivity, esg_index_screen, controversies…).
   GW --> S3
-  %% L15 Gateway → DynamoDB: in practice, a Strands hook (AfterToolCallEvent) in the Runtime writes
-  %%      each tool result as evidence (RUN#id / EVID#ev-<hash>).
+  %% L15 Tools → Evidence ledger: a Strands hook (AfterToolCallEvent) fires after every tool
+  %%      call. TARGET sink: DynamoDB (RUN#id / EVID#E-001). CURRENT: local JSONL ledger
+  %%      data/runs/<run_id>.jsonl behind the same EvidenceLedger interface — every call is
+  %%      one record (seq, caller agent tag, tool, inputs, envelope), incl. nested sub-agent
+  %%      calls and failures. Viewer: scripts/show_run.py.
   GW -->|"each call = 1 evidence"| DDB
   %% L16 DynamoDB → Explainer: reads (Query) the evidence ledger via the get_evidence tool.
   DDB -.->|"evidence ledger"| EXP
@@ -128,8 +172,8 @@ flowchart TB
   classDef json fill:#f6f0ff,stroke:#8a63d2,color:#1f1f1f;
   classDef ui fill:#ffffff,stroke:#555,color:#1f1f1f;
   class API,GW,KB,S3,DDB,MEM,X aws;
-  class PLAN,LOAD det;
-  class ING,ORCH,RISK,NEWS,ESG,FUND,MACRO,ALLOC,GOV,EXP agent;
+  class PLAN,LOAD,GOV det;
+  class ING,ORCH,RISK,NEWS,ESG,FUND,MACRO,ALLOC,EXP agent;
   class PROF,REQ json;
   class UI,OUT ui;
 
