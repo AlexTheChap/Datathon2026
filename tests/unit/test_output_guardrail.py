@@ -81,6 +81,15 @@ def test_uncited_statement_gets_filters_only_no_grounding():
     assert [c["text"]["qualifiers"] for c in content] == [["guard_content"]]
 
 
+def test_a_governance_check_is_filtered_on_its_sentence_only():
+    """Live test: "Your idea: Nvidia at 20%. Stress loss…" read as a trade instruction and scored grounding 0.47."""
+    catalog = build_catalog(LEDGER)
+    guard = FakeGuardrail()
+    screen(draft(), catalog, "q", settings=GUARDED, client=guard)
+    sent = [c["content"] for c in guard.calls if c["content"][-1]["text"]["text"] == GOOD["checks"][0]["text"]]
+    assert len(sent) == 1 and [b["text"]["qualifiers"] for b in sent[0]] == [["guard_content"]]
+
+
 def test_sizes_are_capped_to_the_api_limits():
     catalog = build_catalog(LEDGER)
     item = catalog["ev-c5f01b9379"]

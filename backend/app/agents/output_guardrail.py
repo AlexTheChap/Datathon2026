@@ -11,7 +11,8 @@ Bedrock Guardrails (ApplyGuardrail, source=OUTPUT) about every statement of the 
   advice), content filters, personal data (anonymized: the masked text replaces the original, nothing is removed).
 
 A statement that cites nothing (typically a limitation) gets the filters only, no grounding: an honest caveat is not
-removed for having no source. Thresholds live in the guardrail itself (scripts/deploy_guardrail.py).
+removed for having no source. A governance check also gets the filters only, on its sentence without the allocation
+label: its verdict and numbers are already verified deterministically. Thresholds live in the guardrail itself (scripts/deploy_guardrail.py).
 
     result = screen(draft, catalog, question, settings=s)   # None when not configured
 
@@ -57,14 +58,11 @@ def enabled(settings: Settings) -> bool:
 
 
 def _runtime_client(region: str):
+    # No truststore.inject_into_ssl() here: injected after botocore is loaded (always the case by now), it recurses
+    # forever in ssl.SSLContext.options (seen 2026-11-15, Python 3.14). On Windows, inject it at process start, as the
+    # scripts do; the Lambda (Linux) does not need it.
     import boto3
 
-    try:  # on Windows, botocore does not always see the system certificates (CERTIFICATE_VERIFY_FAILED)
-        import truststore
-
-        truststore.inject_into_ssl()
-    except ImportError:
-        pass
     return boto3.client("bedrock-runtime", region_name=region)
 
 
@@ -131,10 +129,16 @@ def screen(draft: ExplainerDraft, catalog: dict[str, EvidenceItem], question: st
         rt = client or _runtime_client(settings.aws_region)
 
         def one(entry):
-            _section, _i, text, ids, _chk = entry
+            _section, _i, text, ids, chk = entry
+            if chk is not None:
+                # A governance check: its verdict and numbers are already verified deterministically against the
+                # governance evidence (claim check). Live test: its terse text scored grounding 0.47, and the
+                # "Nvidia at 20%" label read as a trade instruction. So only its sentence, filters only.
+                content = build_content(chk.text, [], question or "")
+            else:
+                content = build_content(text, _cited(ids, catalog), question or "")
             return rt.apply_guardrail(guardrailIdentifier=settings.guardrail_id,
-                                      guardrailVersion=settings.guardrail_version, source="OUTPUT",
-                                      content=build_content(text, _cited(ids, catalog), question or ""))
+                                      guardrailVersion=settings.guardrail_version, source="OUTPUT", content=content)
 
         with ThreadPoolExecutor(max_workers=min(_WORKERS, max(1, len(items)))) as pool:
             responses = list(pool.map(one, items))

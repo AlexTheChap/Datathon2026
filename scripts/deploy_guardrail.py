@@ -6,10 +6,11 @@
 
 One guardrail, two uses:
 - INPUT (app.intake.backends.BedrockBackend): prompt attacks; secrets and identity numbers blocked.
-- OUTPUT (app.agents.output_guardrail): contextual GROUNDING (each statement supported by the evidence it cites) and
-  RELEVANCE (it answers the question); denied topics, OUTPUT ONLY, so a user asking "is it guaranteed?" is not
-  refused; contact details anonymized.
-Thresholds: --grounding (default 0.7) and --relevance (default 0.5). Too many correct paraphrases removed → lower them.
+- OUTPUT (app.agents.output_guardrail): contextual GROUNDING (each statement supported by the evidence it cites);
+  denied topics, OUTPUT ONLY, so a user asking "is it guaranteed?" is not refused; contact details anonymized.
+Thresholds: --grounding (default 0.7; too many correct paraphrases removed → lower it). RELEVANCE is off by default
+(--relevance 0): checked one statement at a time, a correct fact ("volatility was 51%") scored 0.19 against
+"Should I put 20% in Nvidia?" in the live test (2026-11-15), so it would remove most good statements.
 
 Writes build/guardrail.json; --write-env puts AF_GUARDRAIL_ID / AF_GUARDRAIL_VERSION into .env. The API Lambda already
 has bedrock:ApplyGuardrail and receives both variables (scripts/deploy_api.py): redeploy it after a new version.
@@ -62,8 +63,8 @@ def config(grounding: float, relevance: float) -> dict:
             [{"type": t, "action": "ANONYMIZE", "inputEnabled": False, "outputEnabled": True,
               "outputAction": "ANONYMIZE"} for t in PII_MASK_OUTPUT])},
         "contextualGroundingPolicyConfig": {"filtersConfig": [
-            {"type": "GROUNDING", "threshold": grounding, "action": "BLOCK", "enabled": True},
-            {"type": "RELEVANCE", "threshold": relevance, "action": "BLOCK", "enabled": True}]},
+            {"type": "GROUNDING", "threshold": grounding, "action": "BLOCK", "enabled": True}] + (
+            [{"type": "RELEVANCE", "threshold": relevance, "action": "BLOCK", "enabled": True}] if relevance > 0 else [])},
         "blockedInputMessaging": BLOCKED_INPUT,
         "blockedOutputsMessaging": BLOCKED_OUTPUT,
     }
@@ -92,6 +93,20 @@ def deploy(bedrock, grounding: float, relevance: float) -> tuple[str, str]:
                                                description=f"grounding {grounding} relevance {relevance}")["version"]
     print(f"• Version {version} (grounding >= {grounding}, relevance >= {relevance})")
     return gid, version
+
+
+def wait_ready(bedrock, gid: str, version: str, timeout: int = 180) -> None:
+    """ApplyGuardrail refuses a guardrail still CREATING / UPDATING / VERSIONING."""
+    import time
+
+    deadline = time.time() + timeout
+    while True:
+        status = bedrock.get_guardrail(guardrailIdentifier=gid, guardrailVersion=version)["status"]
+        if status == "READY":
+            return
+        if status == "FAILED" or time.time() > deadline:
+            raise SystemExit(f"Guardrail {gid} v{version} is {status}, not READY.")
+        time.sleep(5)
 
 
 def write_env(gid: str, version: str) -> Path:
@@ -134,7 +149,9 @@ def main() -> None:
     ap.add_argument("--profile", help="AWS profile; otherwise AWS_* variables, otherwise .env")
     ap.add_argument("--region", default=None, help="default: AWS_REGION, otherwise us-east-1")
     ap.add_argument("--grounding", type=float, default=0.7)
-    ap.add_argument("--relevance", type=float, default=0.5)
+    ap.add_argument("--relevance", type=float, default=0.0,
+                    help="0 = off (default): one statement alone rarely 'answers' the question, so a correct fact "
+                         "scored 0.19 in the live test and would be removed")
     ap.add_argument("--write-env", action="store_true", help="write AF_GUARDRAIL_ID / AF_GUARDRAIL_VERSION into .env")
     ap.add_argument("--test", action="store_true", help="after deploying: three ApplyGuardrail calls")
     ap.add_argument("--test-only", action="store_true")
@@ -164,9 +181,12 @@ def main() -> None:
         return
     if args.test_only:
         state = json.loads(STATE.read_text())
+        wait_ready(bedrock, state["id"], state["version"])
         raise SystemExit(0 if test(session.client("bedrock-runtime"), state["id"], state["version"]) else 1)
 
     gid, version = deploy(bedrock, args.grounding, args.relevance)
+    wait_ready(bedrock, gid, version)
+    print("• READY")
     BUILD.mkdir(exist_ok=True)
     STATE.write_text(json.dumps({"id": gid, "version": version, "region": region,
                                  "grounding": args.grounding, "relevance": args.relevance}, indent=2))
