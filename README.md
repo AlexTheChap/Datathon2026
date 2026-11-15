@@ -125,6 +125,31 @@ python -m app.market.refresh --mode midday --system-certs       # Windows behind
 - **Source**: Yahoo Finance via yfinance, an unofficial and unlicensed feed (prototype only); it is isolated in
   `app.market.refresh.download`, to be swapped for a licensed feed in production.
 
+## News alerts by text message (Amazon SNS)
+
+People choose at sign-up (or later on **My profile → Text alerts**) whether to be texted, and give a Canadian or
+U.S. mobile number only if they say yes. On weekdays at 18:00 (Toronto), the news-alert agent
+(`app.notify.alerts`, no language model) fetches the **SEC 8-K filings of the stocks each person holds** (their
+saved portfolio, nothing else) and sends one short text with at most 3 items. The same filing is never texted
+twice.
+
+- **Never advice**: fixed wording ("NVDA: SEC 8-K filing on Nov 12 (financial results)."), the same closing line
+  ("Info only, not investment advice. Reply STOP to opt out."), and a check that refuses any advice word.
+- **Privacy**: the phone number is stored apart from the profile (`ACTOR#…/CONTACT#sms`), so it never reaches an
+  agent prompt; opting out deletes it; logs show masked numbers only.
+- **Limits**: TSX-only companies (SEDAR+, no free API) and ETFs file no 8-K, so they get no alert.
+
+```bash
+python -m app.notify.alerts --source corpus --since 2026-11-01 --until 2026-11-12 --dry-run   # from backend/
+.venv/bin/python scripts/deploy_sms_alerts.py --sec-contact "AlphaForge Datathon you@example.com" --test
+.venv/bin/python scripts/deploy_sms_alerts.py --verify-phone +15145550123    # SMS sandbox: verify each demo phone
+.venv/bin/python scripts/deploy_sms_alerts.py --verify-phone +15145550123 --code 123456
+.venv/bin/python scripts/deploy_sms_alerts.py --send-test +15145550123
+```
+
+A new AWS account is in the **SMS sandbox**: only verified numbers receive texts (enough for a demo). Texting real
+customers needs leaving the sandbox (AWS support) and a registered origination number.
+
 ## Repository layout
 
 ```

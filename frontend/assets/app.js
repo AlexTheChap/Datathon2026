@@ -1072,7 +1072,7 @@ function profileForm(saved, initialStatus = null) {
 
   fill(saved || {});
   state.dirty = false;
-  const root = h("div", { class: "columns" }, h("div", { class: "stack" }, examples, form), h("aside", { class: "stack" }, account));
+  const root = h("div", { class: "columns" }, h("div", { class: "stack" }, examples, form), h("aside", { class: "stack" }, account, smsPanel()));
   return root;
 }
 
@@ -1388,6 +1388,73 @@ function renderRun(main, runId) {
   load();
 }
 
+/* ---------------- News alerts by text (GET / PUT /v1/notifications/sms) ---------------- */
+
+const SMS_WHAT = "At most one text a day with news about the stocks you hold (company filings with the SEC). Facts only, never advice. Reply STOP to any text to stop them.";
+const SMS_PENDING = "af.sms.pending"; // the choice made at sign-up, saved once the new account is signed in
+
+/** Canadian or U.S. mobile number: 10 digits, or 11 starting with 1. The API checks it again. */
+function phoneProblem(v) {
+  const d = String(v || "").replace(/\D/g, "");
+  if (d.length === 10 || (d.length === 11 && d[0] === "1")) return null;
+  return "Enter a Canadian or U.S. mobile number, like 514 555 0123.";
+}
+
+/** Saves the choice made on the sign-up form, once the new account has a session. */
+async function flushSmsChoice() {
+  let pending = null;
+  try { pending = JSON.parse(sessionStorage.getItem(SMS_PENDING) || "null"); sessionStorage.removeItem(SMS_PENDING); } catch { /* ignore */ }
+  if (!pending) return;
+  try {
+    await api("PUT", "/v1/notifications/sms", pending);
+    announce("Text alerts are on.");
+  } catch {
+    announce("Your text alert choice wasn't saved. You can turn alerts on from My profile.");
+  }
+}
+
+/** "Text alerts" panel of the profile page: opt in or out, and the mobile number. */
+function smsPanel() {
+  const status = h("p", { class: "small", role: "status" });
+  const box = h("input", { type: "checkbox", id: "sms-opt-in", name: "sms_opt_in" });
+  const phone = h("input", { class: "input", id: "sms-phone", name: "sms_phone", type: "tel", inputmode: "tel",
+    autocomplete: "tel-national", placeholder: "514 555 0123", "aria-describedby": "sms-phone-help sms-phone-error" });
+  const error = h("p", { class: "field__error", id: "sms-phone-error" });
+  const phoneField = h("div", { class: "field" },
+    h("label", { class: "field__label", for: "sms-phone" }, "Mobile number"), phone,
+    h("p", { class: "field__help", id: "sms-phone-help" }, "Canada or U.S. Standard text message rates may apply."), error);
+  const save = h("button", { class: "btn btn--secondary", type: "button" }, "Save text alerts");
+  const sync = () => { phoneField.hidden = !box.checked; };
+  box.addEventListener("change", () => { sync(); status.replaceChildren(); if (box.checked) phone.focus(); });
+  phone.addEventListener("input", () => { error.replaceChildren(); phone.removeAttribute("aria-invalid"); });
+  save.addEventListener("click", async () => {
+    status.replaceChildren();
+    if (box.checked) {
+      const problem = phoneProblem(phone.value);
+      if (problem) { error.replaceChildren(icon("alert", 14), h("span", null, problem)); phone.setAttribute("aria-invalid", "true"); phone.focus(); return; }
+    }
+    save.disabled = true;
+    try {
+      const r = (await api("PUT", "/v1/notifications/sms", { opt_in: box.checked, phone: box.checked ? phone.value : null })).data;
+      phone.value = r.phone || "";
+      status.textContent = r.opt_in ? `Text alerts are on for ${r.phone_masked}.` : "Text alerts are off. Your number was deleted.";
+    } catch (err) {
+      status.replaceChildren(alertBox(err, "your text alert choice", null));
+    } finally { save.disabled = false; }
+  });
+  const panel = h("section", { class: "panel stack-sm", "aria-labelledby": "sms-title" },
+    h("h2", { id: "sms-title", class: "section-title" }, "Text alerts"),
+    h("label", { class: "choice" }, box,
+      h("span", { class: "choice__title" }, "Text me news about the stocks I hold"),
+      h("span", { class: "choice__desc" }, SMS_WHAT)),
+    phoneField, h("div", null, save), status);
+  sync();
+  api("GET", "/v1/notifications/sms").then(({ data }) => {
+    box.checked = !!data.opt_in; phone.value = data.phone || ""; sync();
+  }).catch(() => { status.textContent = "Your text alert choice couldn't be loaded."; });
+  return panel;
+}
+
 /* ---------------- Sign in (Amazon Cognito) ---------------- */
 
 const PASSWORD_RULE = "At least 10 characters, with upper case, lower case and a number.";
@@ -1416,6 +1483,7 @@ function renderSignIn(main) {
     try { next = sessionStorage.getItem("af.next") || HOME; sessionStorage.removeItem("af.next"); } catch { /* ignore */ }
     setWho();
     announce("Signed in.");
+    await flushSmsChoice();
     if (window.location.hash === next) route(); else window.location.hash = next;
   }
 
@@ -1507,6 +1575,17 @@ function renderSignIn(main) {
     if (flow.mode === "signup") {
       const email = field("email", "Email", { type: "email", autocomplete: "email", inputmode: "email", value: flow.email }, "We send a 6-digit code to confirm it.");
       const pw = field("password", "Password", { type: "password", autocomplete: "new-password" }, PASSWORD_RULE);
+      const smsBox = h("input", { type: "checkbox", id: "auth-sms", name: "sms" });
+      const phone = field("phone", "Mobile number", { type: "tel", inputmode: "tel", autocomplete: "tel-national", placeholder: "514 555 0123" },
+        "Canada or U.S. Standard text message rates may apply.");
+      phone.el.hidden = true;
+      smsBox.addEventListener("change", () => { phone.el.hidden = !smsBox.checked; if (smsBox.checked) phone.input.focus(); });
+      const smsChoice = h("fieldset", { class: "stack-sm" },
+        h("legend", { class: "field__label" }, "News by text message ", h("span", { class: "optional" }, "(optional)")),
+        h("label", { class: "choice" }, smsBox,
+          h("span", { class: "choice__title" }, "Text me news about the stocks I hold"),
+          h("span", { class: "choice__desc" }, SMS_WHAT)),
+        phone.el);
       const submit = primary("Create account");
       fillBox(
         h("div", { class: "page-head" }, h("h2", null, "Create your account"),
@@ -1518,15 +1597,20 @@ function renderSignIn(main) {
           if (!isEmail(flow.email)) return fail(email, "Enter a valid email address, like name@example.com.");
           const problem = passwordProblem(pw.input.value);
           if (problem) return fail(pw, problem);
+          if (smsBox.checked && phoneProblem(phone.input.value)) return fail(phone, phoneProblem(phone.input.value));
           const done = busy(submit, "Creating");
           try {
             await cognito("SignUp", { Username: flow.email, Password: pw.input.value, UserAttributes: [{ Name: "email", Value: flow.email }] });
+            try {
+              if (smsBox.checked) sessionStorage.setItem(SMS_PENDING, JSON.stringify({ opt_in: true, phone: phone.input.value }));
+              else sessionStorage.removeItem(SMS_PENDING);
+            } catch { /* ignore: the choice can be made on the profile page */ }
             flow.password = pw.input.value;
             notice = "";
             flow.mode = "confirm";
             draw();
           } catch (err) { done(); showError(err); }
-        } }, email.el, pw.el, formError, submit),
+        } }, email.el, pw.el, smsChoice, formError, submit),
         h("div", { class: "auth-links" }, h("button", { class: "link-btn", type: "button", onclick: () => go("signin") }, "I already have an account")));
     }
 

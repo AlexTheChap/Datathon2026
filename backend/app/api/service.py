@@ -22,6 +22,7 @@ from app.context import handler as context_handler
 from app.intake import IntakeError, get_backend, run_intake
 from app.intake.backends import IntakeBackend
 from app.intake.schemas import AgentToggleChange
+from app.notify.contacts import ContactStore, InMemoryContactStore, SmsPrefsIn, mask, save_prefs
 from app.schemas import PortfolioRef, Profile
 from app.schemas.models import profile_from_persona
 from app.schemas.profile import AgentToggles
@@ -108,6 +109,7 @@ class ApiService:
     dispatcher: Optional[Dispatcher] = None   # None -> InlineDispatcher(runs): live answers, queue-free
     intake_backend: Optional[IntakeBackend] = None
     ledger: Optional[Any] = None   # EvidenceLedger; None -> chosen from the settings (JSONL or DynamoDB)
+    contacts: ContactStore = field(default_factory=InMemoryContactStore)   # SMS opt-in + phone (not in Profile)
 
     def __post_init__(self):
         if self.dispatcher is None:
@@ -252,6 +254,26 @@ class ApiService:
         return profile
 
 
+    # ----- GET / PUT /v1/notifications/sms (news alerts by text, app.notify) -----
+    def get_sms(self, actor_id: str) -> dict[str, Any]:
+        c = self.contacts.get(actor_id)
+        return sms_view(c.opt_in, c.phone, c.consent_at) if c else sms_view(False, None, None)
+
+    def put_sms(self, actor_id: str, body: SmsPrefsIn) -> dict[str, Any]:
+        try:
+            c = save_prefs(self.contacts, actor_id, body)
+        except ValidationError as e:
+            raise ApiError(422, [{"loc": err.get("loc"), "msg": err["msg"].removeprefix("Value error, ")}
+                                 for err in e.errors(include_url=False)]) from e
+        return sms_view(c.opt_in, c.phone, c.consent_at)
+
+
+def sms_view(opt_in: bool, phone: Optional[str], consent_at: Optional[str]) -> dict[str, Any]:
+    """The owner's own preferences (the phone is shown back to them so the form can be edited)."""
+    return {"opt_in": opt_in, "phone": phone, "phone_masked": mask(phone), "consent_at": consent_at,
+            "what": "News on the stocks you hold (SEC filings), at most one text a day. Information only."}
+
+
 def example_personas(path: Path = PERSONAS_PATH) -> list[dict[str, Any]]:
     """The brief's three personas as ready-to-save profile forms (the frontend's "start from an example").
     Fictional profiles; the form never carries an actor_id (the login decides who saves it)."""
@@ -305,8 +327,10 @@ def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
         root = Path(env.get("AF_DATA_DIR") or ".af_store")
         root = root if root.is_absolute() else REPO_ROOT / root
         runs = InMemoryRunStore()
+        from app.notify.contacts import JsonFileContactStore
+
         return ApiService(profiles=JsonFileProfileStore(root / "profiles"), runs=runs,
-                          dispatcher=_dispatcher(runs, dispatch))
+                          dispatcher=_dispatcher(runs, dispatch), contacts=JsonFileContactStore(root / "contacts"))
     if kind == "dynamodb":
         import boto3
 
@@ -315,6 +339,9 @@ def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
 
         table = boto3.resource("dynamodb", region_name=env.get("AWS_REGION", "us-east-1")).Table(
             env.get("AF_TABLE", "alphaforge"))
+        from app.notify.contacts import DynamoDBContactStore
+
         runs = DynamoDBRunStore(table)
-        return ApiService(profiles=DynamoDBProfileStore(table), runs=runs, dispatcher=_dispatcher(runs, dispatch))
+        return ApiService(profiles=DynamoDBProfileStore(table), runs=runs, dispatcher=_dispatcher(runs, dispatch),
+                          contacts=DynamoDBContactStore(table))
     raise ValueError(f"Unknown AF_STORE: {kind!r} (expected: memory, file or dynamodb)")

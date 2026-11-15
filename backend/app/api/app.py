@@ -11,6 +11,8 @@
     POST /v1/profile/draft[/file] → profile fields read from the person's text or a PDF / Word file (onboarding)
     PUT  /v1/profile        → save the profile form
     GET  /v1/personas       → the brief's three example profiles (Amira, Mateo, Robert) as profile forms
+    GET  /v1/notifications/sms → the caller's text-alert choice (opt_in, phone)
+    PUT  /v1/notifications/sms {opt_in, phone?} → save it (opting out deletes the phone number)
     GET  /v1/me             → who is signed in (actor_id, email, demo persona)
     GET  /health
     /                       → the frontend (box ①, frontend/), served locally when that folder exists
@@ -33,6 +35,7 @@ from fastapi import Body, Depends, FastAPI, File, HTTPException, Request, Upload
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from app.notify.contacts import SmsPrefsIn
 from app.schemas import Profile
 from app.store.runs import RunRecord
 
@@ -141,6 +144,15 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
     @api.put("/v1/profile", response_model=Profile)
     def put_profile(form: dict[str, Any] = Body(...), actor_id: str = Depends(current_actor)) -> Profile:
         return svc.put_profile(actor_id, form)
+
+    # News alerts by text (app.notify): opt-in + phone, kept apart from the profile (never sent to a model).
+    @api.get("/v1/notifications/sms")
+    def get_sms(actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.get_sms(actor_id)
+
+    @api.put("/v1/notifications/sms")
+    def put_sms(body: SmsPrefsIn, actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.put_sms(actor_id, body)
 
     # Onboarding (box ③): read the person's answers or a document, return the profile fields found. Saves nothing.
     @api.post("/v1/profile/draft")
