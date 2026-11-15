@@ -143,6 +143,11 @@ export async function renderPortfolio(main, ctx) {
       body.replaceChildren(noWeights(ctx, p, run), history(ctx, runs));
       return;
     }
+    // This is now the user's portfolio: saved in the profile, so a question about "my portfolio" is analysed on it.
+    if (profile.portfolio_run_id !== p.runId) {
+      ctx.api("PUT", "/v1/profile", { portfolio: p.weights, portfolio_run_id: p.runId })
+        .then(() => ctx.loadProfile(true)).catch(() => { /* retried on the next visit */ });
+    }
 
     // Risk of these exact weights: from this run when it measured them, else from the follow-up question.
     let risk = p.risk; let riskRunId = run.run_id; let riskState = risk.matches ? "ready" : "missing";

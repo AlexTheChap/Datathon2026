@@ -337,6 +337,14 @@ def test_portfolio_dashboard_shows_the_built_portfolio(page, base_url):
     page.wait_for_selector("button:has-text('Measure it')")
     assert page.locator("text=Share of the money vs share of the risk").count() == 0
     assert page.locator(f"a[href='#/runs/{run.run_id}']").count() >= 1           # linked to its analysis
+    # Shown = adopted: saved in the profile, so "my portfolio" questions are analysed on it.
+    for _ in range(50):
+        if SERVICE.profiles.get(run.actor_id).portfolio_run_id == run.run_id:
+            break
+        time.sleep(0.1)
+    assert SERVICE.profiles.get(run.actor_id).portfolio == {"SPY": 0.3481, "XBB.TO": 0.3054, "XIU.TO": 0.2509, "QQQ": 0.0956}
+    page.click("a.nav__link:has-text('Ask a question')")
+    page.wait_for_selector("text=SPY 35%, XBB.TO 31%, XIU.TO 25%, QQQ 10%")       # the profile panel shows it
     assert page.errors == []
 
 
