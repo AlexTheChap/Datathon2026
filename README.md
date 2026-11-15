@@ -74,8 +74,8 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev,bedrock,api]"
 .venv/bin/python -m app.entrypoint                      # AgentCore Runtime entrypoint on :8080
 .venv/bin/python scripts/show_run.py                    # pipeline trace of the latest run
 
-# Optional long-term memory (L17): create once, then export AF_MEMORY_ID=<id>
-.venv/bin/python scripts/setup_memory.py
+# Optional long-term memory (L17): create once (idempotent); --write-env puts AF_MEMORY_ID in .env
+.venv/bin/python scripts/agentcore_memory.py create --write-env
 ```
 
 Every tool call the agent makes is recorded as evidence in `data/runs/<run_id>.jsonl`

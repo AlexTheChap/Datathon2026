@@ -1,7 +1,7 @@
 """Dispatchers of box ② (link L6): hand a QUEUED run to box ⑤.
 
 - `InlineDispatcher` (api/dispatch.py): runs the orchestrator, then the Explainer, synchronously in the request
-  (scripts/smoke_dynamodb.py, the Streamlit dashboard).
+  (scripts/smoke_dynamodb.py).
 - `LocalDispatcher` (AF_DISPATCH=local, the default with the in-memory store): runs the orchestrator, then the
   Explainer (dispatch.attach_answer), in a background thread of the same process and writes the outcome back to the run store (L18), so that
   `GET /v1/runs/{id}` goes QUEUED -> RUNNING -> DONE / FAILED. For local development and demos.

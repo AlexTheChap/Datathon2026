@@ -15,15 +15,6 @@ from app.core.config import get_settings
 from app.tools.context import effective_as_of
 from app.tools.risk_tools import _eid
 
-_LABELS = {
-    "V39079": "BoC policy rate (%)", "DFF": "US fed funds (%)",
-    "BD.CDN.2YR.DQ.YLD": "CA 2y yield (%)", "BD.CDN.10YR.DQ.YLD": "CA 10y yield (%)",
-    "DGS2": "US 2y yield (%)", "DGS10": "US 10y yield (%)",
-    "STATIC_TOTALCPICHANGE": "CA CPI y/y (%)", "CPIAUCSL": "US CPI index",
-    "UNRATE": "US unemployment (%)",
-}
-
-
 def _curated() -> Path:
     s = get_settings()
     return s.abs_path(s.curated_dir)

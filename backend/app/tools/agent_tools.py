@@ -15,10 +15,8 @@ from app.agents.governance import (
 )
 from app.core.config import get_settings
 from app.tools import optimizer as _optimizer
-from app.tools.context import (  # noqa: F401  (current_profile / current_as_of are set by the orchestrator)
-    current_as_of,
+from app.tools.context import (  # noqa: F401  (current_profile: re-exported, tests set it through agent_tools)
     current_profile,
-    default_as_of,
     effective_as_of,
     persona_profile,
     run_as_of,

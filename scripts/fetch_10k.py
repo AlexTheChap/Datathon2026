@@ -59,10 +59,6 @@ def list_annual(cik, email, forms=ANNUAL_FORMS):
     return out
 
 
-def list_10k(cik, email):  # backward compatibility
-    return list_annual(cik, email, ("10-K",))
-
-
 def html_to_text(html):
     soup = BeautifulSoup(html, "lxml")
     for t in soup(["script", "style"]):
