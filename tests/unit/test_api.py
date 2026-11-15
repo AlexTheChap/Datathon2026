@@ -5,17 +5,34 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.app import actor_id_from, create_app, handler
+from app.api.dispatch import InlineDispatcher
 from app.api.service import ApiService, MessageIn, service_from_env
 from app.intake import MockBackend
+from app.schemas.models import OrchestratorOutput
+from app.schemas.run_result import RunAnswer
 from app.store.profiles import DynamoDBProfileStore
 from app.store.runs import DynamoDBRunStore, InMemoryRunStore
 
 FORM = {"risk_band": "low_moderate", "experience": "advanced", "language": "en"}
 
 
+def fake_run(inp):
+    """Deterministic queue-free executor: the run is DONE before POST returns (no Bedrock)."""
+    return OrchestratorOutput(run_id=inp.run_id, status="DONE", language=inp.language,
+                              summary=f"Analysed: {inp.request.task}", evidence_ids=["ev-fake"],
+                              model="mock")
+
+
+def fake_explain(run, orchestrator, records):
+    return RunAnswer(kind="explained", short_answer="Checked answer", model="mock")
+
+
 @pytest.fixture
 def svc():
-    return ApiService(intake_backend=MockBackend())
+    runs = InMemoryRunStore()
+    dispatcher = InlineDispatcher(runs=runs, run_fn=fake_run, explain_fn=fake_explain,
+                                  records_fn=lambda run_id: [])
+    return ApiService(intake_backend=MockBackend(), runs=runs, dispatcher=dispatcher)
 
 
 @pytest.fixture
@@ -45,18 +62,21 @@ def test_unknown_user_asking_for_a_trade_is_told_to_create_a_profile(client):
     assert body["kind"] == "message" and "create your investor profile" in body["message"]
 
 
-def test_ready_request_creates_a_queued_run(client):
+def test_ready_request_returns_a_live_answer(client):
+    """Queue-free default: the answer is already in the POST response (AF_DISPATCH=inline)."""
     r = post(client, "robert", text="Is my portfolio too risky compared to SPY? Show me a crash.", profile_form=FORM)
     assert r.status_code == 202
     body = r.json()
-    assert body["kind"] == "run" and body["run_status"] == "QUEUED"
+    assert body["kind"] == "run" and body["run_status"] == "DONE"
     assert body["enabled_agents"] == ["risk"]
 
     run = client.get(f"/v1/runs/{body['run_id']}", headers={"X-Actor-Id": "robert"}).json()
-    assert run["status"] == "QUEUED" and run["actor_id"] == "robert"
+    assert run["status"] == "DONE" and run["actor_id"] == "robert"
     assert run["execution_plan"]["enabled_agents"][0]["parameters"] == {"benchmark": "SPY"}
     assert run["prompt_ref"]["key"] == "explainer.advanced.md"
-    assert run["note"]  # says box 5 is not connected yet
+    assert not (run.get("note") or "")
+    assert "Analysed" in (run.get("result") or {}).get("summary", "")
+    assert run["result"]["answer"]["short_answer"] == "Checked answer"
 
 
 def test_out_of_scope_with_profile_still_creates_a_run_with_no_agents(client):
@@ -184,6 +204,8 @@ def test_dynamodb_stores_roundtrip_with_planned_keys():
 def test_service_from_env():
     svc = service_from_env({})
     assert isinstance(svc, ApiService) and isinstance(svc.runs, InMemoryRunStore)
+    from app.api.dispatch import InlineDispatcher
+    assert isinstance(svc.dispatcher, InlineDispatcher)          # queue-free by default
     with pytest.raises(ValueError):
         service_from_env({"AF_STORE": "postgres"})
 

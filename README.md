@@ -51,8 +51,9 @@ cd backend && AF_AUTH_MODE=dev AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicor
 
 Open http://127.0.0.1:8000. The first log line says which sign-in mode the API runs in, and the page follows it.
 `AF_INTAKE_MODE=bedrock` (with the `.env` keys) uses the real Claude Haiku intake. Each question runs the
-analysis and the Explainer (Claude Sonnet on Bedrock) in a background thread (`AF_DISPATCH=local`, the default): the
-page shows the plan at once and the answer about a minute later. `AF_DISPATCH=none` keeps runs QUEUED (plan only).
+analysis and the Explainer (Claude Sonnet on Bedrock) synchronously (`AF_DISPATCH=inline`, the default): the
+live answer is already in the POST response — no queue. `AF_DISPATCH=local` runs them in a background thread
+after the 202 (the page polls), and `AF_DISPATCH=none` keeps runs at the plan only.
 The Explainer writes
 for the reader's profile: plain and short for beginners, technical for advanced readers, and with a glossary for
 beginners and intermediates who want to learn (the "Explain things so I learn" switch, or saying "I'm a student").

@@ -71,6 +71,9 @@ def actor_id_from(request: Request) -> str:
 
 
 def create_app(service: Optional[ApiService] = None) -> FastAPI:
+    from app.core.config import get_settings
+
+    get_settings()   # loads the repo .env first: AWS_* must exist before Bedrock clients sign requests
     api = FastAPI(title="AlphaForge API (box 2)", version="1.0",
                   description="Simulation only: nothing here is investment advice.")
     svc = service or service_from_env()

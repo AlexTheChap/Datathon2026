@@ -11,7 +11,7 @@ from app.agents.explainer import explain
 from app.api.app import create_app
 from app.api.dispatch import InlineDispatcher
 from app.api.dispatcher import LocalDispatcher
-from app.api.service import ApiService, MessageIn, service_from_env
+from app.api.service import ApiService, MessageIn, NoDispatcher, service_from_env
 from app.context.prompt_loader import LocalPromptSource
 from app.intake import MockBackend
 from app.schemas.models import OrchestratorOutput
@@ -99,8 +99,9 @@ def test_local_dispatcher_runs_the_explainer_in_the_background():
 
 
 def test_every_dispatch_mode_gets_the_explainer():
-    assert isinstance(service_from_env({}).dispatcher, LocalDispatcher)              # default with the memory store
-    assert isinstance(service_from_env({"AF_DISPATCH": "inline"}).dispatcher, InlineDispatcher)
+    assert isinstance(service_from_env({}).dispatcher, InlineDispatcher)             # queue-free default
+    assert isinstance(service_from_env({"AF_DISPATCH": "local"}).dispatcher, LocalDispatcher)
+    assert isinstance(service_from_env({"AF_DISPATCH": "none"}).dispatcher, NoDispatcher)
     with pytest.raises(ValueError):
         service_from_env({"AF_DISPATCH": "lambda"})
 

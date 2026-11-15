@@ -39,9 +39,9 @@ class Dispatcher(Protocol):
 
 
 class NoDispatcher:
-    """Box ⑤ not connected yet: the run stays QUEUED, with its plan, ready to be picked up."""
+    """Explicit AF_DISPATCH=none: only the plan is produced, the run stays QUEUED."""
 
-    note = "Waiting: the analysis agents are not connected to the app yet, so this run stops at its plan."
+    note = "This run stays at its plan (AF_DISPATCH=none): no analysis agents ran."
 
     def dispatch(self, run: RunRecord) -> None:
         return None
@@ -105,9 +105,15 @@ class ApiError(Exception):
 class ApiService:
     profiles: ProfileStore = field(default_factory=InMemoryProfileStore)
     runs: RunStore = field(default_factory=InMemoryRunStore)
-    dispatcher: Dispatcher = field(default_factory=NoDispatcher)
+    dispatcher: Optional[Dispatcher] = None   # None -> InlineDispatcher(runs): live answers, queue-free
     intake_backend: Optional[IntakeBackend] = None
     ledger: Optional[Any] = None   # EvidenceLedger; None -> chosen from the settings (JSONL or DynamoDB)
+
+    def __post_init__(self):
+        if self.dispatcher is None:
+            from app.api.dispatch import InlineDispatcher
+
+            self.dispatcher = InlineDispatcher(runs=self.runs)
 
     def _ledger(self):
         if self.ledger is None:
@@ -258,13 +264,12 @@ def _dispatcher(runs: RunStore, dispatch: str) -> Dispatcher:
 
 def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
     """AF_STORE=memory (default, local) | dynamodb (AF_TABLE, default "alphaforge").
-    AF_DISPATCH=local (default with the memory store: the orchestrator runs in a background thread) | none
-    (default with DynamoDB: the run stays QUEUED until the AgentCore dispatcher is deployed) | inline (the
-    orchestrator runs before POST /v1/runs returns: app.api.dispatch.InlineDispatcher, used by the Streamlit
-    dashboard so the run is DONE when the page shows it)."""
+    AF_DISPATCH=inline (default: the orchestrator runs before POST /v1/runs returns — live answers, no queue,
+    app.api.dispatch.InlineDispatcher) | local (the orchestrator runs in a background thread after the 202;
+    clients poll GET /v1/runs/{id}) | none (the run stays QUEUED with its plan only)."""
     env = os.environ if env is None else env
     kind = env.get("AF_STORE", "memory").lower()
-    dispatch = env.get("AF_DISPATCH", "local" if kind == "memory" else "none").lower()
+    dispatch = env.get("AF_DISPATCH", "inline").lower()
     if dispatch not in ("local", "none", "inline"):
         raise ValueError(f"Unknown AF_DISPATCH: {dispatch!r} (expected: local, none or inline)")
     if kind == "memory":
