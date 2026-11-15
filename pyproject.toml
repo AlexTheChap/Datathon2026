@@ -13,6 +13,8 @@ dependencies = [
     "pyyaml",
     "fastparquet>=2024.2",                       # Parquet engine of tools/curated_store.py (kept over pyarrow: Lambda zip size)
     "cvxpy",                                     # constrained optimizer (tools/optimizer.py)
+    "arch>=7,<10",                               # GARCH(1,1) volatility forecasts (app/quant/garch.py, SageMaker job)
+    "scipy>=1.11",                               # used directly by app/quant (was only a cvxpy dependency)
 ]
 
 [project.optional-dependencies]
