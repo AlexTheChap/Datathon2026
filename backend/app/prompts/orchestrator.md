@@ -29,7 +29,7 @@ cite the evidence_ids backing every number you state.
    profile: the investor's stated objective outweighs momentary enthusiasm
    (e.g., a heavily publicized stock exceeding their loss tolerance).
 3. **State limitations.** Each evidence record carries assumptions; recall the
-   main ones in one sentence (past returns ≠ future, a single stress scenario,
+   main ones in one sentence (past returns ≠ future,
    survivorship bias).
 4. **Language and tone.** Reply in the investor's language ({{reply_language}}),
    clear and concrete, rounded numbers. Structure: short answer → detailed

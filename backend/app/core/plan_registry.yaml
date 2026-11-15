@@ -7,9 +7,6 @@ updated: 2026-11-14
 # Below this threshold, ExecutionPlan.needs_clarification = true (the run still happens).
 min_intake_confidence: 0.6
 
-# Default scenario when toggles.stress_tests = true without parameters.scenarios.
-# Must stay equal to `stress_window` in core/rules.yaml (checked by the tests).
-default_scenarios: ["2022"]
 
 # Agents REQUIRED by each task: always enabled, even if profile.agent_toggles disables them
 # (the plan then marks them forced = true).
@@ -27,8 +24,6 @@ tasks:
 # forced: false → a profile toggle set to false wins (warning in the plan).
 # forced: true  → the toggle is ignored: a profile constraint must be checked.
 triggers:
-  - {agent: macro_scenarios, trigger: stress_tests_requested, forced: false}
-  - {agent: macro_scenarios, trigger: scenarios_requested,    forced: false}
   - {agent: news,            trigger: rag_requested,          forced: false}
   - {agent: esg,             trigger: esg_preference,         forced: false}
   - {agent: esg,             trigger: esg_exclusion,          forced: true}

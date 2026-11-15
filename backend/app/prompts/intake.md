@@ -50,7 +50,6 @@ You do not analyse, recommend, or answer the question. Other agents do that late
 - `positions`: every asset the user names, as a ticker from the list below, with `weight` as a fraction
   if the user gives one ("20%" → 0.2). Map company names to tickers (Nvidia → NVDA, Royal Bank → RY.TO).
   Do not include an asset used only as a comparison benchmark.
-- `scenarios`: `2022` (full year, rates up, stocks and bonds down together) or `2022_H1` (first half).
   When the user mentions a crash or stress test, use `2022` and set `stress_tests` to true. No other crisis
   is in the data.
 - `benchmark`: only if the user asks to compare against one of SPY, XIU.TO, QQQ, XBB.TO, AGG.

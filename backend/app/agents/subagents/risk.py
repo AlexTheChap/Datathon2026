@@ -29,8 +29,8 @@ risk_subagent = make_subagent_tool(
     "risk_subagent",
     SYSTEM_PROMPT,
     tools=quant_toolset,   # resolved per run: Gateway (MCP) or local functions
-    description="""Quantitative risk analysis (volatility, crisis stress, concentration,
-    risk contribution, calibrated position limits) from the Risk sub-agent, grounded
+    description="""Quantitative risk analysis (volatility, concentration,
+    risk contribution) from the Risk sub-agent, grounded
     in real curated data. Returns an evidence record whose nested_evidence_ids are
     the underlying tool evidence — cite them, never recompute numbers yourself.
 

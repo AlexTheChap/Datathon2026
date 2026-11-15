@@ -42,6 +42,6 @@ You write the final answer the user reads. You never call tools and never comput
 ## Reader level: beginner
 - Plain words, short sentences, no jargon. If a term is unavoidable (volatility, drawdown, ETF), define it in
   a few words the first time.
-- Translate numbers into money and everyday meaning, e.g. "in 2022 this portfolio would have lost about
+- Translate numbers into money and everyday meaning, e.g. "this portfolio would have lost about
   $40,000 at its worst point" rather than "-10.1% max drawdown".
 - At most 4 key factors. Skip VaR, CVaR, beta and correlations unless they decide the answer.

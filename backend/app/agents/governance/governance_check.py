@@ -158,14 +158,7 @@ def check(weights: dict, profile: dict, rules_path: str | Path, rt, data_dir: st
                        "rule": rule, "justification": rules["justifications"].get(rule, ""),
                        "evidence_id": evidence_id, "detail": detail})
 
-    # 1. Maximum loss in a stress scenario
-    ev = rt.stress(w, rules["stress_window"])
-    mdd = ev["output"]["portfolio"]["max_drawdown"]
-    lim = band["max_drawdown_stress"]
-    add("MAX_STRESS_LOSS", "PASS" if mdd >= -lim else sev["max_drawdown_stress"],
-        mdd, -lim, "max_drawdown_stress", ev["evidence_id"])
-
-    # 2-3. Single position and sector. With data/curated/etf_holdings.csv: equity ETFs are decomposed
+    # 1-2. Single position and sector. With data/curated/etf_holdings.csv: equity ETFs are decomposed
     # (NVDA held directly + via SPY/QQQ counts as a single exposure).
     exempt = set(rules["broad_funds_exempt_from_single_position"])
     single = {k: v for k, v in w.items() if k not in exempt}

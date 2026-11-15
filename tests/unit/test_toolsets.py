@@ -8,7 +8,7 @@ from app.agents.subagents.news import KB_PROMPT, SIMULATED_PROMPT, news_subagent
 from app.agents.subagents.risk import risk_subagent
 from app.tools import toolsets
 
-LOCAL_NAMES = ["metrics", "stress", "concentration", "correlation", "risk_contribution", "max_position"]
+LOCAL_NAMES = ["metrics", "concentration", "correlation", "risk_contribution"]
 
 
 @pytest.fixture

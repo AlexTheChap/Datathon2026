@@ -17,16 +17,6 @@
         "benchmark": "SPY"
       },
       "forced": false
-    },
-    {
-      "agent": "macro_scenarios",
-      "reason": "toggles.stress_tests = true; parameters.scenarios = [\"2022\"]",
-      "parameters": {
-        "scenarios": [
-          "2022"
-        ]
-      },
-      "forced": false
     }
   ],
   "disabled_agents": [
@@ -40,6 +30,10 @@
     },
     {
       "agent": "fundamentals",
+      "reason": "not needed for task risk_review"
+    },
+    {
+      "agent": "macro_scenarios",
       "reason": "not needed for task risk_review"
     },
     {

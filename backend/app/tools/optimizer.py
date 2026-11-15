@@ -6,13 +6,10 @@ current holdings) that satisfies every rule of the profile. It never maximizes e
 
     minimize   ||w - w0||^2 + risk_aversion * w' Sigma w
     subject to sum(w) = 1, w >= 0 and the rules read from rules.yaml and the profile:
-               single position, sector, crypto, asset-class exclusions, short-horizon rules and a
-               linear proxy of the maximum loss in the stress window.
+               single position, sector, crypto, asset-class exclusions and short-horizon rules.
 
 Every threshold comes from the profile and rules.yaml (never hard-coded here). The solution is then
-VERIFIED with the exact tools (`RiskTools.stress` and `governance_check.check`). If the real stress
-drawdown breaks the limit, a linear cut built from the worst peak-to-trough dates is added and the
-problem is solved again (at most `max_attempts` solves). If no verified solution exists the result is
+VERIFIED with the exact tool (`governance_check.check`). If no verified solution exists the result is
 `status = "infeasible"`, with the conflicting constraints in plain words and NO weights.
 
 The result is an evidence dict in the same format as `risk_tools.py`:
@@ -39,7 +36,6 @@ try:
     from risk_tools import (
         BASE_ASSUMPTIONS,
         SOURCES,
-        STRESS_WINDOWS,
         TRADING_DAYS,
         RiskTools,
         _eid,
@@ -48,7 +44,6 @@ except ModuleNotFoundError:  # imported as a package (app.tools.optimizer)
     from app.tools.risk_tools import (  # type: ignore[no-redef]
         BASE_ASSUMPTIONS,
         SOURCES,
-        STRESS_WINDOWS,
         TRADING_DAYS,
         RiskTools,
         _eid,
@@ -60,7 +55,6 @@ GOVERNANCE_DIR = Path(__file__).resolve().parents[1] / "agents" / "governance"
 EPS = 2e-4            # numerical margin inside every cap (weights are rounded to 4 decimals afterwards)
 MIN_WEIGHT = 1e-4     # weights below this are dropped
 BINDING_TOL = 1e-6    # a constraint is "active" when its slack is below this
-STRESS_STEP = 0.02    # extra tightening of the stress limit on each retry (2 points)
 SOLVER = cp.CLARABEL  # interior point, deterministic
 
 STATUS_OK = "ok"
@@ -82,7 +76,7 @@ def _load_check() -> Callable:
 
 def _pit_view(rt: RiskTools, as_of: str | None) -> RiskTools:
     """Point-in-time view of the risk tools: no return or price after `as_of`.
-    `rt.stress` and `governance_check.check` take no `as_of`, so they are given this view."""
+    `governance_check.check` takes no `as_of`, so it is given this view."""
     if not as_of:
         return rt
     cut = pd.Timestamp(as_of)
@@ -235,13 +229,6 @@ def optimize(rt: RiskTools, w0: dict, profile: dict, rules_path: str | Path = DE
     cov = rets.cov().to_numpy() * TRADING_DAYS
     cov = (cov + cov.T) / 2 + 1e-8 * np.eye(n)
 
-    window = rules["stress_window"]
-    s, e, _label = STRESS_WINDOWS[window]
-    win = view.rets.loc[s:e, cands].iloc[1:]
-    stress_on = len(win) >= 20
-    r_stress = np.nan_to_num(((1 + win).prod() - 1).to_numpy()) if stress_on else np.zeros(n)
-    stress_limit = float(band["max_drawdown_stress"])
-
     horizon_min = (profile.get("horizon_years") or [None, None])[0]
     vol = np.array([view.metrics([c])["output"][c]["ann_vol"] for c in cands])
 
@@ -301,63 +288,36 @@ def optimize(rt: RiskTools, w0: dict, profile: dict, rules_path: str | Path = DE
                 rows.add("short_horizon_defensive", f"{hr['id']}",
                          -(cls == "etf_bond").astype(float), -(floor + EPS),
                          f"the short-horizon minimum of {floor:.0%} in bond funds")
-    n_base = len(rows.b)
-
-    def add_stress(tighten: float) -> None:
-        if stress_on:
-            rows.add("stress_loss", "stress_loss", -r_stress, stress_limit - tighten - EPS,
-                     f"the maximum loss of {stress_limit:.0%} in the {window} stress window")
-
-    # ---- solve / verify loop
-    cuts: list[tuple[np.ndarray, float]] = []
+    # ---- solve / verify
     weights: dict | None = None
     last_x: np.ndarray | None = None
-    st_ev = gov = None
-    message, conflicts, attempts, failure = "", [], 0, None
-    for attempt in range(1, max_attempts + 1):
-        attempts = attempt
-        del rows.a[n_base:], rows.b[n_base:], rows.group[n_base:], rows.name[n_base:]
-        tighten = STRESS_STEP * (attempt - 1)
-        add_stress(tighten)
-        for ratio, lim in cuts:
-            rows.add("stress_loss", "stress_loss", -ratio, -(1 - lim) - tighten - EPS)
-        a, b = rows.matrix()
-        x = _solve(n, w0v, cov, risk_aversion, a, b)
-        if x is None:
-            conflicts, message = _diagnose(rows, cov, w0v)
-            failure = "no_solution"
-            break
+    gov = None
+    message, conflicts, failure = "", [], None
+    a, b = rows.matrix()
+    x = _solve(n, w0v, cov, risk_aversion, a, b)
+    if x is None:
+        conflicts, message = _diagnose(rows, cov, w0v)
+        failure = "no_solution"
+    else:
         wv = _clean(x)
         cand_w = {c: float(v) for c, v in zip(cands, wv) if v > 0}
-        st_ev = view.stress(cand_w, window, capital) if stress_on else None
         gov = check_fn(cand_w, profile, rules_path, view, data_dir)
-        mdd = st_ev["output"]["portfolio"]["max_drawdown"] if st_ev else None
-        stress_ok = mdd is None or mdd >= -stress_limit
-        blockers = [c["id"] for c in gov["checks"] if c["status"] == "BLOCK" and c["id"] != "MAX_STRESS_LOSS"]
-        if stress_ok and gov["verdict"] != "BLOCK":
-            weights, last_x, failure = cand_w, x, None
-            break
+        blockers = [c["id"] for c in gov["checks"] if c["status"] == "BLOCK"]
         if blockers:
             failure = "governance_block"
             message = ("A solution was found but the governance check still BLOCKs: "
                        + ", ".join(blockers) + ". These rules are not modelled by the optimizer.")
-            break
-        failure = "stress_not_met"
-        message = (f"After {attempt} attempt(s) the real maximum loss in the {window} window "
-                   f"({mdd:+.1%}) still exceeds the profile limit (-{stress_limit:.0%}).")
-        pf = st_ev["output"]["portfolio"]
-        path = (1 + win).cumprod()
-        ratio = (path.loc[pd.Timestamp(pf["dd_trough"])] / path.loc[pd.Timestamp(pf["dd_peak"])]).to_numpy()
-        cuts.append((ratio, stress_limit))
+        else:
+            weights, last_x = cand_w, x
+    attempts = 1
 
     # ---- evidence
     inputs = {"w0": {k: round(v, 6) for k, v in w0n.items()}, "candidates": cands,
               "profile": {k: profile.get(k) for k in ("id", "risk_band", "horizon_years", "exclusions")},
               "risk_aversion": risk_aversion, "as_of": as_of, "capital": capital,
-              "max_attempts": max_attempts, "rules_version": rules.get("version"), "window": window}
+              "max_attempts": max_attempts, "rules_version": rules.get("version")}
     ok = weights is not None
-    verification = {"stress_max_drawdown": (st_ev["output"]["portfolio"]["max_drawdown"] if st_ev else None),
-                    "governance_verdict": gov["verdict"] if gov else None, "attempts": attempts}
+    verification = {"governance_verdict": gov["verdict"] if gov else None, "attempts": attempts}
     if ok:
         ordered = dict(sorted(weights.items(), key=lambda kv: -kv[1]))
         changes = {c: round(ordered.get(c, 0.0) - w0n.get(c, 0.0), 4) for c in cands}
@@ -366,9 +326,6 @@ def optimize(rt: RiskTools, w0: dict, profile: dict, rules_path: str | Path = DE
         moves = ", ".join(f"{c} {w0n.get(c, 0.0):.1%} -> {ordered.get(c, 0.0):.1%}" for c in biggest)
         say = ("Smallest adjustment found that satisfies the profile's rules: "
                + (moves if moves else "no change needed") + ".")
-        if st_ev:
-            say += (f" Simulated worst loss in the {window} window: "
-                    f"{verification['stress_max_drawdown']:+.1%} (limit -{stress_limit:.0%}).")
         output = {"status": STATUS_OK, "weights": ordered, "requested_weights": w0n, "changes": changes,
                   "active_constraints": _active(rows, last_x), "verification": verification}
     else:
@@ -384,12 +341,9 @@ def optimize(rt: RiskTools, w0: dict, profile: dict, rules_path: str | Path = DE
         "as_of": as_of or str(idx.max().date()), "period": f"{idx.min().date()}/{idx.max().date()}",
         "method": ("Quadratic program (cvxpy, Clarabel): minimize the squared change from the requested "
                    "weights plus a variance penalty, under linear constraints read from rules.yaml and the "
-                   "profile. The solution is verified with the stress and governance tools; a linear cut "
-                   "from the worst peak-to-trough dates is added if the real loss exceeds the limit."),
+                   "profile. The solution is verified with the governance tool."),
         "assumptions": BASE_ASSUMPTIONS + [
             "No return forecast: the objective is the smallest change plus a variance penalty.",
-            (f"The {window} total return of each asset is a linear proxy of the stress loss; the real loss is "
-             "verified with the stress tool."),
             "Historical covariance of daily CAD returns (x252) up to as_of.",
             "ETF holdings are the CURRENT composition applied to all dates.",
             "Thresholds come from rules.yaml and are team assumptions, not regulatory standards.",

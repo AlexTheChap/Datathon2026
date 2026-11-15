@@ -50,7 +50,7 @@ def test_ready_request_creates_a_queued_run(client):
     assert r.status_code == 202
     body = r.json()
     assert body["kind"] == "run" and body["run_status"] == "QUEUED"
-    assert body["enabled_agents"] == ["risk", "macro_scenarios"]
+    assert body["enabled_agents"] == ["risk"]
 
     run = client.get(f"/v1/runs/{body['run_id']}", headers={"X-Actor-Id": "robert"}).json()
     assert run["status"] == "QUEUED" and run["actor_id"] == "robert"

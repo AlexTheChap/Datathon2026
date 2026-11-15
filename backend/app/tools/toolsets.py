@@ -1,8 +1,8 @@
 """Where each sub-agent's tools come from: AWS box ⑥ when configured, local fallback otherwise.
 
   quant_toolset()  -> Risk sub-agent (L12)
-      AF_GATEWAY_URL set : [MCPClient] on the AgentCore Gateway; the agent discovers the 6 quant tools
-                           (metrics___metrics, scenarios___stress, optimizer___max_position…) and calls them
+      AF_GATEWAY_URL set : [MCPClient] on the AgentCore Gateway; the agent discovers the 4 quant tools
+                           (metrics___metrics, optimizer___metrics…) and calls them
                            over MCP (SigV4). The Lambda runs the same RiskTools code.
       unset              : the same 6 functions in-process (app.tools.agent_tools).
   news_kb_enabled() -> News sub-agent (L13)
@@ -32,8 +32,8 @@ def news_kb_enabled() -> bool:
 def local_quant_tools() -> list:
     from app.tools import agent_tools
 
-    return [agent_tools.metrics, agent_tools.stress, agent_tools.concentration,
-            agent_tools.correlation, agent_tools.risk_contribution, agent_tools.max_position]
+    return [agent_tools.metrics, agent_tools.concentration,
+            agent_tools.correlation, agent_tools.risk_contribution]
 
 
 def quant_toolset() -> list:

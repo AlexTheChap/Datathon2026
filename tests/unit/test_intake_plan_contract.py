@@ -31,7 +31,7 @@ SCENARIOS = [
     ("robert_nvda", "robert", "I'm thinking of putting 20% in Nvidia, everyone is talking about it.",
      "allocation_proposal", ["risk", "news", "allocation"]),
     ("robert_crash", "robert", "Is my portfolio too risky compared to SPY? Also show me what would happen in a crash.",
-     "risk_review", ["risk", "macro_scenarios"]),
+     "risk_review", ["risk"]),
     ("robert_trade", "robert", "Buy 100 Tesla shares for me right now.", "out_of_scope", []),
 ]
 
@@ -65,10 +65,10 @@ def test_resolver_accepts_intake_json_and_plans_the_right_agents(runs, name, act
 
 
 def test_crash_request_matches_the_documented_plan(runs):
-    """Same situation as execution_plan.example.json: risk (benchmark SPY) + macro_scenarios (2022), no news."""
+    """Same situation as execution_plan.example.json: risk (benchmark SPY) + macro_scenarios, no news."""
     plan = ExecutionPlan.model_validate(runs["robert_crash"][2]["execution_plan"])
     params = {a.agent: a.parameters for a in plan.enabled_agents}
-    assert params == {"risk": {"benchmark": "SPY"}, "macro_scenarios": {"scenarios": ["2022"]}}
+    assert params == {"risk": {"benchmark": "SPY"}}
     disabled = {a.agent: a.reason for a in plan.disabled_agents}
     assert "include_rag" in disabled["news"] or "not needed" in disabled["news"]
 

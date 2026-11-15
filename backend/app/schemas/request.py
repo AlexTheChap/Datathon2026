@@ -9,7 +9,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .enums import Benchmark, Scenario, Task
+from .enums import Benchmark, Task
 
 
 class PortfolioRef(BaseModel):
@@ -36,7 +36,6 @@ class Position(BaseModel):
 class Parameters(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    scenarios: list[Scenario] = Field(default_factory=list)
     benchmark: Optional[Benchmark] = None
 
 

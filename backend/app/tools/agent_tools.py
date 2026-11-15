@@ -53,20 +53,6 @@ def metrics(tickers: list[str], start: str | None = None, end: str | None = None
 
 
 @tool
-def stress(weights: dict[str, float], window: str = "2022", capital: float | None = None) -> dict:
-    """Historical replay of an allocation over a crisis window (default 2022:
-    stocks and bonds falling together). Returns total loss, worst moment
-    (max drawdown) and, when `capital` is given, dollar amounts in CAD.
-
-    Args:
-        weights: Weights, e.g. {"XIU.TO": 0.3, "NVDA": 0.2} (normalized as needed).
-        window: "2022" or "2022_H1".
-        capital: Fictional capital in CAD (optional).
-    """
-    return _guard(_tools().stress, weights, window=window, capital=capital)
-
-
-@tool
 def concentration(weights: dict[str, float], look_through: bool = True) -> dict:
     """Exposures by company, sector, asset class and currency, with a concentration
     index (HHI) and effective number of positions. Decomposes equity ETFs
@@ -105,22 +91,6 @@ def risk_contribution(weights: dict[str, float], start: str | None = None,
 
 
 @tool
-def max_position(base_weights: dict[str, float], asset: str, max_drawdown_limit: float,
-                 window: str = "2022") -> dict:
-    """Largest share of `asset` (other positions scaled down pro rata) that still
-    respects the tolerated max loss `max_drawdown_limit` in the `window` crisis
-    scenario. The key tool to answer "how much could I hold?" within the profile.
-
-    Args:
-        base_weights: Current portfolio (without the share being tested).
-        asset: Ticker to test, e.g. "NVDA".
-        max_drawdown_limit: Tolerated max loss, e.g. 0.15 for -15%.
-        window: "2022" by default.
-    """
-    return _guard(_tools().max_position, base_weights, asset, max_drawdown_limit, window=window)
-
-
-@tool
 def governance_check(weights: dict[str, float]) -> dict:
     """Checks an allocation against the investor's profile and the documented
     rules (rules.yaml): crisis-scenario loss limits, single position, sector,
@@ -146,4 +116,4 @@ def governance_check(weights: dict[str, float]) -> dict:
                   str(s.abs_path(s.curated_dir).parent))
 
 
-ALL_TOOLS = [metrics, stress, concentration, correlation, risk_contribution, max_position, governance_check]
+ALL_TOOLS = [metrics, concentration, correlation, risk_contribution, governance_check]

@@ -16,9 +16,7 @@ Task = Literal[
     "news_review",          # News agent
     "out_of_scope",         # request outside the simulation (real trade, personalized advice...)
 ]
-Scenario = Literal["2022", "2022_H1"]
 Benchmark = Literal["SPY", "XIU.TO", "QQQ", "XBB.TO", "AGG"]
 
 TASKS = get_args(Task)
-SCENARIOS = get_args(Scenario)
 BENCHMARKS = get_args(Benchmark)

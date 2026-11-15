@@ -73,7 +73,7 @@ flowchart TB
   %% ===== 6. Tools & data =====
   %% AWS: AgentCore Gateway (MCP) · Lambda · Bedrock Knowledge Bases · S3 Vectors · S3 · DynamoDB
   subgraph DATA["⑥ Tools & data"]
-    GW["AgentCore Gateway (MCP)<br/>Lambda quant tools: metrics · stress · concentration · correlation<br/>risk_contribution · max_position · macro · rates · esg_screen · optimizer (later)"]
+    GW["AgentCore Gateway (MCP)<br/>Lambda quant tools: metrics · concentration · correlation<br/>risk_contribution · macro · rates · esg_screen · optimizer (later)"]
     KB["Bedrock Knowledge Base<br/>news & docs · S3 Vectors"]
     S3[("S3 curated Parquet<br/>prices · FX · macro · point-in-time")]
     DDB[("DynamoDB<br/>profiles · runs · evidence ledger")]
@@ -136,9 +136,9 @@ flowchart TB
   GOV -->|"PASS / WARN"| EXP
   %% L12 Sub-agents → Tools: TARGET: AgentCore Gateway (MCP, SigV4/OAuth auth, optional Cedar
   %%      Policy) → quant tool Lambdas. CURRENT: direct in-process calls — sub-agents own their
-  %%      domain toolsets (risk: metrics/stress/concentration/correlation/risk_contribution/
-  %%      max_position · macro: macro_snapshot/rate_sensitivity/stress · esg+fundamentals:
-  %%      esg_screen · allocation: metrics/max_position/stress/concentration/governance_check).
+  %%      domain toolsets (risk: metrics/concentration/correlation/risk_contribution ·
+  %%      macro: macro_snapshot/rate_sensitivity/correlation · esg+fundamentals: esg_screen ·
+  %%      allocation: metrics/concentration/governance_check).
   SUB -->|"tool calls (in-process)"| GW
   %% L13 News → KB: TARGET: Bedrock Knowledge Bases (Retrieve API + metadata filter published
   %%      ≤ as_of), S3 Vectors index. CURRENT: news_subagent is a SIMULATED placeholder (no

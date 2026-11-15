@@ -44,7 +44,7 @@ class Settings(BaseSettings):
 
     # Bedrock models — node ⑤: Sonnet for the orchestrator (and the Explainer later),
     # Haiku for the sub-agents.
-    model_orchestrator: str = "anthropic.claude-sonnet-4-5-v1:0"
+    model_orchestrator: str = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
     model_subagent: str = "us.anthropic.claude-haiku-5-5"
     aws_region: str = "us-east-1"
 

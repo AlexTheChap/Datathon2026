@@ -1,12 +1,10 @@
 """Quant tools behind the AgentCore Gateway (box ⑥, links L12 + L14 of docs/architecture.mmd).
 
-One Lambda serves every quant tool. The Gateway exposes it as an MCP server with five targets:
-the four families of the diagram ("metrics · risk · scenarios · optimizer") + point-in-time macro/FX:
+One Lambda serves every quant tool. The Gateway exposes it as an MCP server with targets
+for the diagram families ("metrics · risk") + point-in-time macro/FX:
 
     metrics___metrics              metrics___correlation
     risk___risk_contribution       risk___concentration
-    scenarios___stress
-    optimizer___max_position
     macro___macro_snapshot         macro___fx_usdcad
 
 Data (L14): S3 curated Parquet when AF_CURATED_S3 is set (synced to /tmp on cold start), else repo CSVs.
@@ -27,7 +25,7 @@ import os
 from pathlib import Path
 from typing import Any, Callable
 
-from app.tools.risk_tools import STRESS_WINDOWS, RiskTools
+from app.tools.risk_tools import RiskTools
 
 DELIMITER = "___"  # the Gateway prefixes each tool name with "<target>___"
 
@@ -40,7 +38,6 @@ _TICKERS = {"type": "array", "items": {"type": "string"},
             "description": 'Tickers from the universe, e.g. ["NVDA", "XBB.TO"].'}
 _DATE = {"type": "string", "description": "Optional date YYYY-MM-DD."}
 _AS_OF = {"type": "string", "description": "Point-in-time reference date YYYY-MM-DD (no data after it)."}
-_WINDOW = {"type": "string", "description": f"Crisis window: one of {sorted(STRESS_WINDOWS)} (default 2022)."}
 
 # target -> list of tool schemas (name, description, inputSchema)
 TARGETS: dict[str, list[dict[str, Any]]] = {
@@ -69,26 +66,6 @@ TARGETS: dict[str, list[dict[str, Any]]] = {
              "weights": _WEIGHTS,
              "look_through": {"type": "boolean", "description": "Decompose equity ETFs (default true)."}},
              "required": ["weights"]}},
-    ],
-    "scenarios": [
-        {"name": "stress",
-         "description": "Historical replay of an allocation over a crisis window (default 2022): total loss, "
-                        "worst moment (max drawdown) and, with capital, dollar amounts in CAD.",
-         "inputSchema": {"type": "object", "properties": {
-             "weights": _WEIGHTS, "window": _WINDOW,
-             "capital": {"type": "number", "description": "Fictional capital in CAD (optional)."}},
-             "required": ["weights"]}},
-    ],
-    "optimizer": [
-        {"name": "max_position",
-         "description": "Largest share of `asset` (other positions scaled down pro rata) that keeps the crisis "
-                        "max loss within `max_drawdown_limit`. Answers 'how much could I hold?' for a profile.",
-         "inputSchema": {"type": "object", "properties": {
-             "base_weights": _WEIGHTS,
-             "asset": {"type": "string", "description": 'Ticker to test, e.g. "NVDA".'},
-             "max_drawdown_limit": {"type": "number", "description": "Tolerated max loss, e.g. 0.15 for -15%."},
-             "window": _WINDOW},
-             "required": ["base_weights", "asset", "max_drawdown_limit"]}},
     ],
     "macro": [
         {"name": "macro_snapshot",
@@ -162,11 +139,6 @@ HANDLERS: dict[str, Callable[[dict], dict]] = {
                                                              **_opt(a, "start", "end", "as_of")),
     "concentration": lambda a: tools().concentration(_weights(a["weights"]),
                                                      look_through=bool(a.get("look_through", True))),
-    "stress": lambda a: tools().stress(_weights(a["weights"]), window=a.get("window") or "2022",
-                                       capital=float(a["capital"]) if a.get("capital") else None),
-    "max_position": lambda a: tools().max_position(_weights(a["base_weights"]), str(a["asset"]),
-                                                   float(a["max_drawdown_limit"]),
-                                                   window=a.get("window") or "2022"),
     "macro_snapshot": lambda a: _macro("macro_snapshot", a),
     "fx_usdcad": lambda a: _macro("fx_usdcad", a),
 }

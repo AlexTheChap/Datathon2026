@@ -74,10 +74,11 @@ def test_payload_from_box4_json_validates(make_profile, make_request):
 def test_tools_block_lists_only_enabled_subagents_with_parameters(make_profile, make_request):
     r = make_request("persona-robert", "risk_review", toggles={"stress_tests": True}, parameters={"benchmark": "SPY"})
     g = tools_block("risk_review", resolve_plan(make_profile("robert"), r))
-    assert "**`risk_subagent`**" in g and "**`macro_subagent`**" in g
-    for absent in ("esg_subagent", "news_subagent", "allocation_subagent", "fundamentals_subagent"):
+    assert "**`risk_subagent`**" in g
+    for absent in ("esg_subagent", "news_subagent", "allocation_subagent", "fundamentals_subagent",
+                   "macro_subagent"):
         assert f"**`{absent}`**" not in g
-    assert '{"benchmark": "SPY"}' in g and '{"scenarios": ["2022"]}' in g
+    assert '{"benchmark": "SPY"}' in g
     assert "Not available in this run" in g
 
 

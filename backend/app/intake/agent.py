@@ -203,7 +203,7 @@ def run_intake(
         user_message=text,
         positions=positions,
         capital=r.capital,
-        parameters=Parameters(scenarios=r.scenarios, benchmark=r.benchmark),
+        parameters=Parameters(benchmark=r.benchmark),
         toggles=Toggles(stress_tests=r.stress_tests, include_rag=r.include_rag),
         as_of=analysis_date,
         intake_confidence=max(0.0, min(1.0, r.intake_confidence)),

@@ -26,8 +26,7 @@ This is a hypothetical scenario, not investment advice.
 allocation_subagent = make_subagent_tool(
     "allocation_subagent",
     SYSTEM_PROMPT,
-    tools=[agent_tools.metrics, agent_tools.max_position, agent_tools.stress,
-           agent_tools.concentration, agent_tools.governance_check],
+    tools=[agent_tools.metrics, agent_tools.concentration, agent_tools.governance_check],
     description="""Hypothetical portfolio construction from the Allocation sub-agent:
     proposes weights, self-verifies with the governance rules until PASS, returns
     the weights plus the verdict. Cite its nested evidence_ids.

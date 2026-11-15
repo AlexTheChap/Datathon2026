@@ -25,7 +25,7 @@ No forecasts: historical scenarios only. No investment advice.
 macro_subagent = make_subagent_tool(
     "macro_subagent",
     SYSTEM_PROMPT,
-    tools=[macro_snapshot, rate_sensitivity, agent_tools.stress, agent_tools.correlation],
+    tools=[macro_snapshot, rate_sensitivity, agent_tools.correlation],
     description="""Macro context and scenario analysis (policy rates, yields, inflation,
     rate sensitivity, 2022-style replays) from the Macro sub-agent, grounded in
     Bank of Canada / FRED curated data. Cite its nested evidence_ids.

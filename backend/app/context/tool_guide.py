@@ -17,8 +17,8 @@ import json
 from typing import Any, Optional
 
 _DELEGATION_LINES: dict[str, str] = {
-    "risk": "- Portfolio risk (stress, concentration, risk contribution, position sizing) → **`risk_subagent`**",
-    "macro_scenarios": "- Macro environment / crisis scenarios → **`macro_subagent`**",
+    "risk": "- Portfolio risk (concentration, risk contribution, per-asset metrics) → **`risk_subagent`**",
+    "macro_scenarios": "- Macro environment / rates → **`macro_subagent`**",
     "esg": "- ESG index membership & controversies → **`esg_subagent`**",
     "fundamentals": "- Documented filing facts (10-K/NBIM extracts) → **`fundamentals_subagent`**",
     "allocation": "- Building a hypothetical allocation → **`allocation_subagent`** (self-verifies via governance)",
@@ -35,7 +35,7 @@ _STRATEGIES: dict[str, str] = {
 1. **`governance_check` first** on the proposed (or current) weights: its
    PASS / WARN / BLOCK verdict frames the whole answer.
 2. Delegate the deep-dive: **`risk_subagent`** with a question-focused subject and the
-   proposed weights; add **`macro_subagent`** when rates/crisis context matters.
+   proposed weights; add the Macro sub-agent for rate context when it is enabled in this run.
 3. Calibration: position sizing lives inside `risk_subagent` — ask for it in the subject
    (e.g. "...and the maximum NVDA weight respecting a -15% loss limit"), then run
    `governance_check` yourself on the calibrated weights.
@@ -46,8 +46,7 @@ _STRATEGIES: dict[str, str] = {
    horizon and exclusions are attached automatically) — it returns weights already
    self-verified to PASS.
 2. Verify the returned weights yourself with **`governance_check`**.
-3. Add **`risk_subagent`** / **`macro_subagent`** on the retained weights for the crisis
-   context when useful.
+3. Add the Risk / Macro sub-agents on the retained weights for crisis context when useful.
 4. Present the allocation as a hypothetical scenario with evidence, not a recommendation.""",
 }
 

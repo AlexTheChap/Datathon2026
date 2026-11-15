@@ -4,14 +4,13 @@ written here, independently of core/plan_registry.yaml and plan_resolver.py.
 If someone changes the registry or the code and the behaviour changes, this test fails: update the
 oracle ON PURPOSE (and the diagram if a flow changes).
 
-Space covered: 7 tasks × 64 profile toggle combinations × stress_tests × include_rag ×
-explicit scenarios or not × 4 profile types = 14,336 plans.
+Space covered: 7 tasks × 64 profile toggle combinations × include_rag × 4 profile types = 1,792 plans.
 """
 import itertools
 import json
 
 from app.context import resolve_plan
-from app.schemas import SCENARIOS, TASKS
+from app.schemas import TASKS
 from app.schemas.execution_plan import AGENTS, ExecutionPlan
 
 # ---------- Oracle: the specification, written by hand ----------
@@ -32,8 +31,6 @@ def oracle(profile, request) -> set[str]:
         return set()
     toggles = profile.agent_toggles.model_dump()
     optional = set()
-    if request.toggles.stress_tests or request.parameters.scenarios:
-        optional.add("macro_scenarios")
     if request.toggles.include_rag:
         optional.add("news")
     if any("esg" in p.lower().split() for p in profile.preferences):
@@ -62,11 +59,10 @@ def _all_cases(make_profile, make_request):
     ):
         persona = variant.split("_")[0]
         profile = make_profile(persona, agent_toggles=dict(zip(AGENTS, bits)), **overrides)
-        for task, stress, rag, scen in itertools.product(TASKS, [True, False], [True, False], [[], ["2022_H1"]]):
+        for task, rag in itertools.product(TASKS, [True, False]):
             request = make_request(
                 f"persona-{persona}", task,
-                toggles={"stress_tests": stress, "include_rag": rag},
-                parameters={"scenarios": scen},
+                toggles={"include_rag": rag},
             )
             yield variant, profile, request
 
@@ -78,7 +74,7 @@ def test_every_combination_matches_the_specification(make_profile, make_request)
         plan = resolve_plan(profile, request)
         toggles = profile.agent_toggles.model_dump()
         enabled = set(plan.enabled_names)
-        ctx = f"{variant} task={request.task} toggles={toggles} req={request.toggles.model_dump()} scen={request.parameters.scenarios}"
+        ctx = f"{variant} task={request.task} toggles={toggles} req={request.toggles.model_dump()}"
 
         expected = oracle(profile, request)
         if enabled != expected:
@@ -98,10 +94,6 @@ def test_every_combination_matches_the_specification(make_profile, make_request)
         for d in plan.disabled_agents:
             if not d.reason:
                 failures.append(f"{ctx}: disabled {d.agent} has no reason")
-        macro = next((a for a in plan.enabled_agents if a.agent == "macro_scenarios"), None)
-        if macro and (not macro.parameters.get("scenarios")
-                      or not set(macro.parameters["scenarios"]) <= set(SCENARIOS)):
-            failures.append(f"{ctx}: bad macro parameters {macro.parameters}")
         # An agent the user switched off but that is enabled must ALWAYS be reported
         for a in plan.enabled_agents:
             if a.forced and not any(w.startswith(f"{a.agent} enabled although") for w in plan.warnings):
@@ -111,7 +103,7 @@ def test_every_combination_matches_the_specification(make_profile, make_request)
         if ExecutionPlan.model_validate(json.loads(json.dumps(plan.model_dump(mode="json")))) != plan:
             failures.append(f"{ctx}: JSON round-trip changed the plan")
 
-    assert n == 4 * 64 * len(TASKS) * 2 * 2 * 2
+    assert n == 4 * 64 * len(TASKS) * 2
     assert not failures, f"{len(failures)} / {n} cases fail, first ones:\n" + "\n".join(failures[:10])
 
 
