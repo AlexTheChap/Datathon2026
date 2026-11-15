@@ -19,11 +19,13 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from collections.abc import Callable
 from contextvars import ContextVar
 from typing import Any, Literal
 
 from app.agents.hooks import EvidenceHook
+from app.agents.subagents.guard import RunGuard
 from app.agents.verifier import verify_answer
 from app.core.config import get_settings
 from app.store.ledger import EvidenceLedger, InMemoryLedger
@@ -198,6 +200,11 @@ def make_subagent_tool(tool_name: str, system_prompt: Any, tools: Any,
         ctx = run_context.get()
         ledger: EvidenceLedger = ctx["ledger"] if ctx else InMemoryLedger()
         run_id: str = ctx["run_id"] if ctx else "local"
+        # One dedupe cache per RUN, shared by every sub-agent: risk and allocation both screening
+        # the same universe is computed once (identical (tool, arguments) -> replayed envelope).
+        cache = ctx.setdefault("tool_cache", {}) if ctx else {}
+        guard = RunGuard(cache=cache)
+        t0 = time.perf_counter()
         try:
             s = get_settings()
             is_simulated = bool(_resolve(simulated))
@@ -210,6 +217,7 @@ def make_subagent_tool(tool_name: str, system_prompt: Any, tools: Any,
                 system_prompt=_resolve(system_prompt),
                 tools=toolset,
                 hooks=[EvidenceHook(ledger, run_id, agent=tool_name)],
+                interventions=[guard],     # tool budget + run dedupe + model-turn counters (see guard.py)
                 callback_handler=None,     # sub-agents run in parallel: their streams would interleave in the logs
             )
             before = len(ledger.records(run_id))
@@ -226,13 +234,29 @@ def make_subagent_tool(tool_name: str, system_prompt: Any, tools: Any,
                         extra_validator(finding, own)
                 except (FindingError, ValueError) as e:      # FindingError is a ValueError
                     last_error = str(e)
-                    message = (f"Your answer was rejected: {last_error}. Fix it and return ONLY the corrected "
-                               "JSON object (call tools again if you need to).")
+                    # The tool results are already in this conversation: re-calling them would just
+                    # re-bill the same turns (the observed budget sink) — fix the JSON only.
+                    message = (f"Your answer was rejected: {last_error}. Do NOT call tools again: every result "
+                               "you need is already in this conversation. Fix the JSON and return ONLY the "
+                               "corrected JSON object.")
                     continue
-                return build_envelope(tool_name, inputs, finding, nested, simulated=is_simulated)
+                envelope = build_envelope(tool_name, inputs, finding, nested, simulated=is_simulated)
+                ledger.append(run_id, {"agent": tool_name, "tool": "agent_run", "payload": guard.snapshot(),
+                                       "duration_ms": int((time.perf_counter() - t0) * 1000),
+                                       "say": f"{guard.model_calls} model turns / {guard.tool_calls} tool calls"})
+                return envelope
+            ledger.append(run_id, {"agent": tool_name, "tool": "agent_run", "payload": guard.snapshot(),
+                                   "duration_ms": int((time.perf_counter() - t0) * 1000),
+                                   "error": f"no valid finding: {last_error}"})
             return {"error": f"{tool_name} returned no valid finding: {last_error}",
                     "note": "The finding was rejected by the output contract; do not use it."}
         except Exception as e:  # noqa: BLE001  Bedrock throttling/access errors, tool failures…: visible, never silent
+            try:
+                ledger.append(run_id, {"agent": tool_name, "tool": "agent_run", "payload": guard.snapshot(),
+                                       "duration_ms": int((time.perf_counter() - t0) * 1000),
+                                       "error": f"{type(e).__name__}: {e}"})
+            except Exception:  # noqa: BLE001  the ledger record is diagnostics, never a new failure
+                pass
             return {"error": f"{tool_name} failed: {type(e).__name__}: {e}",
                     "note": "Prototype sub-agent; retry with a simpler brief."}
 
