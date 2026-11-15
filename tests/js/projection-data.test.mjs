@@ -68,17 +68,17 @@ test("assumption rows label team assumptions and volatility source names the job
   assert.deepEqual(rows.map((r) => r.ticker), ["XBB.TO", "GLD", "RY.TO"]);
   assert.equal(rows[0].category, "Fixed income");
   assert.equal(rows[0].rate, "3.2%");
-  assert.match(rows[1].source, /Team assumption/);
+  assert.match(rows[1].source, /^Estimate/);
   assert.equal(rows[2].note, "Individual stock");
-  assert.match(pd.volSourceText(PROJ), /GARCH forecast from job alphaforge-garch-1, as of 2026-11-12/);
+  assert.match(pd.volSourceText(PROJ), /forecast made on 2026-11-12 for year 1/);
   const hist = { ...PROJ, assumptions: { ...PROJ.assumptions, vol_source: { used: "historical", reason: "no GARCH forecast file" } } };
-  assert.match(pd.volSourceText(hist), /^Historical volatility/);
+  assert.match(pd.volSourceText(hist), /past volatility/);
 });
 
 test("trend chips carry an arrow AND a word, and the numbers in the tooltip", () => {
   const up = pd.trendChip("SPY", { trend: "rising", forecast_vol: 0.222, hist_vol_63d: 0.15 });
   assert.deepEqual([up.arrow, up.word, up.cls], ["↑", "Rising", "rising"]);
-  assert.equal(up.tooltip, "GARCH forecast 22.2% vs last 3 months 15.0%");
+  assert.equal(up.tooltip, "Expected volatility 22.2% vs 15.0% over the last 3 months");
   assert.equal(pd.trendChip("X", { trend: "easing", forecast_vol: 0.1, hist_vol_63d: 0.2 }).word, "Easing");
   assert.equal(pd.trendChip("X", { trend: "stable", forecast_vol: 0.2, hist_vol_63d: 0.2 }).arrow, "→");
   const none = pd.trendChip("X", { trend: null, forecast_vol: null, hist_vol_63d: 0.3 });

@@ -35,18 +35,19 @@ TRADING_DAYS = 252
 SOURCES = ["prices_daily.csv (Yahoo Finance via yfinance, extracted 2026-11-13)",
            "fx_usdcad_daily.csv (Bank of Canada, series FXUSDCAD)"]
 BASE_ASSUMPTIONS = [
-    "Total return (adj_close, dividends reinvested), converted to CAD.",
-    "Calendar: union of TSX and US trading days; prices carried forward on market-specific holidays.",
-    "Crypto sampled on this calendar (weekend moves included on Monday).",
-    "Past returns do not predict future returns. Universe chosen in 2026 (survivorship bias).",
+    "Returns include reinvested dividends and are converted to Canadian dollars.",
+    "Every day the Toronto or a U.S. market is open is counted; on a holiday in one market, its last price is kept.",
+    "Crypto-assets follow the same calendar: weekend moves show up on Monday.",
+    "Past returns do not predict future returns. The list of investments was chosen in 2026, so it leaves out "
+    "companies that have since disappeared.",
 ]
 EXT_SOURCE = ("returns_daily_cad_ext.csv (S&P 500 constituents, Yahoo Finance via yfinance, "
               "scripts/build_extended_universe.py)")
 
 
 def _ext_assumption(tickers: list[str]) -> str:
-    return (f"{', '.join(tickers)}: S&P 500 extension (current constituents, so a strong survivorship bias; "
-            "Yahoo Finance, unlicensed). No fundamentals, ESG detail or 10-K excerpts for them.")
+    return (f"{', '.join(tickers)}: part of today's S&P 500, so their past results look better than the index's did "
+            "at the time. No company financials, ESG detail or annual-report excerpts are available for them.")
 
 
 def _eid(tool: str, inputs: dict) -> str:
@@ -236,11 +237,12 @@ class RiskTools:
         assumptions = []
         if used:
             dates = {f: str(hold[f]["holdings_date"].iloc[0]) for f in used if "holdings_date" in hold[f]}
-            assumptions.append(f"ETFs decomposed using their most recent holdings {dates} (CURRENT holdings, "
-                               "not historical); current GICS sectors, \"Unclassified\" if unknown.")
+            when = ", ".join(f"{f} on {d}" for f, d in dates.items())
+            assumptions.append(f"Funds are looked at through the companies they held ({when}); today's sectors are "
+                               "used, and a company with no known sector is shown as unclassified.")
         not_split = [a for a in weights if a not in (hold or {}) and self.universe.loc[a, "asset_class"].startswith("etf")]
         if not_split:
-            assumptions.append(f"Not decomposed (one position each): {not_split}.")
+            assumptions.append(f"Counted as one position each (their holdings aren't available): {', '.join(not_split)}.")
         ev = self._evidence("concentration", {"weights": weights, "look_through": used},
                             out, say, self.rets.index,
                             "Exposure per company = Σ ETF weight × stock weight in the ETF + direct holding; "

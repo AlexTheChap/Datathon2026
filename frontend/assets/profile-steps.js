@@ -299,7 +299,8 @@ function makeCards(ctx, uid) {
 /**
  * ctx: { h, icon, alertBox, RISK, EXPERIENCE, LIMITS, ANALYSES, AGENTS, scale?,
  *        hasProfile(): boolean, save(payload, {complete}): Promise<{profile, building}|profile>,
- *        persist({answered, skipped, draft}), setDirty(bool) }
+ *        persist({answered, skipped, draft}), setDirty(bool),
+ *        startChoice?(): element offered when save() answers {choose: true} (a blank profile just completed) }
  * opts: { saved: server profile or null, record: {answered, skipped, draft} or null }
  * Returns { el, cards, stepper, save(key), skip(key), change(key), cancel(key), fillAll(values), saveAll(), discardAll(), read() }.
  */
@@ -310,6 +311,7 @@ export function buildProfileSteps(ctx, { saved = null, record = null } = {}) {
   const stepper = createStepper({ answered: initialAnswered(saved, record), skipped: record ? record.skipped : [] });
   const live = h("p", { class: "visually-hidden", role: "status", "aria-live": "polite" });
   const status = h("p", { class: "small muted", role: "status" });
+  const choice = h("div", { class: "q-choice" });   // a blank profile just completed: how to start (focus moves to it)
   const touched = new Set();   // cards edited since they were last saved
   let savedValues = {};        // the last saved value of each card: what Cancel and Discard restore
   let draft = record && record.draft ? record.draft : null;   // answers waiting for a first save (needs risk and experience)
@@ -491,6 +493,13 @@ export function buildProfileSteps(ctx, { saved = null, record = null } = {}) {
     }
   }
   function showBuilding(res) {
+    if (res && res.choose && ctx.startChoice) {
+      choice.replaceChildren(h("section", { class: "panel" }, ctx.startChoice()));
+      const first = choice.querySelector("button");
+      if (first) first.focus();
+    } else if (res) {
+      choice.replaceChildren();
+    }
     status.replaceChildren(...(res && res.building
       ? ["Building your portfolio (about a minute). ", h("a", { href: ctx.homeHref || "#/portfolio" }, "See my portfolio")] : []));
   }
@@ -570,7 +579,7 @@ export function buildProfileSteps(ctx, { saved = null, record = null } = {}) {
       const key = card && card.getAttribute("data-step");
       if (key && ["open", "editing"].includes(stepper.status(key))) save(key);
     } },
-  stepper.order.map((k) => fieldset[k]), topAlert, bar, status, live);
+  stepper.order.map((k) => fieldset[k]), topAlert, bar, status, choice, live);
   const markTouched = (e) => {
     const card = e.target && e.target.closest ? e.target.closest(".q-card") : null;
     const key = card && card.getAttribute("data-step");

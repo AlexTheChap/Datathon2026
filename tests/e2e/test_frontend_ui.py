@@ -249,7 +249,7 @@ def test_cognito_demo_sign_in_seeds_the_persona_and_signs_out(base_url, monkeypa
             status=400, content_type="application/x-amz-json-1.1", body=json.dumps({"__type": "NotAuthorizedException"})))
         pg.click("a.nav__link:has-text('Ask')")  # the chat loads the history: the API sees the forged token, answers 401
         # Refused right after signing in: the app names the real cause instead of "session expired"
-        pg.wait_for_selector("text=AlphaForge's server refused your sign-in")
+        pg.wait_for_selector("text=AlphaForge couldn't confirm your sign-in")
         assert pg.evaluate("localStorage.getItem('af.session')") is None
         browser.close()
     assert "InitiateAuth" in calls and errors == []
@@ -292,7 +292,8 @@ def test_answer_with_checks_evidence_and_glossary(page, base_url):
     first_chip.click()
     target = page.locator(".evidence-item.is-focus")
     assert target.count() == 1 and "In 2022" in target.inner_text()           # chip 1 = the 2022 replay
-    assert page.locator("text=All other evidence from this analysis").count() == 1
+    assert page.locator("text=Everything else this analysis measured").count() == 1
+    assert "ev-" not in page.locator("#evidence-section").inner_text()            # ids are never printed
     assert page.errors == []
 
 
@@ -466,6 +467,46 @@ def test_what_if_sliders_rescore_the_mix_live_and_keep_100_percent(page, base_ur
     assert page.errors == []
 
 
+def test_a_better_mix_from_the_what_if_becomes_my_portfolio(page, base_url):
+    # Someone who holds only QQQ, with a moderate profile: the what-if finds a closer fit and adopts it.
+    fill_profile_form(page, risk=6, experience=5)
+    skip_the_rest(page)
+    page.click(".q-choice button:has-text('I already have a portfolio')")
+    page.fill("#holding-t-1", "QQQ"); page.fill("#holding-p-1", "100")
+    page.click("dialog button:has-text('Generate portfolio')")
+    page.wait_for_selector("text=The portfolio you have", timeout=15000)
+    page.wait_for_selector(".whatif__result .hero-card__figure")
+    assert page.locator("button:has-text('Make this my portfolio')").count() == 0     # same mix: nothing to adopt
+    page.click("button:has-text('Improve my score')")
+    page.click("button:has-text('Try this mix')")
+    note = page.locator(".whatif__note >> text=The suggested mix is in the sliders")
+    note.wait_for()
+    page.click(".whatif__note button[aria-label='Close this message']")             # the × closes the note
+    note.wait_for(state="detached")
+    page.click("button:has-text('Make this my portfolio')")                          # it fits better than the holdings
+    page.wait_for_selector("text=The mix you chose", timeout=15000)
+    actor = page.evaluate("JSON.parse(localStorage.getItem('af.actor'))")
+    saved = SERVICE.get_profile(actor)
+    assert saved.portfolio_run_id.startswith("chosen:") and saved.portfolio != saved.holdings == {"QQQ": 1.0}
+    # What they actually hold is one click away.
+    page.click("label:has-text('My actual portfolio')")
+    page.wait_for_selector("text=The portfolio you have")
+    assert page.errors == []
+
+
+def test_values_shown_switch_slides_and_the_chart_follows(page, base_url):
+    _portfolio_for(page)   # with a simulated amount: the range of possible values is shown
+    page.goto(f"{base_url}/#/portfolio")
+    thumb = page.locator("fieldset:has(legend:text('Values shown')) .seg-control__thumb")
+    thumb.wait_for()
+    page.wait_for_selector("text=Simulated value, in future dollars")
+    before = thumb.evaluate("(t) => t.style.transform")
+    page.click("label:has-text(\"In today's dollars\")")
+    page.wait_for_selector("text=Simulated value, in today's dollars")
+    assert thumb.evaluate("(t) => t.style.transform") != before                     # the thumb slid to the other option
+    assert page.errors == []
+
+
 def test_risk_comes_from_the_follow_up_on_the_exact_mix(page, base_url):
     _portfolio_for(page, risk_follow_up=True)
     page.goto(f"{base_url}/#/portfolio")
@@ -480,10 +521,33 @@ def test_risk_comes_from_the_follow_up_on_the_exact_mix(page, base_url):
 def test_saving_a_profile_builds_the_portfolio(page, base_url):
     fill_profile_form(page, risk=6, experience=5)   # Moderate, Intermediate
     skip_the_rest(page)                              # the last answer completes the profile
-    page.wait_for_selector("text=Building your portfolio")
-    page.click("a:has-text('See my portfolio')")
+    # A blank profile asks how to start: build one, or enter the portfolio the person already has.
+    page.wait_for_selector("text=Your profile is complete")
+    assert page.locator(".q-choice button").all_inner_texts() == ["Build my portfolio", "I already have a portfolio"]
+    page.click(".q-choice button:has-text('Build my portfolio')")
     # This test server only plans (no Bedrock): the dashboard says so instead of spinning forever.
-    page.wait_for_selector("text=The analysis agents aren't running", timeout=15000)
+    page.wait_for_selector("text=Analyses aren't available right now", timeout=15000)
+    assert page.errors == []
+
+
+def test_i_already_have_a_portfolio(page, base_url):
+    fill_profile_form(page, risk=6, experience=5)
+    skip_the_rest(page)
+    page.click(".q-choice button:has-text('I already have a portfolio')")
+    dialog = page.locator("dialog.dialog[open]")
+    dialog.wait_for()
+    page.fill("#holding-t-1", "XIU.TO"); page.fill("#holding-p-1", "60")
+    page.fill("#holding-t-2", "XBB.TO"); page.fill("#holding-p-2", "30")
+    page.click("dialog button:has-text('Generate portfolio')")
+    page.wait_for_selector("text=add up to 90%")                                    # the window says what is wrong
+    page.fill("#holding-p-2", "40")
+    assert "Total: 100%" in dialog.inner_text()
+    page.click("dialog button:has-text('Generate portfolio')")
+    page.wait_for_selector("text=The portfolio you have", timeout=15000)          # analysed as is, nothing built
+    assert page.locator("button:has-text('Optimize my portfolio')").count() == 1
+    assert page.locator("dialog[open]").count() == 0
+    actor = page.evaluate("JSON.parse(localStorage.getItem('af.actor'))")
+    assert SERVICE.get_profile(actor).holdings == {"XIU.TO": 0.6, "XBB.TO": 0.4}
     assert page.errors == []
 
 

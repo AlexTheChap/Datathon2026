@@ -18,7 +18,7 @@ TITLES = {
     "optimize": "The allocation search", "projection": "Range of possible values",
     "vol_forecast": "Where the swings are heading", "macro_snapshot": "Interest rates and inflation",
     "fx_usdcad": "Canadian dollar exchange rate", "rate_sensitivity": "How the holdings react to interest rates",
-    "esg_screen": "ESG screen", "company_fundamentals": "Company financials",
+    "esg_screen": "ESG screen", "esg_flags": "Exclusion list", "company_fundamentals": "Company financials",
     "news_search": "News and filings", "search_news": "News and filings",
     "market_screen": "Market screen", "market_related": "Related companies",
     "risk_subagent": "Risk analysis", "macro_subagent": "Rates and economy analysis", "esg_subagent": "ESG analysis",
@@ -62,10 +62,11 @@ def period_text(period: Optional[str]) -> Optional[str]:
 _YAHOO = "Yahoo Finance daily prices"
 _RULES: list[tuple[re.Pattern, Optional[str]]] = [(re.compile(p, re.I), label) for p, label in [
     (r"sub-agent analysis", None),                        # replaced by the sources of the evidence it used
+    (r"esg_flags\.json", "NBIM exclusion list"),
     (r"^data/curated \(prices, holdings", None),          # vague; the specific files are listed elsewhere
-    (r"rules\.yaml", "AlphaForge's limits for each risk profile (team assumptions)"),
+    (r"rules\.yaml", "AlphaForge's guideline limits for each risk profile"),
     (r"projection_assumptions\.yaml", "FP Canada and IQPF Projection Assumption Guidelines 2026"),
-    (r"vol_forecast\.csv", "AlphaForge volatility model (GARCH), fitted on daily prices"),
+    (r"vol_forecast\.csv", "AlphaForge volatility forecast, based on daily prices"),
     (r"rate_sensitivity\.csv", "AlphaForge rate sensitivity, measured on daily prices and bond yields"),
     (r"fx_usdcad", "Bank of Canada USD/CAD exchange rate"),
     (r"macro_rates|macro_daily_asof", "Bank of Canada and US Federal Reserve (FRED) rates and inflation"),

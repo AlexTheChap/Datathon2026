@@ -1,0 +1,292 @@
+{
+  "generated_at": "2026-11-15",
+  "sources": {
+    "1": {
+      "name": "NBIM – Observation and exclusion of companies",
+      "url": "https://www.nbim.no/en/responsibility/exclusion-of-companies",
+      "as_of": "2026-11-15"
+    }
+  },
+  "companies": {
+    "AEE": {
+      "name": "Ameren Corporation",
+      "flags": [
+        {
+          "reason": "Excluded because of production of coal or coal-based energy",
+          "source": "1",
+          "since": "2016-04-14"
+        }
+      ]
+    },
+    "AEP": {
+      "name": "American Electric Power",
+      "flags": [
+        {
+          "reason": "Excluded because of production of coal or coal-based energy",
+          "source": "1",
+          "since": "2016-04-14"
+        }
+      ]
+    },
+    "AES": {
+      "name": "Aes Corp",
+      "flags": [
+        {
+          "reason": "Excluded because of production of coal or coal-based energy",
+          "source": "1",
+          "since": "2016-04-14"
+        }
+      ]
+    },
+    "BA": {
+      "name": "Boeing Co/The",
+      "flags": [
+        {
+          "reason": "Excluded because of production of nuclear weapons",
+          "source": "1",
+          "since": "2006-01-05"
+        }
+      ]
+    },
+    "CAT": {
+      "name": "Caterpillar Inc",
+      "flags": [
+        {
+          "reason": "Excluded because of serious violations of individuals' rights in situations of war or conflict",
+          "source": "1",
+          "since": "2025-08-25"
+        }
+      ]
+    },
+    "CMS": {
+      "name": "Cms Energy Corp",
+      "flags": [
+        {
+          "reason": "Under observation because of production of coal or coal-based energy",
+          "source": "1",
+          "since": "2016-12-21"
+        }
+      ]
+    },
+    "CNQ.TO": {
+      "name": "Canadian Natural Resources",
+      "flags": [
+        {
+          "reason": "Excluded because of unacceptable greenhouse gas emissions",
+          "source": "1",
+          "since": "2020-05-13"
+        }
+      ]
+    },
+    "DTE": {
+      "name": "Dte Energy Company",
+      "flags": [
+        {
+          "reason": "Excluded because of production of coal or coal-based energy",
+          "source": "1",
+          "since": "2016-04-14"
+        }
+      ]
+    },
+    "DUK": {
+      "name": "Duke Energy Corp",
+      "flags": [
+        {
+          "reason": "Excluded because of severe environmental damage",
+          "source": "1",
+          "since": "2016-09-07"
+        }
+      ]
+    },
+    "EVRG": {
+      "name": "Evergy Inc",
+      "flags": [
+        {
+          "reason": "Excluded because of production of coal or coal-based energy",
+          "source": "1",
+          "since": "2019-01-17"
+        }
+      ]
+    },
+    "FCX": {
+      "name": "Freeport Mcmoran Inc",
+      "flags": [
+        {
+          "reason": "Excluded because of severe environmental damage",
+          "source": "1",
+          "since": "2006-06-06"
+        }
+      ]
+    },
+    "FE": {
+      "name": "Firstenergy Corp",
+      "flags": [
+        {
+          "reason": "Excluded because of production of coal or coal-based energy",
+          "source": "1",
+          "since": "2016-04-14"
+        }
+      ]
+    },
+    "GD": {
+      "name": "General Dynamics Corp",
+      "flags": [
+        {
+          "reason": "Excluded because of production of nuclear weapons",
+          "source": "1",
+          "since": "2024-09-05"
+        }
+      ]
+    },
+    "HII": {
+      "name": "Huntington Ingalls Industrie",
+      "flags": [
+        {
+          "reason": "Excluded because of production of nuclear weapons",
+          "source": "1",
+          "since": "2018-01-16"
+        }
+      ]
+    },
+    "J": {
+      "name": "Jacobs Solutions Inc",
+      "flags": [
+        {
+          "reason": "Excluded because of production of nuclear weapons",
+          "source": "1",
+          "since": "2013-01-11"
+        }
+      ]
+    },
+    "LHX": {
+      "name": "L3Harris Technologies Inc",
+      "flags": [
+        {
+          "reason": "Excluded because of production of nuclear weapons",
+          "source": "1",
+          "since": "2024-05-15"
+        }
+      ]
+    },
+    "LMT": {
+      "name": "Lockheed Martin Corp",
+      "flags": [
+        {
+          "reason": "Excluded because of production of nuclear weapons",
+          "source": "1",
+          "since": "2013-08-21"
+        }
+      ]
+    },
+    "LNT": {
+      "name": "Alliant Energy Corp",
+      "flags": [
+        {
+          "reason": "Excluded because of production of coal or coal-based energy",
+          "source": "1",
+          "since": "2016-12-21"
+        }
+      ]
+    },
+    "MO": {
+      "name": "Altria Group Inc",
+      "flags": [
+        {
+          "reason": "Excluded because of production of tobacco",
+          "source": "1",
+          "since": "2010-01-19"
+        }
+      ]
+    },
+    "NOC": {
+      "name": "Northrop Grumman Corp",
+      "flags": [
+        {
+          "reason": "Excluded because of production of nuclear weapons",
+          "source": "1",
+          "since": "2006-01-05"
+        }
+      ]
+    },
+    "NRG": {
+      "name": "Nrg Energy Inc",
+      "flags": [
+        {
+          "reason": "Excluded because of production of coal or coal-based energy",
+          "source": "1",
+          "since": "2016-12-21"
+        }
+      ]
+    },
+    "PM": {
+      "name": "Philip Morris International",
+      "flags": [
+        {
+          "reason": "Excluded because of production of tobacco",
+          "source": "1",
+          "since": "2010-01-19"
+        }
+      ]
+    },
+    "PNW": {
+      "name": "Pinnacle West Capital",
+      "flags": [
+        {
+          "reason": "Under observation because of production of coal or coal-based energy",
+          "source": "1",
+          "since": "2016-12-21"
+        }
+      ]
+    },
+    "TD.TO": {
+      "name": "Toronto-Dominion Bank",
+      "flags": [
+        {
+          "reason": "Under observation because of gross corruption or other serious financial crime",
+          "source": "1",
+          "since": "2025-06-11"
+        }
+      ]
+    },
+    "TXT": {
+      "name": "Textron Inc",
+      "flags": [
+        {
+          "reason": "Excluded because of production of cluster munitions",
+          "source": "1",
+          "since": "2009-01-30"
+        }
+      ]
+    },
+    "VST": {
+      "name": "Vistra Corp",
+      "flags": [
+        {
+          "reason": "Under observation because of production of coal or coal-based energy",
+          "source": "1",
+          "since": "2020-05-13"
+        }
+      ]
+    },
+    "WEC": {
+      "name": "Wec Energy Group Inc",
+      "flags": [
+        {
+          "reason": "Excluded because of production of coal or coal-based energy",
+          "source": "1",
+          "since": "2016-04-14"
+        }
+      ]
+    },
+    "XEL": {
+      "name": "Xcel Energy Inc",
+      "flags": [
+        {
+          "reason": "Excluded because of production of coal or coal-based energy",
+          "source": "1",
+          "since": "2016-04-14"
+        }
+      ]
+    }
+  }
+}

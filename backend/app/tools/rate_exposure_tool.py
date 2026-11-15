@@ -65,7 +65,7 @@ def run_rate_exposure(weights: dict[str, float], as_of: str, curated: Path) -> d
         "macro_evidence_id": macro.get("evidence_id"),
         "method": "Current macro series (point-in-time) and the regression of each fund's daily returns on yield "
                   "changes over 2021-2026 (curated/rate_sensitivity.csv). Impact = -duration x 1 point.",
-        "assumptions": ["Sensitivity is the 2021-2026 average: it changes over time and with non-parallel curve shifts.",
+        "assumptions": ["Sensitivity is the 2021-2026 average: it changes over time, and when short and long rates move differently.",
                         "Only bond funds have a measured sensitivity; stocks and equity funds are not measured, not zero.",
                         "The 1-point figure illustrates past sensitivity. It is not a forecast of rates or returns."],
         "data_sources": ["curated/rate_sensitivity.csv", "curated/macro_daily_asof.csv"],

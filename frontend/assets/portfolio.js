@@ -63,13 +63,14 @@ export function startJob(ctx, kind, question) {
 }
 
 /** Save the latest built portfolio into the profile (so "my portfolio" questions use it), once per portfolio run.
- * Runs when a build finishes, when the dashboard shows a portfolio and before the chat sends a question. */
+ * Runs when a build finishes, when the dashboard shows a portfolio and before the chat sends a question.
+ * A mix the user picked (their holdings, a what-if mix) stays theirs until a newer build finishes. */
 export async function syncPortfolio(ctx) {
   const profile = await ctx.loadProfile(true);
   if (!profile) return null;
   const runs = (await ctx.api("GET", "/v1/runs?limit=100")).data;
-  const done = D.findRun(runs, D.PORTFOLIO_PROMPT);
-  if (!done || profile.portfolio_run_id === done.run_id) return profile.portfolio || null;
+  const done = D.findBuild(runs);
+  if (!done || profile.portfolio_run_id === done.run_id || D.chosenIsCurrent(profile, done)) return profile.portfolio || null;
   const [run, records] = await Promise.all([
     ctx.api("GET", `/v1/runs/${encodeURIComponent(done.run_id)}`).then((r) => r.data),
     ctx.api("GET", `/v1/runs/${encodeURIComponent(done.run_id)}/evidence`).then((r) => r.data)]);
@@ -83,13 +84,123 @@ export async function syncPortfolio(ctx) {
 /** Called by the profile page after a save: rebuild when the profile changed in a way that shapes a portfolio. */
 export function onProfileSaved(ctx, before, after) {
   if (!after || !after.risk_band || !after.experience) return null;
+  // Someone who entered what they hold keeps it: the fit is measured again live, "Optimize my portfolio" is theirs to press.
+  if (Object.keys(D.cleanWeights(after.holdings)).length) return null;
   if (before && !D.profileChanged(before, after)) return null;
   return startJob(ctx, "portfolio", D.PORTFOLIO_PROMPT);
+}
+
+/* ---------- Starting points: build from the profile, or the portfolio the person already has ---------- */
+
+/** A profile just completed for the first time, with no portfolio yet: the person chooses how to start. */
+export function needsStartChoice(ctx, profile) {
+  const job = jobFor(ctx, "portfolio");
+  return Boolean(profile) && !profile.portfolio && !Object.keys(D.cleanWeights(profile.holdings)).length && !(job && !job.done);
+}
+
+/** Build a portfolio from the profile (the usual start). */
+export function startBuild(ctx) { return startJob(ctx, "portfolio", D.PORTFOLIO_PROMPT); }
+
+/** Make `weights` the user's portfolio (their holdings, or a mix from the what-if): saved in the profile, analysed by
+ * the run riskPrompt(weights). It stays their portfolio until a newer build finishes (D.chosenIsCurrent). */
+export async function adoptWeights(ctx, weights, { asHoldings = false } = {}) {
+  const w = Object.fromEntries(D.sortedWeights(weights).map(([t, v]) => [t, Math.round(v * 10000) / 10000]));
+  const runs = (await ctx.api("GET", "/v1/runs?limit=100")).data;
+  const body = { portfolio: w, portfolio_run_id: D.chosenMarker(D.findBuild(runs)) };
+  if (asHoldings) body.holdings = w;
+  await ctx.api("PUT", "/v1/profile", body);
+  await ctx.loadProfile(true);
+  ctx.store.set(VIEW_KEY(ctx), null); // show the portfolio just chosen
+  startJob(ctx, "risk", D.riskPrompt(w));
+}
+
+/** "I already have a portfolio": a window to enter each holding and its share, then "Generate portfolio". */
+export async function openHoldingsDialog(ctx, { initial = null } = {}) {
+  const { h } = ctx;
+  const uni = await loadUniverse();
+  const start = initial && Object.keys(initial).length
+    ? D.sortedWeights(initial).map(([t, v]) => ({ ticker: t, percent: String(Math.round(v * 1000) / 10) }))
+    : [{ ticker: "", percent: "" }, { ticker: "", percent: "" }];
+  const rows = h("div", { class: "holdings__rows" });
+  const total = h("p", { class: "small holdings__total", "aria-live": "polite" });
+  const errors = h("div", { class: "holdings__errors" });
+  const options = h("datalist", { id: "holdings-assets" }, Object.entries(uni).map(([t, a]) =>
+    h("option", { value: t }, `${a.name || t}${a.plain && a.plain !== a.name ? ` (${a.plain})` : ""}`)));
+  const read = () => [...rows.children].map((r) => ({ ticker: r.querySelector(".holdings__ticker").value, percent: r.querySelector(".holdings__pct").value }));
+  const showTotal = () => {
+    const t = Math.round(read().reduce((a, r) => a + (Number(r.percent) || 0), 0) * 10) / 10;
+    const off = Math.abs(t - 100) > 0.5;
+    total.textContent = `Total: ${t}%${off ? " (needs to be 100%)" : ""}`;
+    total.classList.toggle("is-off", off);
+  };
+  let n = 0;
+  const row = ({ ticker, percent }) => {
+    n += 1;
+    const t = h("input", { class: "input holdings__ticker", id: `holding-t-${n}`, list: "holdings-assets", value: ticker, autocomplete: "off",
+      placeholder: "Ticker, e.g. XIU.TO", "aria-label": `Investment ${n}` });
+    const p = h("input", { class: "input holdings__pct", id: `holding-p-${n}`, type: "number", min: "0", max: "100", step: "0.1",
+      inputmode: "decimal", value: percent, placeholder: "0", "aria-label": `Share of your money for investment ${n}, in %` });
+    p.addEventListener("input", showTotal);
+    const el = h("div", { class: "holdings__row" }, t,
+      h("span", { class: "holdings__pct-wrap" }, p, h("span", { "aria-hidden": "true" }, "%")),
+      h("button", { class: "link-btn", type: "button", "aria-label": `Remove investment ${n}`,
+        onclick: () => { if (rows.children.length > 1) { el.remove(); showTotal(); } } }, "Remove"));
+    return el;
+  };
+  start.forEach((r) => rows.append(row(r)));
+  const generate = h("button", { class: "btn btn--primary", type: "submit" }, "Generate portfolio");
+  const dialog = h("dialog", { class: "dialog", "aria-labelledby": "holdings-title" });
+  const form = h("form", { class: "stack", novalidate: true },
+    h("div", { class: "dialog__head" },
+      h("h2", { id: "holdings-title", class: "section-title" }, "The portfolio you already have"),
+      closeButton(ctx, "Close", () => dialog.close())),
+    h("p", { class: "small muted" }, "Add each stock, fund or bond fund you hold and its share of your money. AlphaForge analyses this mix as it is and scores how well it fits your profile. It builds nothing new until you ask it to."),
+    rows, options,
+    h("div", { class: "holdings__foot" },
+      h("button", { class: "btn btn--secondary btn--sm", type: "button", onclick: () => {
+        const r = row({ ticker: "", percent: "" }); rows.append(r); r.querySelector("input").focus();
+      } }, "Add a holding"),
+      total),
+    errors,
+    h("div", { class: "dialog__actions" },
+      h("button", { class: "btn btn--secondary", type: "button", onclick: () => dialog.close() }, "Cancel"), generate));
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const res = D.holdingsFromRows(read(), uni);
+    if (res.errors.length) {
+      errors.replaceChildren(h("ul", { class: "warning-list", role: "alert" }, res.errors.map((x) => h("li", null, x))));
+      return;
+    }
+    errors.replaceChildren();
+    generate.disabled = true; generate.textContent = "Saving…";
+    try {
+      await adoptWeights(ctx, res.weights, { asHoldings: true });
+      dialog.close();
+      if (location.hash === "#/portfolio") ctx.route(); else location.hash = "#/portfolio";
+    } catch (err) {
+      generate.disabled = false; generate.textContent = "Generate portfolio";
+      errors.replaceChildren(ctx.alertBox(err, "your portfolio"));
+    }
+  });
+  dialog.append(form);
+  dialog.addEventListener("close", () => dialog.remove());
+  document.body.append(dialog);
+  showTotal();
+  dialog.showModal();
+  const first = rows.querySelector("input");
+  if (first) first.focus();
+}
+
+/** A small "×" button that closes a bar or a window. */
+function closeButton(ctx, label, onclick) {
+  return ctx.h("button", { class: "close-btn", type: "button", "aria-label": label, title: label, onclick },
+    ctx.h("span", { "aria-hidden": "true" }, "×"));
 }
 
 /* ---------- Page ---------- */
 
 const DETAIL_KEY = (ctx) => `af.detail.${ctx.actorId()}`;
+const VIEW_KEY = (ctx) => `af.view.${ctx.actorId()}`; // "actual": the holdings are on screen instead of the current portfolio
 const AUTO_KEY = (ctx, kind) => `af.auto.${kind}.${ctx.actorId()}`;
 function autoOnce(ctx, kind) { // auto-start a question at most once per browser session (a failure is not retried in a loop)
   try {
@@ -120,12 +231,13 @@ export async function renderPortfolio(main, ctx) {
   const { h } = ctx;
   const body = h("div", { class: "stack" }, h("div", { class: "panel" }, ctx.skeleton(5)));
   const detailSlot = h("div");
+  const toolsSlot = h("div", { class: "page-head__actions" });
   main.append(
     ctx.band("head", h("div", { class: "page-head page-head--split" },
       h("div", { class: "stack-sm" },
         h("h1", null, "Your portfolio"),
-        h("p", null, "The simulated portfolio AlphaForge builds from your profile, with what it holds, how risky it is and why it fits you. Simulation only, not advice.")),
-      detailSlot)),
+        h("p", null, "The simulated portfolio AlphaForge builds from your profile, or the one you already have, with what it holds, how risky it is and how well it fits you. Simulation only, not advice.")),
+      h("div", { class: "page-head__tools" }, toolsSlot, detailSlot))),
     ctx.band("body", body));
 
   // Redraw when a background question ends, as long as this page is still the one on screen.
@@ -160,61 +272,90 @@ export async function renderPortfolio(main, ctx) {
       detailSlot.firstChild.update(level);
     }
 
+    const holdings = D.cleanWeights(profile.holdings);
+    const hasHoldings = Object.keys(holdings).length > 0;
     const job = jobFor(ctx, "portfolio");
-    const done = D.findRun(runs, D.PORTFOLIO_PROMPT);
-    const building = (job && !job.done) || (!(job && job.done) && D.pendingRun(runs, D.PORTFOLIO_PROMPT));
-    if (!done) {
+    const build = D.findBuild(runs);
+    const building = Boolean((job && !job.done) || (!(job && job.done) && D.pendingBuild(runs)));
+    // The current portfolio: a mix the user picked (holdings, what-if) while no newer build finished, else the latest build.
+    let chosen = D.chosenIsCurrent(profile, build) ? D.cleanWeights(profile.portfolio) : null;
+    if (!chosen && !build && hasHoldings) chosen = holdings;
+    toolsSlot.replaceChildren(...(hasHoldings ? [h("button", { class: "btn btn--primary", type: "button", disabled: building,
+      onclick: () => { ctx.store.set(VIEW_KEY(ctx), null); startJob(ctx, "portfolio", D.optimizePrompt(holdings)); ctx.route(); } },
+      building ? "Optimizing…" : "Optimize my portfolio")] : []));
+
+    if (!chosen && !build) {
       if (job && job.done && (job.error || (job.run && job.run.status !== "DONE"))) {
         body.replaceChildren(buildFailed(ctx, job), history(ctx, runs));
         return;
       }
-      if (!building && autoOnce(ctx, "portfolio")) startJob(ctx, "portfolio", D.PORTFOLIO_PROMPT);
-      const now = jobFor(ctx, "portfolio");
-      body.replaceChildren(now && !now.done ? buildingPanel(ctx) : notBuilt(ctx), history(ctx, runs));
+      body.classList.remove("is-switching");
+      body.replaceChildren(building ? buildingPanel(ctx) : startPanel(ctx), history(ctx, runs));
       return;
     }
 
-    let run; let records;
-    try {
-      [run, records] = await Promise.all([
-        ctx.api("GET", `/v1/runs/${encodeURIComponent(done.run_id)}`).then((r) => r.data),
-        ctx.api("GET", `/v1/runs/${encodeURIComponent(done.run_id)}/evidence`).then((r) => r.data)]);
-    } catch (err) {
-      body.replaceChildren(ctx.alertBox(err, "your portfolio", draw));
-      return;
-    }
-    const p = D.extractPortfolio(run, records);
-    if (!p.weights) {
-      body.replaceChildren(noWeights(ctx, p, run), history(ctx, runs));
-      return;
-    }
-    // This is now the user's portfolio: saved in the profile, so a question about "my portfolio" is analysed on it.
-    if (profile.portfolio_run_id !== p.runId) syncPortfolio(ctx).catch(() => { /* retried on the next visit or question */ });
+    // With holdings, the person can look at what they actually hold whenever the current portfolio is something else.
+    const canSwitch = hasHoldings && !(chosen && D.sameWeights(chosen, holdings));
+    const showActual = canSwitch && ctx.store.get(VIEW_KEY(ctx)) === "actual";
+    let p; let risk; let riskRunId; let riskState;
+    if (showActual || chosen) {
+      const w = showActual ? holdings : chosen;
+      const got = await analysed(w);
+      if (!got) return;
+      p = got; risk = p.risk; riskRunId = p.runId;
+      riskState = risk.matches ? "ready" : p.pending ? "measuring" : "missing";
+      p.actual = hasHoldings && D.sameWeights(w, holdings);
+    } else {
+      let run; let records;
+      try {
+        [run, records] = await Promise.all([
+          ctx.api("GET", `/v1/runs/${encodeURIComponent(build.run_id)}`).then((r) => r.data),
+          ctx.api("GET", `/v1/runs/${encodeURIComponent(build.run_id)}/evidence`).then((r) => r.data)]);
+      } catch (err) {
+        body.replaceChildren(ctx.alertBox(err, "your portfolio", draw));
+        return;
+      }
+      p = D.extractPortfolio(run, records);
+      p.optimized = (build.question || "").startsWith(D.OPTIMIZE_PROMPT_PREFIX);
+      if (!p.weights) {
+        body.replaceChildren(noWeights(ctx, p, run), history(ctx, runs));
+        return;
+      }
+      // This is now the user's portfolio: saved in the profile, so a question about "my portfolio" is analysed on it.
+      if (profile.portfolio_run_id !== p.runId) syncPortfolio(ctx).catch(() => { /* retried on the next visit or question */ });
 
-    // Risk of these exact weights: from this run when it measured them, else from the follow-up question.
-    let risk = p.risk; let riskRunId = run.run_id; let riskState = risk.matches ? "ready" : "missing";
-    if (!risk.matches) {
-      const q = D.riskPrompt(p.weights);
-      const rdone = D.findRun(runs, q, { exact: true });
-      const rjob = jobFor(ctx, "risk");
-      const ended = rjob && rjob.done && rjob.question === q; // this page asked and saw the answer: not pending
-      if (rdone) {
-        try {
-          const recs = (await ctx.api("GET", `/v1/runs/${encodeURIComponent(rdone.run_id)}/evidence`)).data;
-          const r2 = D.riskOf(recs, p.weights);
-          if (r2.matches) { risk = r2; riskRunId = rdone.run_id; riskState = "ready"; }
-        } catch { /* keep "missing": the section offers to measure it */ }
-      } else if (!ended && ((rjob && !rjob.done && rjob.question === q) || D.pendingRun(runs, q, true))) {
-        riskState = "measuring";
-      } else if (!ended && autoOnce(ctx, `risk-${run.run_id}`)) {
-        startJob(ctx, "risk", q);
-        riskState = "measuring";
+      // Risk of these exact weights: from this run when it measured them, else from the follow-up question.
+      risk = p.risk; riskRunId = run.run_id; riskState = risk.matches ? "ready" : "missing";
+      if (!risk.matches) {
+        const q = D.riskPrompt(p.weights);
+        const rdone = D.findRun(runs, q, { exact: true });
+        const rjob = jobFor(ctx, "risk");
+        const ended = rjob && rjob.done && rjob.question === q; // this page asked and saw the answer: not pending
+        if (rdone) {
+          try {
+            const recs = (await ctx.api("GET", `/v1/runs/${encodeURIComponent(rdone.run_id)}/evidence`)).data;
+            const r2 = D.riskOf(recs, p.weights);
+            if (r2.matches) { risk = r2; riskRunId = rdone.run_id; riskState = "ready"; }
+          } catch { /* keep "missing": the section offers to measure it */ }
+        } else if (!ended && ((rjob && !rjob.done && rjob.question === q) || D.pendingRun(runs, q, true))) {
+          riskState = "measuring";
+        } else if (!ended && autoOnce(ctx, `risk-${run.run_id}`)) {
+          startJob(ctx, "risk", q);
+          riskState = "measuring";
+        }
       }
     }
+    p.key = p.runId && !p.chosen ? p.runId : `w:${JSON.stringify(D.sortedWeights(p.weights))}`;
+    const currentLabel = chosen ? "The mix I chose" : p.optimized || (build.question || "").startsWith(D.OPTIMIZE_PROMPT_PREFIX) ? "Optimized portfolio" : "Built for my profile";
+    const switcher = canSwitch ? viewSwitch(ctx, showActual ? "actual" : "current", currentLabel, () => {
+      body.classList.add("is-switching"); // same fade as the detail switch
+      window.setTimeout(draw, 160);
+    }) : null;
 
-    const view = { ctx, h, profile, p, risk, riskState, riskRunId, level, learn: Boolean(profile.wants_to_learn) && level !== "detailed", uni };
+    const view = { ctx, h, profile, p, risk, riskState, riskRunId, level, learn: Boolean(profile.wants_to_learn) && level !== "detailed", uni, hasHoldings };
     body.classList.remove("is-switching");
     body.replaceChildren(...[ // sections that don't apply are null: dropped, never rendered as text
+      switcher,
       ...banners(view, building),
       heroCard(view),
       kpis(view),
@@ -231,7 +372,29 @@ export async function renderPortfolio(main, ctx) {
       level !== "simple" && p.esg && wantsEsg(profile) && (analysisOn(profile, "esg") || esgLimit(profile)) ? esgSection(view) : null,
       level !== "simple" && p.news.length && (analysisOn(profile, "news") || analysisOn(profile, "fundamentals")) ? newsSection(view) : null,
       explanationSection(view),
-      history(ctx, runs, run.run_id)].filter(Boolean));
+      history(ctx, runs, p.runId)].filter(Boolean));
+
+    /** A mix the user chose, analysed by the run riskPrompt(weights): started once when missing, polled while it runs. */
+    async function analysed(w) {
+      const q = D.riskPrompt(w);
+      const done = D.findRun(runs, q, { exact: true });
+      if (done) {
+        try {
+          const [run, recs] = await Promise.all([
+            ctx.api("GET", `/v1/runs/${encodeURIComponent(done.run_id)}`).then((r) => r.data),
+            ctx.api("GET", `/v1/runs/${encodeURIComponent(done.run_id)}/evidence`).then((r) => r.data)]);
+          return D.analysedPortfolio(w, run, recs);
+        } catch (err) {
+          body.replaceChildren(ctx.alertBox(err, "your portfolio", draw));
+          return null;
+        }
+      }
+      const rjob = jobFor(ctx, "risk");
+      const ended = rjob && rjob.done && rjob.question === q;
+      let pending = !ended && Boolean((rjob && !rjob.done && rjob.question === q) || D.pendingRun(runs, q, true));
+      if (!pending && !ended && autoOnce(ctx, `analysis-${q}`)) { startJob(ctx, "risk", q); pending = true; }
+      return { ...D.analysedPortfolio(w, null, []), pending };
+    }
   }
 
   draw();
@@ -246,17 +409,24 @@ function buildingPanel(ctx) {
     h("p", { class: "lede" }, "AlphaForge is choosing a mix that fits your profile, checking it against your rules and writing the explanation. This takes about a minute. You can keep using the app: this page updates when it's ready."));
 }
 
-function notBuilt(ctx) {
+/** No portfolio yet: build one from the profile, or enter the one the person already has. */
+export function startChoice(ctx, { title = "No portfolio yet", headingLevel = "h2" } = {}) {
   const { h } = ctx;
-  return h("section", { class: "panel empty" },
-    h("h2", { class: "section-title" }, "No portfolio yet"),
-    h("p", { class: "lede" }, "AlphaForge builds it from your profile in about a minute."),
-    h("button", { class: "btn btn--primary", type: "button", onclick: () => { startJob(ctx, "portfolio", D.PORTFOLIO_PROMPT); ctx.route(); } }, "Build my portfolio"));
+  return h("div", { class: "stack-sm start-choice" },
+    h(headingLevel, { class: "section-title" }, title),
+    h("p", { class: "lede" }, "AlphaForge can build a portfolio from your profile in about a minute, or analyse the one you already have and score how well it fits you."),
+    h("div", { class: "start-choice__actions" },
+      h("button", { class: "btn btn--primary", type: "button", onclick: () => { startBuild(ctx); if (location.hash === "#/portfolio") ctx.route(); else location.hash = "#/portfolio"; } }, "Build my portfolio"),
+      h("button", { class: "btn btn--secondary", type: "button", onclick: () => openHoldingsDialog(ctx) }, "I already have a portfolio")));
+}
+
+function startPanel(ctx) {
+  return ctx.h("section", { class: "panel empty" }, startChoice(ctx));
 }
 
 function buildFailed(ctx, job) {
   const { h } = ctx;
-  const retry = () => { startJob(ctx, "portfolio", D.PORTFOLIO_PROMPT); ctx.route(); };
+  const retry = () => { startJob(ctx, "portfolio", job.question || D.PORTFOLIO_PROMPT); ctx.route(); };
   if (job.error) {
     if (job.error.reply) {
       return h("section", { class: "panel" }, h("h2", { class: "section-title" }, "AlphaForge needs something first"),
@@ -267,9 +437,9 @@ function buildFailed(ctx, job) {
   const run = job.run;
   const planOnly = run.status === "QUEUED";
   return h("section", { class: "panel" },
-    h("h2", { class: "section-title" }, planOnly ? "The analysis agents aren't running" : "Your portfolio couldn't be built this time"),
+    h("h2", { class: "section-title" }, planOnly ? "Analyses aren't available right now" : "Your portfolio couldn't be built this time"),
     h("p", { class: "lede" }, planOnly
-      ? "This server only plans analyses (AF_DISPATCH=none), so no portfolio can be built here."
+      ? "AlphaForge can't run analyses right now, so no portfolio can be built. Try again later."
       : "The analysis stopped before the end. You can see what happened, or try again."),
     h("div", { class: "notice" },
       h("a", { class: "link-btn", href: `#/runs/${run.run_id}` }, "See what happened"),
@@ -290,28 +460,53 @@ function noWeights(ctx, p, run) {
 }
 
 function banners(view, building) {
-  const { ctx, h, p, profile } = view;
+  const { ctx, h, p, profile, hasHoldings } = view;
   const out = [];
+  const job = jobFor(ctx, "portfolio");
+  const rebuild = hasHoldings ? D.optimizePrompt(D.cleanWeights(profile.holdings)) : D.PORTFOLIO_PROMPT;
   if (building) {
     out.push(h("div", { class: "banner", role: "status" }, h("span", { class: "spinner", "aria-hidden": "true" }),
-      h("span", null, "A new portfolio is being built from your updated profile. This page updates when it's ready.")));
+      h("span", null, hasHoldings
+        ? "AlphaForge is optimizing your portfolio: a mix close to what you hold that fits your profile better. This page updates when it's ready."
+        : "A new portfolio is being built from your updated profile. This page updates when it's ready.")));
+  } else if (job && job.done && (job.error || (job.run && job.run.status !== "DONE")) && !job.seen) {
+    const bar = h("div", { class: "banner banner--action", role: "status" },
+      h("span", null, "Your portfolio couldn't be optimized this time."),
+      h("div", { class: "banner__actions" },
+        job.run ? h("a", { class: "link-btn", href: `#/runs/${job.run.run_id}` }, "See what happened") : null,
+        h("button", { class: "btn btn--secondary btn--sm", type: "button", onclick: () => { startJob(ctx, "portfolio", job.question); ctx.route(); } }, "Try again"),
+        closeButton(ctx, "Close this message", () => { job.seen = true; bar.remove(); })));
+    out.push(bar);
   } else if (D.profileChanged(p.profileSnapshot, profile)) {
     out.push(h("div", { class: "banner banner--action" },
       h("span", null, "Your profile changed since this portfolio was built."),
-      h("button", { class: "btn btn--primary", type: "button", onclick: () => { startJob(ctx, "portfolio", D.PORTFOLIO_PROMPT); ctx.route(); } }, "Rebuild my portfolio")));
+      h("button", { class: "btn btn--primary", type: "button", onclick: () => { startJob(ctx, "portfolio", rebuild); ctx.route(); } },
+        hasHoldings ? "Optimize again" : "Rebuild my portfolio")));
   }
   return out;
 }
 
-/** The Simple / Standard / Detailed switch: a capsule whose thumb slides to the chosen option. It is created once
- * per page and updated in place, so the slide animates and focus stays on the option. */
-export function detailControl(ctx, level, onChange) {
+/** With holdings: the current portfolio (optimized, built, or a mix the user chose) or what they actually hold. */
+function viewSwitch(ctx, value, currentLabel, redraw) {
+  return ctx.h("div", { class: "view-switch" }, segControl(ctx, {
+    legend: "Portfolio shown", name: "portfolio-view", value,
+    options: [["current", currentLabel], ["actual", "My actual portfolio"]],
+    onChange: (v) => {
+      ctx.store.set(VIEW_KEY(ctx), v === "actual" ? "actual" : null);
+      redraw();
+    },
+  }));
+}
+
+/** A capsule switch whose thumb slides to the chosen option ("How much detail", "Values shown"...). Update it in place
+ * (el.update) so the slide animates and focus stays on the option. */
+export function segControl(ctx, { legend, name, options: choices, value, onChange, small = false }) {
   const { h } = ctx;
   const thumb = h("span", { class: "seg-control__thumb", "aria-hidden": "true" });
-  const options = h("div", { class: "seg-control__options" }, thumb, D.LEVELS.map((l) => h("label", { class: "seg-control__option" },
-    h("input", { type: "radio", name: "detail-level", value: l, checked: l === level, onchange: () => { place(); onChange(l); } }),
-    h("span", null, D.LEVEL_LABELS[l]))));
-  const el = h("fieldset", { class: "seg-control" }, h("legend", null, "How much detail"), options);
+  const options = h("div", { class: "seg-control__options" }, thumb, choices.map(([v, label]) => h("label", { class: "seg-control__option" },
+    h("input", { type: "radio", name, value: v, checked: v === value, onchange: () => { place(); onChange(v); } }),
+    h("span", null, label))));
+  const el = h("fieldset", { class: `seg-control${small ? " seg-control--small" : ""}` }, h("legend", null, legend), options);
   function place() {
     const on = options.querySelector("input:checked");
     if (!on) return;
@@ -319,11 +514,18 @@ export function detailControl(ctx, level, onChange) {
     thumb.style.width = `${label.offsetWidth}px`;
     thumb.style.transform = `translateX(${label.offsetLeft - 2}px)`;
   }
-  el.update = (l) => { const input = options.querySelector(`input[value="${l}"]`); if (input) input.checked = true; place(); };
-  // First placement without a slide (the thumb appears under the current level), then slides on every change.
+  el.update = (v) => { const input = options.querySelector(`input[value="${v}"]`); if (input) input.checked = true; place(); };
+  // First placement without a slide (the thumb appears under the current option), then slides on every change.
   requestAnimationFrame(() => { place(); requestAnimationFrame(() => options.classList.add("is-ready")); });
-  window.addEventListener("resize", place);
+  const onResize = () => { if (el.isConnected) place(); else window.removeEventListener("resize", onResize); };
+  window.addEventListener("resize", onResize);
   return el;
+}
+
+/** The Simple / Standard / Detailed switch, created once per page. */
+export function detailControl(ctx, level, onChange) {
+  return segControl(ctx, { legend: "How much detail", name: "detail-level", value: level, onChange,
+    options: D.LEVELS.map((l) => [l, D.LEVEL_LABELS[l]]) });
 }
 
 /* ---------- Sections ---------- */
@@ -337,15 +539,21 @@ function heroCard(view) {
   // Written here from the page's own numbers, so it follows the level and "wants to learn" (the Explainer's text,
   // written once at build time, is under "Why this portfolio").
   const summary = D.heroSummary({ level, learn: view.learn, weights: p.weights, universe: view.uni, governance: p.governance,
-    vol: risk.contribution ? risk.contribution.vol : null, profile: view.profile });
+    vol: risk.contribution ? risk.contribution.vol : null, profile: view.profile, own: Boolean(p.chosen) });
+  const title = p.chosen ? (p.actual ? "The portfolio you have" : "The mix you chose")
+    : p.optimized ? "Your optimized portfolio" : level === "simple" ? "A mix chosen for you" : "Your simulated portfolio";
+  const origin = !p.chosen
+    ? [`${p.optimized ? "Optimized from what you hold" : "Built from your profile"} on ${ctx.timeText(p.builtAt)} \u00B7 `,
+      h("a", { href: `#/runs/${p.runId}` }, "See how it was built and its sources")]
+    : p.runId ? [`Analysed on ${ctx.timeText(p.builtAt)} \u00B7 `, h("a", { href: `#/runs/${p.runId}` }, "See the analysis and its sources")]
+      : [p.pending ? "AlphaForge is analysing this mix (about a minute). This page updates when it's done." : "This mix hasn't been analysed yet."];
   return h("section", { class: "panel hero-card", "aria-labelledby": "hero-title" },
     h("div", { class: "hero-card__main stack-sm" },
-      h("span", { class: `verdict verdict--${vs.cls}` }, ctx.icon(vs.icon, 14), verdictWord(v)),
-      h("h2", { id: "hero-title", class: "hero-card__title" }, level === "simple" ? "A mix chosen for you" : "Your simulated portfolio"),
+      !p.chosen || p.governance ? h("span", { class: `verdict verdict--${vs.cls}` }, ctx.icon(vs.icon, 14), verdictWord(v)) : null,
+      h("h2", { id: "hero-title", class: "hero-card__title" }, title),
       h("p", { class: "hero-card__answer" }, summary.text),
       summary.learn ? learnNote(view, summary.learn) : null,
-      h("p", { class: "small muted" }, `Built from your profile on ${ctx.timeText(p.builtAt)} \u00B7 `,
-        h("a", { href: `#/runs/${p.runId}` }, "See how it was built and its sources"))),
+      h("p", { class: "small muted" }, ...origin)),
     fitCard(view));
 }
 
@@ -407,7 +615,7 @@ function whatIfSection(view) {
   const { ctx, h, p, level, profile } = view;
   const uni = view.uni || {};
   const label = (t) => (level === "simple" ? (uni[t] || {}).plain || t : t);
-  let weights = trials.get(p.runId) || { ...p.weights };
+  let weights = trials.get(p.key) || { ...p.weights };
   let order = D.sortedWeights(weights).map(([t]) => t); // the rows keep their place while sliding
   let seq = 0; let timer = null;
 
@@ -448,7 +656,7 @@ function whatIfSection(view) {
   function setWeights(next, redraw, moving, keepSuggestion = false) {
     weights = next;
     if (!keepSuggestion) suggestion.replaceChildren(); // a suggestion is for the mix it was made from
-    trials.set(p.runId, weights);
+    trials.set(p.key, weights);
     if (redraw) {
       // One row per holding in the weights, always: rows keep their place, and a holding that comes back (the reset
       // after a removal) gets its row again, so the rows on screen always add up to 100%.
@@ -478,7 +686,7 @@ function whatIfSection(view) {
       const [trial, base] = await Promise.all([fitFor(ctx, profile, clean), fitFor(ctx, profile, p.weights).catch(() => null)]);
       if (mine !== seq) return; // a newer move is on its way
       result.classList.remove("is-loading");
-      result.replaceChildren(...whatIfResult(view, trial, base, improve).filter(Boolean));
+      result.replaceChildren(...whatIfResult(view, trial, base, improve, D.sameWeights(clean, p.weights) ? null : () => adopt(clean)).filter(Boolean));
     } catch (err) {
       if (mine !== seq) return;
       result.classList.remove("is-loading");
@@ -498,13 +706,35 @@ function whatIfSection(view) {
         apply: () => {
           order = D.sortedWeights(data.weights).map(([t]) => t);
           setWeights({ ...data.weights }, true, null, true);
-          suggestion.replaceChildren(h("p", { class: "small" }, h("strong", null, "The suggested mix is in the sliders. "),
+          suggestion.replaceChildren(note(h("strong", null, "The suggested mix is in the sliders. "),
             "Adjust it as you like; “Back to my portfolio” undoes it."));
         },
         dismiss: () => suggestion.replaceChildren(),
+        close: (...parts) => note(...parts),
       }).filter(Boolean));
     } catch (err) {
       suggestion.replaceChildren(ctx.alertBox(err, "a better mix", improve));
+    }
+  }
+
+  /** A one-line note in the suggestion area, with an × to close it. */
+  function note(...parts) {
+    return h("div", { class: "whatif__note" }, h("p", { class: "small" }, ...parts),
+      closeButton(ctx, "Close this message", () => suggestion.replaceChildren()));
+  }
+
+  /** "Make this my portfolio": the mix in the sliders becomes the portfolio; the page reloads on it. */
+  async function adopt(mix) {
+    result.classList.add("is-loading");
+    try {
+      await adoptWeights(ctx, mix);
+      trials.delete(p.key);
+      ctx.announce("This mix is now your portfolio. AlphaForge is analysing it.");
+      window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      ctx.route();
+    } catch (err) {
+      result.classList.remove("is-loading");
+      suggestion.replaceChildren(ctx.alertBox(err, "your portfolio", () => adopt(mix)));
     }
   }
 
@@ -523,10 +753,10 @@ function whatIfSection(view) {
     suggestion);
 }
 
-function suggestionCard(view, data, { apply, dismiss }) {
+function suggestionCard(view, data, { apply, dismiss, close }) {
   const { h, level } = view;
   const uni = view.uni || {};
-  if (!data.found) return [h("p", { class: "small" }, h("strong", null, "No better mix found. "), data.message)];
+  if (!data.found) return [close(h("strong", null, "No better mix found. "), data.message)];
   const name = (t) => (level === "simple" ? (uni[t] || {}).plain || t : t);
   return [
     h("h3", { class: "whatif__suggest-title" }, level === "simple" ? "A mix that suits you better" : "A closer fit to your profile"),
@@ -546,7 +776,7 @@ function suggestionCard(view, data, { apply, dismiss }) {
   ];
 }
 
-function whatIfResult(view, fit, base, onImprove) {
+function whatIfResult(view, fit, base, onImprove, onAdopt) {
   const { h, level } = view;
   const delta = base ? fit.score - base.score : null;
   const mix = (fit.parts.find((x) => x.key === "asset_mix") || { items: [{}] }).items[0].measured;
@@ -566,8 +796,11 @@ function whatIfResult(view, fit, base, onImprove) {
     lines.length ? h("ul", { class: "small plain-list fit-lines" }, lines.map((l) => h("li", null,
       h("strong", null, level === "simple" ? l.title : `${l.title}: −${l.lost}`), h("span", { class: "fit-lines__why" }, ` ${l.reasons.join("; ")}.`))))
       : h("p", { class: "small muted" }, "This mix meets every part of your profile."),
-    fit.score < 100 && onImprove ? h("button", { class: "btn btn--secondary btn--sm whatif__improve", type: "button", onclick: onImprove },
-      level === "simple" ? "Find a mix that suits me better" : "Improve my score") : null,
+    h("div", { class: "whatif__actions" },
+      fit.score < 100 && onImprove ? h("button", { class: "btn btn--secondary btn--sm", type: "button", onclick: onImprove },
+        level === "simple" ? "Find a mix that suits me better" : "Improve my score") : null,
+      // Offered when the mix in the sliders fits the profile better than the portfolio.
+      onAdopt && delta !== null && delta > 0 ? h("button", { class: "btn btn--primary btn--sm", type: "button", onclick: onAdopt }, "Make this my portfolio") : null),
   ];
 }
 
@@ -590,7 +823,7 @@ function kpis(view) {
   }
   if (profile.capital) tiles.push(tile("Amount simulated", ctx.money(profile.capital), "from your profile, not real money"));
   if (level === "detailed" && risk.concentration) {
-    tiles.push(tile("Effective positions", Number(risk.concentration.effective).toFixed(1), `1/HHI, ${risk.concentration.holdings} companies looked through`));
+    tiles.push(tile("Effective positions", Number(risk.concentration.effective).toFixed(1), `as if spread evenly over this many companies (${risk.concentration.holdings} counted, including inside your funds)`));
     if (risk.contribution) tiles.push(tile("Diversification ratio", Number(risk.contribution.diversification).toFixed(2), "above 1: holdings offset each other"));
   }
   return h("section", { class: "kpis", "aria-label": "Key figures" }, tiles);
@@ -664,7 +897,7 @@ function trendChips(view) {
   const list = h("ul", { class: "trend-chips", "aria-label": "Risk trend of each holding" });
   const wrap = h("div", { class: "stack-sm" },
     h("p", { class: "small" }, h("strong", null, level === "simple" ? "Are the ups and downs getting bigger?" : "Risk trend"),
-      " ", h("span", { class: "muted" }, "GARCH volatility forecast for the next month vs the last 3 months. It describes risk, not where prices go.")),
+      " ", h("span", { class: "muted" }, "Expected swings over the next month compared with the last 3 months. It describes risk, not where prices go.")),
     list);
   ctx.api("GET", `/v1/vol-forecast?tickers=${encodeURIComponent(tickers.join(","))}`).then(({ data }) => {
     list.replaceChildren(...tickers.map((t) => {
@@ -696,11 +929,13 @@ function projectionSection(view) {
   const horizon = h("select", { class: "input input--inline", id: "proj-horizon" }, PD.horizonOptions(defaultYears).map((y) =>
     h("option", { value: String(y), selected: y === defaultYears }, `${y} year${y === 1 ? "" : "s"}${y === defaultYears ? " (your horizon)" : ""}`)));
   horizon.addEventListener("change", () => { state.years = Number(horizon.value); load(); });
-  const modes = h("fieldset", { class: "seg-control seg-control--small" }, h("legend", null, "Values shown"),
-    h("div", { class: "seg-control__options is-plain" }, [["nominal", "In future dollars"], ["real", "In today's dollars"]].map(([m, label]) =>
-      h("label", { class: "seg-control__option" },
-        h("input", { type: "radio", name: "proj-mode", value: m, checked: m === state.mode, onchange: () => { state.mode = m; draw(); } }),
-        h("span", null, label)))));
+  const modes = segControl(ctx, { legend: "Values shown", name: "proj-mode", value: state.mode, small: true,
+    options: [["nominal", "In future dollars"], ["real", "In today's dollars"]],
+    onChange: (m) => {
+      state.mode = m;
+      out.classList.add("is-switching"); // fades the old values out while the new ones are drawn, like the detail switch
+      window.setTimeout(() => { draw(); out.classList.remove("is-switching"); }, 160);
+    } });
   const contribution = h("input", { class: "input input--inline", id: "proj-contrib", type: "number", min: "0", step: "50", inputmode: "decimal", value: "0" });
   const apply = h("button", { class: "btn btn--secondary", type: "button", onclick: () => {
     const v = Math.max(0, Number(contribution.value) || 0);
@@ -736,7 +971,7 @@ function projectionSection(view) {
     out.replaceChildren(...[ // parts that don't apply are null: dropped (native replaceChildren prints "null")
       h("p", { class: "proj-summary" }, PD.summarySentence(d, state.mode, ctx.money)),
       fanChart({ id: "projection", title: state.mode === "real" ? "Simulated value, in today's dollars" : "Simulated value, in future dollars",
-        note: `${d.assumptions.n_paths.toLocaleString("en-CA")} simulated scenarios, monthly steps, rebalanced monthly`,
+        note: `${d.assumptions.n_paths.toLocaleString("en-CA")} simulated market scenarios, rebalanced every month`,
         geo, format: short, rows, startLabel: `Today's value (${ctx.money(d.start_value)})` }),
       d.warnings.length ? h("ul", { class: "warning-list" }, d.warnings.map((w) => h("li", null, w))) : null,
       assumptionsBlock(view, d),
@@ -789,7 +1024,7 @@ function assumptionsBlock(view, d) {
       h("ul", { class: "plain-list small" },
         h("li", null, `Volatility: ${PD.volSourceText(d)}`),
         h("li", null, `Inflation: ${(a.inflation * 100).toFixed(1)}% a year. Fees: ${(a.annual_fee * 100).toFixed(2)}% a year.`),
-        h("li", null, `${a.n_paths.toLocaleString("en-CA")} scenarios (seed ${a.seed}), ${a.rebalancing}. ${a.drift}.`),
+        h("li", null, `${a.n_paths.toLocaleString("en-CA")} simulated market scenarios, rebalanced every month to the target weights.`),
         rows.some((r) => r.note) ? h("li", null, "Individual stocks get their region's equity rate (the guidelines give rates by asset class) and their own volatility.") : null,
         h("li", null, "Source of the rates: ", h("a", { href: a.source_url, rel: "noopener noreferrer", target: "_blank" }, a.source), ". ", a.horizon_note || ""))));
 }
@@ -803,7 +1038,7 @@ function sectorSection(view) {
   return h("section", { class: "panel stack", "aria-labelledby": "sector-title" },
     h("h2", { id: "sector-title", class: "section-title" }, "Exposure by sector"),
     rankedBars({ id: "sectors", title: "Share of the money by sector",
-      note: risk.concentration.lookThrough ? "Funds are looked through to the companies they hold" : "Holdings as listed",
+      note: risk.concentration.lookThrough ? "Includes the companies held inside your funds" : "Holdings as listed",
       rows: top.map(([s, v]) => ({ label: s, value: v })), format: pct1 }),
     learnNote(view, "a sector is a part of the economy, like banks or technology. When one sector falls, every company in it tends to fall together."));
 }
@@ -845,7 +1080,8 @@ function checksSection(view) {
         h("span", { class: `verdict verdict--${v.cls}` }, ctx.icon(v.icon, 14), v.word),
         h("span", { class: "check-row__what" }, D.checkName(c.id, level === "detailed")),
         value || (level === "detailed" && c.detail) ? h("p", { class: "check-row__text" }, value, level === "detailed" && c.detail ? ` ${c.detail}` : "") : null);
-    })) : h("p", { class: "muted" }, "No governance check was recorded for this portfolio."),
+    })) : h("p", { class: "muted" }, p.pending ? "Being checked against your profile (about a minute)."
+      : p.chosen ? "This mix hasn't been checked against your profile yet." : "This portfolio hasn't been checked against your profile."),
     learnNote(view, "your profile sets limits, for example how big one company can be. AlphaForge's rules check every limit; a portfolio that breaks one is never proposed."));
 }
 
@@ -867,7 +1103,7 @@ function esgSection(view) {
       ". Absence is a signal to discuss, not a ban: the index does not publish its reasons.") : null,
     p.esg.controversies.length ? h("ul", { class: "answer-list" }, p.esg.controversies.map((c) => h("li", null,
       h("span", null, h("strong", null, `${c.ticker} · ${c.severity} · ${c.status}`), h("br"), c.description)))) : null,
-    h("p", { class: "small muted" }, "Companies screened by the ESG analysis of this run, including those held through your funds."));
+    h("p", { class: "small muted" }, "Companies screened in this analysis, including those held inside your funds."));
 }
 
 function newsSection(view) {
@@ -883,13 +1119,15 @@ function newsSection(view) {
 function explanationSection(view) {
   const { h, p, level } = view;
   const a = p.answer;
+  const heading = p.chosen ? "What the analysis found" : "Why this portfolio";
   if (!a) {
-    return h("section", { class: "panel" }, h("h2", { class: "section-title" }, "Why this portfolio"),
-      h("p", { class: "muted" }, p.answerError ? "The explanation could not be written this time." : "No explanation was written for this portfolio."));
+    return h("section", { class: "panel" }, h("h2", { class: "section-title" }, heading),
+      h("p", { class: "muted" }, p.pending ? "The explanation is being written (about a minute)."
+        : p.answerError ? "The explanation could not be written this time." : "No explanation was written for this portfolio."));
   }
   const max = level === "simple" ? 3 : level === "standard" ? 5 : 8;
   return h("section", { class: "panel stack-sm", "aria-labelledby": "why-title" },
-    h("h2", { id: "why-title", class: "section-title" }, "Why this portfolio"),
+    h("h2", { id: "why-title", class: "section-title" }, heading),
     level === "detailed" && a.short_answer ? h("p", null, a.short_answer) : null,
     a.key_points.length ? h("ul", { class: "answer-list" }, a.key_points.slice(0, max).map((k) => h("li", null, k.text))) : null,
     a.glossary && a.glossary.length ? h("div", { class: "answer__section" }, h("h3", null, "Words used here"),
@@ -903,7 +1141,8 @@ function explanationSection(view) {
 function history(ctx, runs, currentId = null) {
   const { h } = ctx;
   const STATUS = { DONE: "Done", FAILED: "Stopped", RUNNING: "Running", QUEUED: "Planned" };
-  const kind = (r) => (r.question === D.PORTFOLIO_PROMPT ? "Portfolio" : (r.question || "").startsWith(D.RISK_PROMPT_PREFIX) ? "Risk check" : "Question");
+  const kind = (r) => (r.question === D.PORTFOLIO_PROMPT ? "Portfolio" : (r.question || "").startsWith(D.OPTIMIZE_PROMPT_PREFIX) ? "Optimization"
+    : (r.question || "").startsWith(D.RISK_PROMPT_PREFIX) ? "Analysis" : "Question");
   return h("section", { class: "panel panel--plain stack-sm", "aria-labelledby": "history-title" },
     h("h2", { id: "history-title", class: "section-title" }, "Your analyses"),
     (runs || []).length ? h("ul", { class: "plain-list history" }, runs.slice(0, 12).map((r) => h("li", null,

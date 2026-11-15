@@ -94,7 +94,7 @@ export function assumptionRows(projection) {
   const a = projection.assumptions;
   return a.per_ticker.map((t) => ({
     ticker: t.ticker, category: categoryLabel(t.category), rate: pct(t.rate),
-    source: t.team_assumption ? "Team assumption (no guideline category)" : "Planning guidelines",
+    source: t.team_assumption ? "Estimate (no official guideline for this asset)" : "Planning guidelines",
     vol: pct(t.vol_start), note: t.note || "",
   }));
 }
@@ -103,10 +103,9 @@ export function assumptionRows(projection) {
 export function volSourceText(projection) {
   const v = projection.assumptions.vol_source;
   if (v.used === "garch") {
-    return `GARCH forecast from job ${v.job_name || "unknown"}, as of ${v.forecast_as_of}, for year 1, moving to `
-      + "each asset's long-run level by the end of year 2.";
+    return `a forecast made on ${v.forecast_as_of} for year 1, moving to each holding's long-run level by the end of year 2.`;
   }
-  return `Historical volatility of the daily returns (${v.reason}).`;
+  return "each holding's past volatility, from its daily returns.";
 }
 
 const TRENDS = {
@@ -119,9 +118,9 @@ const TRENDS = {
 export function trendChip(ticker, entry) {
   if (!entry || !entry.trend) {
     const hv = entry && entry.hist_vol_63d != null ? `last 3 months ${pct(entry.hist_vol_63d)}` : "no data";
-    return { ticker, arrow: "", word: "No forecast", cls: "none", tooltip: `No GARCH forecast; ${hv}` };
+    return { ticker, arrow: "", word: "No forecast", cls: "none", tooltip: `No forecast available; ${hv}` };
   }
   const t = TRENDS[entry.trend];
   return { ticker, arrow: t.arrow, word: t.word, cls: t.cls,
-    tooltip: `GARCH forecast ${pct(entry.forecast_vol)} vs last 3 months ${pct(entry.hist_vol_63d)}` };
+    tooltip: `Expected volatility ${pct(entry.forecast_vol)} vs ${pct(entry.hist_vol_63d)} over the last 3 months` };
 }

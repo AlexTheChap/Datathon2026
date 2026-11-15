@@ -149,5 +149,6 @@ def improve(weights: dict, profile: dict, rules_path: str | Path, rt, data_dir: 
                      key=lambda c: -abs(c["to"] - c["from"]))
     return {"found": True, "base": base, "best": best["fit"], "weights": weights_out, "changes": changes,
             "steps": steps, "turnover": round(best["turnover"], 4),
-            "method": "Remove what breaks a rule, split stocks and bonds in 5% steps keeping your picks, cap single "
-                      "stocks; every candidate scored with the fit score, best score kept (the smallest change on a tie)."}
+            "method": "AlphaForge removes what breaks a limit of your profile, tries splits between stocks and bonds in "
+                      "5% steps while keeping your picks, caps single stocks, and keeps the mix with the best score "
+                      "(the smallest change when two are tied)."}

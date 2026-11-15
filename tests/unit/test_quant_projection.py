@@ -104,7 +104,7 @@ def test_unmapped_ticker_raises():
 def test_short_horizon_and_team_assumption_warnings():
     r = P.project({"SPY": 0.9, "GLD": 0.1}, 1000, 5, AS_OF, inputs=inputs(), n_paths=200)
     text = " ".join(r["warnings"])
-    assert "10 years or more" in text and "GLD" in text and "team assumption" in text
+    assert "10 years or more" in text and "GLD" in text and "equal to inflation" in text
     gld = next(x for x in r["assumptions"]["per_ticker"] if x["ticker"] == "GLD")
     assert gld["team_assumption"] is True and gld["rate"] == CFG["team_assumptions"]["gold"]
     long = P.project({"SPY": 1.0}, 1000, 10, AS_OF, inputs=inputs(), n_paths=200)

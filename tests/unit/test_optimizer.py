@@ -99,7 +99,7 @@ def test_evidence_format(rt):
     assert "SHORT_HORIZON_VOLATILITY" in out["active_constraints"]
     text = " ".join(ev["assumptions"]).lower()
     assert "no return forecast" in text
-    assert "covariance" in text and "past performance does not predict" in text
+    assert "moved together in the past" in text and "past performance does not predict" in text
 
 
 def test_as_of_cuts_future_data(rt):

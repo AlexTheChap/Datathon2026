@@ -170,7 +170,7 @@ def test_evidence_envelope_say_and_determinism(corpus):
     a, b = ft.fundamentals_snapshot(["TST"]), ft.fundamentals_snapshot(["TST"])
     assert a["evidence_id"].startswith("ev-") and a["evidence_id"] == b["evidence_id"] and a["tool"] == "company_fundamentals"
     assert "revenue $1.2B" not in a["say"] and "revenue $1,250" in a["say"] and "+25.0% y/y" in a["say"]
-    assert any("Point-in-time" in x for x in a["assumptions"]) and any("No valuation" in x for x in a["assumptions"])
+    assert any("analysis date" in x for x in a["assumptions"]) and any("No valuation" in x for x in a["assumptions"])
     assert ft.fundamentals_snapshot(["TST", "RY.TO"])["evidence_id"] != a["evidence_id"]
 
 

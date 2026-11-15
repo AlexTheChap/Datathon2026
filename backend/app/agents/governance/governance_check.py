@@ -45,7 +45,7 @@ def _controversy_check(w: dict, uni: pd.DataFrame, path: Path, ex: dict, block_s
                                                 for r in hits.itertuples()))
     elif unverified:
         status = "UNVERIFIED"
-        parts.append(f"No verified row for: {', '.join(unverified)}.")
+        parts.append(f"No confirmed information yet for: {', '.join(unverified)}.")
     else:
         status = "PASS"
     if lt is not None:
@@ -58,9 +58,9 @@ def _controversy_check(w: dict, uni: pd.DataFrame, path: Path, ex: dict, block_s
                          + f" (threshold {lim:.0%}).")
         if len(over) and RANK[ind_sev] > RANK[status]:
             status = ind_sev
-        parts.append("Within ETFs, only companies with verified rows are detected.")
+        parts.append("Inside funds, only companies with confirmed information are detected.")
     else:
-        parts.append("Directly held stocks only (etf_holdings.csv missing: ETFs not decomposed).")
+        parts.append("Only stocks held directly were checked (fund holdings unavailable).")
     return "EXCLUSION_CONTROVERSY", status, blocked, ex.get("min_severity", "major"), " ".join(parts)
 
 
@@ -90,7 +90,7 @@ def _esg_activity_check(w: dict, uni: pd.DataFrame, path: Path, ex: dict, block_
         parts.append("Direct: " + ", ".join(f"{t} ({excluded[t]:.0%} of revenue)" for t in blocked) + ".")
     elif unverified:
         status = "UNVERIFIED"
-        parts.append(f"No reviewed row for \"{act}\": {', '.join(unverified)}.")
+        parts.append(f"No confirmed information on \"{act}\" yet for: {', '.join(unverified)}.")
     else:
         status = "PASS"
     if lt is not None:
@@ -102,9 +102,9 @@ def _esg_activity_check(w: dict, uni: pd.DataFrame, path: Path, ex: dict, block_
                          + f" (threshold {lim:.0%}).")
         if (via > lim).any() and RANK[ind_sev] > RANK[status]:
             status = ind_sev
-        parts.append("Within ETFs, only companies with a reviewed row are detected.")
+        parts.append("Inside funds, only companies with confirmed information are detected.")
     else:
-        parts.append("Directly held stocks only (etf_holdings.csv missing).")
+        parts.append("Only stocks held directly were checked (fund holdings unavailable).")
     return f"EXCLUSION_ESG_{act.upper()}", status, blocked, thr, " ".join(parts)
 
 
@@ -213,14 +213,14 @@ def check(weights: dict, profile: dict, rules_path: str | Path, rt, data_dir: st
             top, r = eq.index[0], eq.iloc[0]
             add("SINGLE_POSITION", "PASS" if r.weight <= band["max_single_position"] else sev["max_single_position"],
                 round(float(r.weight), 4), band["max_single_position"], "max_single_position",
-                detail=f"{top}: {r.direct:.1%} direct + {r.via_etf:.1%} via ETFs (equity ETFs decomposed)")
+                detail=f"{top}: {r.direct:.1%} held directly + {r.via_etf:.1%} through funds")
             sec = eq.groupby("sector")["weight"].sum()
             unclassified = float(sec.pop("Unclassified")) if "Unclassified" in sec else 0.0
             if len(sec):
                 s_top = sec.idxmax()
                 add("SECTOR", "PASS" if sec.max() <= band["max_sector"] else sev["max_sector"],
                     round(float(sec.max()), 4), band["max_sector"], "max_sector",
-                    detail=f"{s_top} (equity ETFs decomposed; unclassified: {unclassified:.1%} of the portfolio)")
+                    detail=f"{s_top} (including inside stock funds; {unclassified:.1%} of the portfolio has no known sector)")
     elif single:
         top = max(single, key=single.get)
         add("SINGLE_POSITION", "PASS" if single[top] <= band["max_single_position"] else sev["max_single_position"],
@@ -233,7 +233,7 @@ def check(weights: dict, profile: dict, rules_path: str | Path, rt, data_dir: st
         s_top = sec.idxmax()
         add("SECTOR", "PASS" if sec.max() <= band["max_sector"] else sev["max_sector"],
             round(float(sec.max()), 4), band["max_sector"], "max_sector",
-            detail=f"{s_top} (direct holdings only; ETF decomposition required for the full figure)")
+            detail=f"{s_top} (direct holdings only: fund holdings were unavailable)")
 
     # 4. Crypto
     crypto = sum(v for k, v in w.items() if uni.loc[k, "asset_class"] == "crypto")
@@ -265,7 +265,7 @@ def check(weights: dict, profile: dict, rules_path: str | Path, rt, data_dir: st
             f = Path(data_dir) / ("curated/esg_screen.csv" if ex["type"] == "esg_activity" else "curated/controversies.csv")
             if not f.exists():
                 add(f"EXCLUSION_{ex['type'].upper()}", "UNVERIFIED", None, None, "exclusions",
-                    detail=f"{f.name} missing: cannot verify (never assumed compliant by default).")
+                    detail="The information needed for this check is unavailable, so it can't be confirmed.")
                 missing.append(f.name)
             elif ex["type"] == "controversy":
                 cid, status, value, limit, detail = _controversy_check(
@@ -277,7 +277,7 @@ def check(weights: dict, profile: dict, rules_path: str | Path, rt, data_dir: st
                 add(cid, status, value, limit, "exclusions", detail=detail)
             else:
                 add(f"EXCLUSION_{ex['type'].upper()}", "UNVERIFIED", None, None, "exclusions",
-                    detail=f"Unknown exclusion type: {ex['type']} (never assumed compliant by default).")
+                    detail="This exclusion can't be checked yet, so it can't be confirmed.")
 
     # 7. ESG preference (signal, never blocking): positions left out by a reference ESG index
     cfg = rules.get("esg_index_screen")
@@ -286,7 +286,7 @@ def check(weights: dict, profile: dict, rules_path: str | Path, rt, data_dir: st
         f = Path(data_dir) / "curated/esg_index_screen.csv"
         if not f.exists():
             add("ESG_INDEX_PREFERENCE", "UNVERIFIED", None, None, "esg_index_screen",
-                detail="esg_index_screen.csv missing (scripts/esg_index_screen.py).")
+                detail="The ESG index information is unavailable, so this can't be confirmed.")
             missing.append(f.name)
         else:
             cid, status, value, limit, detail = _esg_index_check(w, uni, f, cfg, lt)

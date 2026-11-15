@@ -72,13 +72,13 @@ def vol_forecast(tickers: list[str], as_of: str, inputs: MarketInputs | None = N
         else:
             rows[t] = {"forecast_vol": None, "hist_vol_63d": _hist(inp, t, as_of_ts), "trend": None,
                        "ratio": None, "model": "historical", "job_name": None,
-                       "reason": why if vf is None else "no GARCH forecast for this ticker"}
+                       "reason": why if vf is None else "no forecast for this holding"}
     out = {"tickers": rows, "source": "garch" if vf is not None else "historical", "source_reason": why,
            "thresholds": dict(cfg["risk_trend"])}
     parts = []
     for t, r in rows.items():
         if r["trend"]:
-            parts.append(f"{t} {r['trend']} (GARCH forecast {r['forecast_vol'] * 100:.1f}% vs last 3 months "
+            parts.append(f"{t} {r['trend']} (forecast {r['forecast_vol'] * 100:.1f}% vs last 3 months "
                          f"{r['hist_vol_63d'] * 100:.1f}%)")
         elif r["hist_vol_63d"] is not None:
             parts.append(f"{t} last 3 months {r['hist_vol_63d'] * 100:.1f}% (no forecast)")
@@ -89,9 +89,10 @@ def vol_forecast(tickers: list[str], as_of: str, inputs: MarketInputs | None = N
             "method": "GARCH(1,1)-t 21-day volatility forecast (SageMaker job) vs std of the last 63 daily returns "
                       "× sqrt(252); trend from the ratio thresholds in projection_assumptions.yaml.",
             "assumptions": ["Volatility forecasts describe risk, not the direction or size of returns.",
-                            "252 trading days a year for every asset, crypto included (common calendar).",
-                            (f"Trend thresholds: rising above ×{cfg['risk_trend']['rising_ratio']}, easing below "
-                             f"×{cfg['risk_trend']['easing_ratio']} (team assumptions).")],
+                            "Every asset is measured on the same calendar of about 252 trading days a year, crypto included.",
+                            (f"Risk is called rising when the forecast is more than "
+                             f"{round((cfg['risk_trend']['rising_ratio'] - 1) * 100)}% above the last 3 months, and easing "
+                             f"when it is more than {round((1 - cfg['risk_trend']['easing_ratio']) * 100)}% below.")],
             "data_sources": ["data/curated/vol_forecast.csv (GARCH job)", "data/curated/returns_daily_cad.csv"],
             **({"garch_job": {"job_name": job, "as_of": out["tickers"][tickers[0]].get("forecast_as_of")}}
                if vf is not None else {})}

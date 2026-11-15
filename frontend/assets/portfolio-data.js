@@ -11,6 +11,10 @@
 
 export const PORTFOLIO_PROMPT = "Build a simulated portfolio that fits my profile.";
 export const RISK_PROMPT_PREFIX = "Check the risk of my portfolio: ";
+// "Optimize my portfolio": an allocation run that starts from what the user holds (Profile.holdings).
+export const OPTIMIZE_PROMPT_PREFIX = "Rebalance my portfolio so it fits my profile: ";
+// Profile.portfolio_run_id when the user picked the weights (holdings, or a what-if mix): "chosen:<latest build id>".
+export const CHOSEN_PREFIX = "chosen:";
 export const TOP_LEVEL = new Set(["orchestrator", "synthesis", null, undefined, ""]);
 
 /* ---------- Ledger records ---------- */
@@ -49,6 +53,30 @@ export function riskPrompt(weights) {
   return RISK_PROMPT_PREFIX + sortedWeights(weights).map(([t, v]) => `${t} ${pct2(v)}`).join(", ") + ".";
 }
 
+/** The allocation question that optimizes these holdings. */
+export function optimizePrompt(holdings) {
+  return OPTIMIZE_PROMPT_PREFIX + sortedWeights(holdings).map(([t, v]) => `${t} ${pct2(v)}`).join(", ") + ".";
+}
+
+/** Holdings typed by the user ([{ticker, percent}]) as weights that add up to 1. Every problem is named. */
+export function holdingsFromRows(rows, universe = {}) {
+  const errors = []; const weights = {};
+  for (const { ticker, percent } of rows || []) {
+    const t = String(ticker || "").trim().toUpperCase();
+    const v = Number(percent);
+    if (!t && !percent) continue;
+    if (!t) { errors.push("A row has a percentage but no investment."); continue; }
+    if (!universe[t]) { errors.push(`“${t}” isn't in the list of investments AlphaForge has data for.`); continue; }
+    if (!(v > 0) || v > 100) { errors.push(`${t}: give a percentage between 0 and 100.`); continue; }
+    weights[t] = (weights[t] || 0) + v;
+  }
+  const total = Object.values(weights).reduce((a, b) => a + b, 0);
+  if (!errors.length && !Object.keys(weights).length) errors.push("Add at least one investment.");
+  if (!errors.length && Math.abs(total - 100) > 0.5) errors.push(`The percentages add up to ${Math.round(total * 10) / 10}%, not 100%.`);
+  if (errors.length) return { weights: null, total, errors };
+  return { weights: Object.fromEntries(Object.entries(weights).map(([t, v]) => [t, Math.round((v / total) * 10000) / 10000])), total, errors };
+}
+
 /* ---------- Runs ---------- */
 
 const FINAL = new Set(["DONE", "FAILED"]);
@@ -67,6 +95,20 @@ export function inProgress(r, now = Date.now()) {
 }
 export const pendingRun = (runs, question, exact = false, now = Date.now()) => (runs || []).find((r) =>
   (exact ? r.question === question : (r.question || "").startsWith(question)) && inProgress(r, now)) || null;
+
+/** A run that builds a portfolio: from the profile (PORTFOLIO_PROMPT) or from the holdings (optimizePrompt). */
+export const isBuild = (r) => (r.question || "").startsWith(PORTFOLIO_PROMPT) || (r.question || "").startsWith(OPTIMIZE_PROMPT_PREFIX);
+export const findBuild = (runs) => (runs || []).find((r) => isBuild(r) && r.status === "DONE") || null;
+export const pendingBuild = (runs, now = Date.now()) => (runs || []).find((r) => isBuild(r) && inProgress(r, now)) || null;
+
+/** The marker saved when the user picks the weights: remembers which build was the latest at that moment. */
+export const chosenMarker = (build) => CHOSEN_PREFIX + (build ? build.run_id : "");
+/** The user's own pick is still their portfolio: no build has finished since they picked it. */
+export function chosenIsCurrent(profile, build) {
+  const m = (profile && profile.portfolio_run_id) || "";
+  return m.startsWith(CHOSEN_PREFIX) && m.slice(CHOSEN_PREFIX.length) === (build ? build.run_id : "")
+    && Object.keys(cleanWeights(profile.portfolio)).length > 0;
+}
 
 /** Did the profile change, in what shapes a portfolio, since the run was made? */
 const SHAPING = ["risk_band", "horizon_years", "capital", "loss_capacity", "exclusions", "preferences", "constraints"];
@@ -121,6 +163,30 @@ export function extractPortfolio(run, records) {
     news: newsOf(recs),
     answer: (run.result || {}).answer || null,
     answerError: (run.result || {}).answer_error || null,
+  };
+}
+
+/** A portfolio the user chose (their holdings, a what-if mix), analysed by the run riskPrompt(weights) when it exists.
+ * Same shape as extractPortfolio; governance counts only when it checked these exact weights. */
+export function analysedPortfolio(weights, run, records) {
+  const recs = records || [];
+  const w = cleanWeights(weights);
+  const govs = byTool(recs, "governance_check").filter((r) => weightsMatch(governanceOf(r).weights, w));
+  const gov = last(govs.filter((r) => TOP_LEVEL.has(r.agent))) || last(govs);
+  return {
+    runId: run ? run.run_id : null,
+    builtAt: run ? run.updated_at || run.created_at : null,
+    status: run ? run.status : null,
+    chosen: true,
+    profileSnapshot: null,
+    weights: w,
+    weightsEvidence: null, starting: null, changes: null, activeConstraints: [], infeasible: null,
+    governance: gov ? governanceOf(gov) : null,
+    risk: riskOf(recs, w),
+    esg: esgOf(recs),
+    news: newsOf(recs),
+    answer: run ? (run.result || {}).answer || null : null,
+    answerError: run ? (run.result || {}).answer_error || null : null,
   };
 }
 
@@ -257,7 +323,8 @@ const listText = (xs) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(
  * `learn` (wants to learn, not detailed) adds one sentence that explains the idea behind the numbers.
  * Returns { text, learn }: learn is null when the person didn't ask to learn.
  */
-export function heroSummary({ level, learn = false, weights, universe = {}, governance, vol = null, profile = {} }) {
+// `own`: the user's own mix (holdings or a what-if pick), not one AlphaForge chose. No governance yet: no verdict sentence.
+export function heroSummary({ level, learn = false, weights, universe = {}, governance, vol = null, profile = {}, own = false }) {
   const holdings = sortedWeights(weights);
   const split = Object.fromEntries(classSplit(weights, universe).map((g) => [g.key, g.value]));
   const stocks = split.stocks || 0; const bonds = split.bonds || 0;
@@ -271,9 +338,9 @@ export function heroSummary({ level, learn = false, weights, universe = {}, gove
   if (level === "simple") {
     const top = holdings.slice(0, 2).map(([t, w]) => `${plain(t)} (${pctText(w)})`);
     out.push(`Your money is spread over ${holdings.length} investment${holdings.length === 1 ? "" : "s"}, mostly ${listText(top)}.`);
-    if (stocks || bonds) out.push(`About ${pctText(stocks)} is in stocks and ${pctText(bonds)} in bonds${risk ? `, a mix chosen for your ${risk} risk level` : ""}.`);
+    if (stocks || bonds) out.push(`About ${pctText(stocks)} is in stocks and ${pctText(bonds)} in bonds${risk && !own ? `, a mix chosen for your ${risk} risk level` : ""}.`);
     if (vol) out.push(`In a typical year, its value could go up or down by about ${pctText(vol)}.`);
-    out.push({ PASS: "It respects every rule in your profile.",
+    if (governance) out.push({ PASS: "It respects every rule in your profile.",
       WARN: `It fits your profile, with ${flagged.length === 1 ? "one point" : "a few points"} to keep an eye on: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
       BLOCK: `It breaks a rule of your profile: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
     }[verdict] || "Some rules of your profile couldn't be checked.");
@@ -283,7 +350,7 @@ export function heroSummary({ level, learn = false, weights, universe = {}, gove
       + `${risk ? `, for a ${risk} risk level` : ""}${years ? ` over ${years} year${years === 1 ? "" : "s"}` : ""}.`);
     if (t0) out.push(`The largest is ${t0} (${plain(t0)}), at ${pctText(w0, 1)}.`);
     if (vol) out.push(`Volatility: about ${pctText(vol, 1)} a year, measured on the last 5 years.`);
-    out.push({ PASS: "It fits every limit of your profile.",
+    if (governance) out.push({ PASS: "It fits every limit of your profile.",
       WARN: `It fits your profile, with a point worth a look: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
       BLOCK: `It goes against your profile on: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
     }[verdict] || `Some limits could not be checked, so it is not confirmed: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`);
@@ -296,7 +363,7 @@ export function heroSummary({ level, learn = false, weights, universe = {}, gove
     const overall = { PASS: "fits every limit", WARN: "fits, with points worth a look", BLOCK: "goes against the profile" }[verdict]
       || "not confirmed (some limits could not be checked)";
     const status = { WARN: "worth a look", BLOCK: "not met", UNVERIFIED: "not confirmed" };
-    out.push(`Profile check: ${overall}${n ? `, ${n} limit${n === 1 ? "" : "s"} checked` : ""}`
+    if (governance) out.push(`Profile check: ${overall}${n ? `, ${n} limit${n === 1 ? "" : "s"} checked` : ""}`
       + `${flagged.length ? ` (${flagged.map((c) => `${checkName(c.id, true)}: ${status[c.status] || "not confirmed"}`).join("; ")})` : ""}.`);
   }
   out.push("This is a simulation, not advice.");

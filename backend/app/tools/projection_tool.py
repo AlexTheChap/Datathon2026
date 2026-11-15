@@ -65,12 +65,13 @@ def run_projection(weights: dict[str, float], start_value: float, horizon_years:
         (f"Expected returns: {res['assumptions']['source']} ({res['assumptions']['source_url']}); never "
          "estimated from past prices."),
         "Rates per holding: " + ", ".join(f"{x['ticker']} {x['category']} {x['rate'] * 100:.1f}%"
-                                          + (" (team assumption)" if x["team_assumption"] else "")
+                                          + (" (estimate: no official guideline)" if x["team_assumption"] else "")
                                           for x in res["assumptions"]["per_ticker"]) + ".",
         f"Inflation {res['assumptions']['inflation'] * 100:.1f}%, fees {annual_fee * 100:.2f}% a year.",
-        f"Volatility: {vs['used']} ({vs['reason']}).",
-        "Monthly steps, rebalanced monthly to the target weights; the median path compounds at each rate.",
-        "Individual stocks get their region's equity rate (asset-class rates) and their own volatility.",
+        ("Volatility: a forecast for the first year, then each holding's long-run level." if vs["used"] == "garch"
+         else "Volatility: each holding's past volatility."),
+        "Rebalanced every month to the target weights; the middle scenario grows at each holding's expected rate.",
+        "An individual stock gets the expected rate of its region's stock market and its own volatility.",
     ]
     if horizon_note:
         assumptions.append(f"Horizon: {horizon_note}.")

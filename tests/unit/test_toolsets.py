@@ -61,19 +61,19 @@ def test_gateway_gives_an_mcp_client_without_connecting(settings):
 
 
 def test_esg_toolset(settings):
-    assert [t.tool_name for t in toolsets.esg_toolset()] == ["esg_screen"]   # curated locally
+    assert [t.tool_name for t in toolsets.esg_toolset()] == ["esg_screen", "esg_flags"]   # curated locally
     settings.gateway_url = "https://gw.example/mcp"
     from strands.tools.mcp import MCPClient
 
     tools = toolsets.esg_toolset()
-    assert len(tools) == 1 and isinstance(tools[0], MCPClient)               # live graph via the Gateway
+    assert len(tools) == 2 and isinstance(tools[0], MCPClient) and tools[1].tool_name == "esg_flags"  # live graph via the Gateway + local list
 
 
 def test_esg_subagent_uses_gateway_when_configured(settings, fake_agent):
     from strands.tools.mcp import MCPClient
 
     esg_subagent._tool_func("ESG check for XOM")
-    assert [t.tool_name for t in fake_agent[-1]["tools"]] == ["esg_screen"]
+    assert [t.tool_name for t in fake_agent[-1]["tools"]] == ["esg_screen", "esg_flags"]
     settings.gateway_url = "https://gw.example/mcp"
     esg_subagent._tool_func("ESG check for XOM")
     assert isinstance(fake_agent[-1]["tools"][0], MCPClient)
@@ -106,7 +106,7 @@ def test_risk_subagent_uses_gateway_when_configured(settings, fake_agent):
 def test_news_subagent_simulated_without_kb(settings, fake_agent):
     ev = news_subagent._tool_func("NVDA news")
     assert fake_agent[-1]["system_prompt"] == SIMULATED_PROMPT and fake_agent[-1]["tools"] == []
-    assert any("SIMULATED" in a for a in ev["assumptions"])
+    assert any("Illustrative" in a for a in ev["assumptions"])
 
 
 def test_news_subagent_real_with_kb(settings, fake_agent):

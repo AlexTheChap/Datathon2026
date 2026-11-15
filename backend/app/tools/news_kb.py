@@ -117,11 +117,11 @@ def news_search(query: str, as_of: Optional[str] = None, tickers: Optional[list[
         "method": "Bedrock Knowledge Base semantic retrieval (Titan Text Embeddings v2, S3 Vectors, cosine); "
                   "metadata filter published_date <= as_of applied before ranking.",
         "assumptions": [
-            "Point-in-time: documents published after as_of are excluded by a metadata filter.",
+            "Only documents published by the analysis date are used.",
             "8-K items are filing titles with an excerpt of the reported item; no press coverage is included.",
-            "Annual-report passages come from the latest 10-K/40-F filed on or before 2026-11-12; for an earlier "
-            "as_of they are filtered out (no older reports are indexed).",
-            "Similarity ranking is not a judgement of importance or of market impact.",
+            "Annual-report passages come from the latest annual report filed by 12 Nov 2026; they are left out "
+            "for an earlier analysis date.",
+            "Results are ordered by how closely they match the question, not by importance or market impact.",
         ],
         "data_sources": ["SEC EDGAR (8-K, 10-K, 40-F; public domain)", 
                          "Bank of Canada / Federal Reserve rate decisions (derived from data/curated/macro_pit.csv)"],

@@ -59,7 +59,7 @@ def test_extension_returns_share_the_curated_dates():
 def test_metrics_on_an_extension_ticker_cites_the_extension(rt):
     ev = rt.metrics(["LLY"], as_of="2025-12-31")
     assert 0.1 < ev["output"]["LLY"]["ann_vol"] < 1.0
-    assert any("S&P 500 extension" in a and "LLY" in a for a in ev["assumptions"])
+    assert any("today's S&P 500" in a and "LLY" in a for a in ev["assumptions"])
     assert any("returns_daily_cad_ext" in s for s in ev["data_sources"])
 
 

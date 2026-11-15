@@ -363,12 +363,13 @@ def optimize(rt: RiskTools, w0: dict, profile: dict, rules_path: str | Path = DE
                    "weights plus a variance penalty, under linear constraints read from rules.yaml and the "
                    "profile. The solution is verified with the governance tool."),
         "assumptions": BASE_ASSUMPTIONS + [
-            "No return forecast: the objective is the smallest change plus a variance penalty.",
-            "Historical covariance of daily CAD returns (x252) up to as_of.",
-            "ETF holdings are the CURRENT composition applied to all dates.",
-            "Thresholds come from rules.yaml and are team assumptions, not regulatory standards.",
-            "Directly held companies with a verified controversy get weight 0. ESG-activity exclusions and controversial companies held through ETFs are not modelled: the governance verdict reports them.",
-            f"Numerical margin of {EPS} inside every cap; weights rounded to 4 decimals.",
+            "No return forecast is used: AlphaForge looks for the smallest change that keeps risk in check.",
+            "Risk comes from how the holdings moved together in the past, in Canadian dollars, up to the analysis date.",
+            "Funds are looked at through the companies they hold today.",
+            "These limits are guidelines to help keep your portfolio diversified. They are not regulatory requirements.",
+            "Companies you hold directly that have a confirmed controversy are left out. Excluded activities and "
+            "controversial companies held inside funds are not removed here: the profile check reports them.",
+            "Weights stay slightly inside every limit and are rounded to 0.01%.",
             "Past performance does not predict future results.",
         ],
         "data_sources": sources,

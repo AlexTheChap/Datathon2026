@@ -32,7 +32,7 @@ horizon_rules:
     max_weight_high_vol_assets: 0.05     # assets whose annualized volatility > high_vol_threshold
     high_vol_threshold: 0.40
     severity: BLOCK
-    justification: "Less than 5 years to absorb a decline before a major withdrawal (workshop: short horizon < 3 years, medium 3-10 years)."
+    justification: "Less than 5 years to absorb a decline before a major withdrawal."
   - id: SHORT_HORIZON_DEFENSIVE
     when: {horizon_years_max_lt: 5}
     min_defensive_weight: 0.30           # etf_bond + cash
@@ -76,11 +76,11 @@ severities:
   exclusions: BLOCK
 
 justifications:
-  max_single_position: "Common diversification practice: limit dependence on a single company (workshop: concentration risk)."
+  max_single_position: "Common diversification practice: limit dependence on a single company."
   max_sector: "Diversifying means varying exposures: a dominant sector makes the portfolio depend on a single driver."
   max_crypto: "Extreme volatility (maximum loss of about -73% for BTC over the period); excluded for low-risk profiles."
   exclusions: "Explicit user preferences (ESG, asset classes): constraints set the limits."
-  esg_index_screen: "Declared ESG preference (brief): flags positions that a recognized ESG index left out. The index composition does not say why; this is a signal to discuss, not a prohibition."
+  esg_index_screen: "Declared ESG preference: flags positions that a recognized ESG index left out. The index composition does not say why; this is a signal to discuss, not a prohibition."
 
 # Fit score (fit_score.py): how well a portfolio fits THIS profile, out of 100. Deterministic, no LLM.
 # Every point lost names its reason, the measured value and the target. Thresholds are team ASSUMPTIONS.

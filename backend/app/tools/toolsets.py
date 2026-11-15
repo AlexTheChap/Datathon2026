@@ -92,14 +92,17 @@ def quant_toolset() -> list:
 def esg_toolset() -> list:
     """ESG sub-agent toolset: the Gateway's esg_screen (the Lambda reads the live market graph in the VPC)
     or the local curated esg_screen (backed by the synced market cache when fresh)."""
+    # esg_flags (the exclusion list) is always local: it reads data/curated/esg_flags.json baked into the image.
+    from app.tools.analysis_tools import esg_flags
+
     s = get_settings()
     if not s.gateway_url:
         from app.tools.analysis_tools import esg_screen
 
-        return [esg_screen]
+        return [esg_screen, esg_flags]
 
     log.info("esg tools via AgentCore Gateway %s", s.gateway_url)
-    return [_gateway_client(s.gateway_url, s.aws_region)]
+    return [_gateway_client(s.gateway_url, s.aws_region), esg_flags]
 
 
 def news_toolset() -> list:

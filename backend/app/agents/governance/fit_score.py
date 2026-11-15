@@ -214,11 +214,11 @@ def fit_score(weights: dict, profile: dict, rules_path: str | Path, rt, data_dir
                      "days_below_previous_high": underwater},
         "weights": {k: round(v, 4) for k, v in sorted(w.items(), key=lambda kv: -kv[1])},
         "period": f"{returns.index.min().date()}/{returns.index.max().date()}",
-        "method": "Out of 100: rules 30, risk level 20, stocks and bonds 20, loss 15, horizon 5, diversification 10 "
-                  "(rules.yaml fit_score). "
-                  "Portfolio rebalanced daily to its weights; total returns in CAD.",
-        "assumptions": ["Thresholds in rules.yaml (fit_score) are team assumptions, not regulatory standards.",
+        "method": "Out of 100: your profile's limits 30, risk level 20, stocks and bonds 20, loss 15, horizon 5, "
+                  "diversification 10. Measured on the portfolio's past returns in Canadian dollars, dividends "
+                  "reinvested, rebalanced to its weights every day.",
+        "assumptions": ["These limits are guidelines to help keep your portfolio suited to your profile. They are not regulatory requirements.",
                         "Past returns do not predict future returns: the worst drop and the volatility are historical.",
-                        "Equity ETFs are decomposed with their CURRENT holdings."],
+                        "Funds are looked at through the companies they hold today."],
         "rules_version": rules["version"], "fit_version": cfg["version"],
     }

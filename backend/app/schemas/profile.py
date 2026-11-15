@@ -80,18 +80,27 @@ class Profile(BaseModel):
         description="The user's current simulated portfolio (ticker -> weight): the one AlphaForge built from this "
         "profile (web app, My portfolio). A question about \"my portfolio\" that names no asset is analysed on it.",
     )
-    portfolio_run_id: Optional[str] = Field(default=None, description="The run that built `portfolio`.")
+    portfolio_run_id: Optional[str] = Field(
+        default=None,
+        description="The run that built `portfolio`, or \"chosen:<build run id>\" when the user picked the weights "
+        "themselves (their holdings, or a mix from the what-if) while that build was the latest.",
+    )
+    holdings: Optional[dict[str, float]] = Field(
+        default=None,
+        description="What the user says they actually hold (ticker -> weight), entered in the web app. Analysed as is; "
+        "\"Optimize my portfolio\" starts from it.",
+    )
     agent_toggle_reasons: dict[str, str] = Field(
         default_factory=dict,
         description="Why a toggle was last changed from chat: agent name -> the user's exact words "
         "(e.g. news -> \"I don't care about the news\"). Lets the Explainer quote the user.",
     )
 
-    @field_validator("portfolio")
+    @field_validator("portfolio", "holdings")
     @classmethod
-    def _weights(cls, v: Optional[dict[str, float]]) -> Optional[dict[str, float]]:
+    def _weights(cls, v: Optional[dict[str, float]], info) -> Optional[dict[str, float]]:
         if v is not None and any(not (0.0 <= w <= 1.0) for w in v.values()):
-            raise ValueError("portfolio: every weight must be between 0 and 1")
+            raise ValueError(f"{info.field_name}: every weight must be between 0 and 1")
         return v or None
 
     @field_validator("agent_toggle_reasons")

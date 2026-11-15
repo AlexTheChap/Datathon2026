@@ -93,7 +93,7 @@ def _known_profile(stored: Optional[Profile], form: Optional[dict]) -> dict[str,
     """What we already know before reading the text (sent to the model as context). The saved portfolio is left out:
     the model extracts only what the message says; code adds the portfolio for "my portfolio" questions."""
     known: dict[str, Any] = stored.model_dump(mode="json", exclude={"actor_id", "schema_version", "portfolio",
-                                                                   "portfolio_run_id"}) if stored else {}
+                                                                   "portfolio_run_id", "holdings"}) if stored else {}
     if stored is not None and stored.portfolio:
         known["has_saved_portfolio"] = True  # the model knows "my portfolio" is clear, not what is in it
     known.update({k: v for k, v in (form or {}).items() if v is not None})

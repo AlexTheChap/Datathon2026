@@ -113,3 +113,39 @@ test("what-if weights always add up to 100%, and the others move in proportion",
   assert.deepEqual(d.removeHolding({ SPY: 1 }, "SPY"), { SPY: 1 });                  // never empty
   assert.ok(d.sameWeights(w, { ...w }) && !d.sameWeights(w, up));
 });
+
+test("holdings typed by the user become weights adding up to 1, every problem named", () => {
+  const ok = d.holdingsFromRows([{ ticker: "xiu.to", percent: "60" }, { ticker: "XBB.TO", percent: 40 }, { ticker: "", percent: "" }], universe);
+  assert.deepEqual(ok.weights, { "XIU.TO": 0.6, "XBB.TO": 0.4 });
+  assert.match(d.holdingsFromRows([{ ticker: "SPY", percent: 70 }], universe).errors[0], /add up to 70%/);
+  assert.match(d.holdingsFromRows([{ ticker: "NOPE", percent: 100 }], universe).errors[0], /isn't in the list/);
+  assert.match(d.holdingsFromRows([], universe).errors[0], /at least one/);
+});
+
+test("the optimize question starts from the holdings and counts as a build", () => {
+  const q = d.optimizePrompt({ "XBB.TO": 0.4, "XIU.TO": 0.6 });
+  assert.equal(q, "Rebalance my portfolio so it fits my profile: XIU.TO 60%, XBB.TO 40%.");
+  const runs = [{ run_id: "r3", question: q, status: "RUNNING" }, { run_id: "r2", question: d.riskPrompt({ SPY: 1 }), status: "DONE" },
+    { run_id: "r1", question: d.PORTFOLIO_PROMPT, status: "DONE" }];
+  assert.equal(d.findBuild(runs).run_id, "r1");
+  assert.equal(d.pendingBuild(runs).run_id, "r3");
+});
+
+test("a mix the user picked stays theirs until a newer build finishes", () => {
+  const build = { run_id: "r1" };
+  const profile = { portfolio: { SPY: 1 }, portfolio_run_id: d.chosenMarker(build) };
+  assert.ok(d.chosenIsCurrent(profile, build));
+  assert.ok(!d.chosenIsCurrent(profile, { run_id: "r9" }));                          // optimized since: the build wins
+  assert.ok(d.chosenIsCurrent({ portfolio: { SPY: 1 }, portfolio_run_id: "chosen:" }, null));
+  assert.ok(!d.chosenIsCurrent({ portfolio: { SPY: 1 }, portfolio_run_id: "r1" }, build));
+});
+
+test("an analysed mix keeps its own weights and only the evidence measured on them", () => {
+  const p = d.analysedPortfolio({ SPY: 0.5, QQQ: 0.5 }, run, records);
+  assert.deepEqual(p.weights, { SPY: 0.5, QQQ: 0.5 });
+  assert.equal(p.governance, null);                                                  // the run checked another mix
+  assert.equal(p.risk.matches, false);
+  assert.ok(p.chosen && p.profileSnapshot === null);
+  const pending = d.analysedPortfolio({ SPY: 1 }, null, []);
+  assert.equal(pending.runId, null);
+});

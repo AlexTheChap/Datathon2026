@@ -163,7 +163,7 @@ def _vol_paths(inp, tickers, as_of, hist, months, max_age, vol_source) -> tuple[
     if vol_source == "historical" or (vol_source == "auto" and not usable):
         info = {"used": "historical", "reason": ("requested" if vol_source == "historical" else why)}
         if vol_source == "auto":
-            warns.append(f"Volatility is historical: {why}.")
+            warns.append("Volatility comes from each holding's price history: no recent forecast was available.")
         return np.tile(hist, (months, 1)), info, warns
     if vol_source == "garch" and not usable:
         raise ValueError(f"GARCH volatility requested but not usable: {why}")
@@ -171,7 +171,7 @@ def _vol_paths(inp, tickers, as_of, hist, months, max_age, vol_source) -> tuple[
     start, long_run, per_ticker = hist.copy(), hist.copy(), {}
     for i, t in enumerate(tickers):
         if t not in vf.index or not np.isfinite(float(vf.at[t, "forecast_vol"] or np.nan)):
-            warns.append(f"{t}: no GARCH forecast, historical volatility used.")
+            warns.append(f"{t}: no forecast available, its past volatility is used.")
             per_ticker[t] = "historical"
             continue
         start[i] = float(vf.at[t, "forecast_vol"])
@@ -291,12 +291,12 @@ def project(weights: dict[str, float], start_value: float, horizon_years: int, a
                      "shifted.")
     team = sorted(t for t in tickers if cats[t].team_assumption)
     if team:
-        warns.append(f"No official planning-guideline category for {', '.join(team)}: their expected return is a "
-                     "team assumption (equal to inflation); their volatility still comes from the data.")
+        warns.append(f"No official planning-guideline category for {', '.join(team)}: their expected return is "
+                     "set equal to inflation; their volatility comes from their price history.")
     if renormalized:
         warns.append("The weights did not add up to 100% and were scaled to 100%.")
     if repaired:
-        warns.append("The correlation matrix was adjusted slightly to be mathematically consistent.")
+        warns.append("How the holdings move together was adjusted slightly so the simulation stays consistent.")
 
     per_ticker = []
     for i, t in enumerate(tickers):

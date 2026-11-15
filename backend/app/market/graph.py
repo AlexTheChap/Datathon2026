@@ -321,11 +321,10 @@ def backend(curated_dir: str | Path, market_dir: str | Path | None = None):
 ASSUMPTIONS = [
     "Metrics: trailing 252 U.S. trading days of daily adjusted closes, in each asset's LISTING currency "
     "(USD for the S&P 500, CAD for TSX listings); beta against SPY.",
-    "Risk class = annualized volatility band (team assumption): low < 15%, moderate 15-25%, high 25-40%, "
-    "very_high >= 40%.",
-    "listing_country is the country of the listing exchange, not the legal domicile.",
+    "Risk class by yearly volatility: low under 15%, moderate 15-25%, high 25-40%, very high 40% or more.",
+    "The country shown is where the shares are listed, not where the company is based.",
     "ESG status = membership of the reference ESG index (Vanguard ESGV / FTSE US All Cap Choice): a "
-    "preference signal, the exclusion reason is not published; not_screened = no comparison available.",
+    "preference signal, the exclusion reason is not published; some companies have no comparison available.",
     "Live snapshot from Yahoo Finance (unofficial, delayed), reliable within the freshness window of its "
     "last load; a stale graph refuses to answer rather than serve outdated data.",
 ]
@@ -414,11 +413,11 @@ def esg_screen_data(g, tickers: list[str], as_of: str | None) -> dict:
 
 ESG_ASSUMPTIONS = [
     "Live market graph, reliable within its freshness window of the last load; a stale graph refuses.",
-    "Controversies are limited to those published on or before the given as_of (point-in-time).",
-    "Index membership does not explain WHY a stock is excluded (reason not published); it is a "
-    "discussion signal, not a verdict.",
-    "Controversy rows with status != 'verified' are unreviewed extracts: absence of evidence is not "
-    "evidence of absence.",
+    "Only controversies made public by the analysis date are used.",
+    "Being left out of the ESG index doesn't say why (the index doesn't publish its reasons): it is "
+    "something to discuss, not a verdict.",
+    "Some controversy information could not be confirmed yet. Finding no controversy does not mean "
+    "there is none.",
 ]
 
 

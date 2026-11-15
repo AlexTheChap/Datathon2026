@@ -77,5 +77,5 @@ def test_envelope_simulated_flag_and_stable_id():
     assert ev["nested_evidence_ids"] == ["ev-1", "ev-2"]
     assert all("SIMULATED" not in a for a in ev["assumptions"])
     sim = build_envelope("news_subagent", {"subject": "x"}, finding, [], simulated=True)
-    assert any("SIMULATED" in a for a in sim["assumptions"])
+    assert any("Illustrative" in a for a in sim["assumptions"])
     assert ev["evidence_id"] == build_envelope("risk_subagent", {"subject": "x"}, {"other": 1}, [])["evidence_id"]

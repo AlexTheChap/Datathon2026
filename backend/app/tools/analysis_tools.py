@@ -57,8 +57,8 @@ def rate_sensitivity(tickers: list[str]) -> dict:
     say = (f"{t0}: empirical duration {out[t0]['empirical_duration']:.1f} "
            f"(official {out[t0]['official_duration']}) on {out[t0]['yield_series']}.")
     return _envelope("rate_sensitivity", {"tickers": tickers}, out, say,
-                     ["Empirical duration = sensitivity of total returns to yield changes "
-                      "over 2021-2026; varies over time and with non-parallel shifts."],
+                     ["Rate sensitivity is measured from how each fund's returns moved with bond yields over "
+                      "2021-2026. It changes over time, and when short and long rates move differently."],
                      ["curated/rate_sensitivity.csv (regression over returns_daily_cad.csv "
                       "vs Bank of Canada / FRED yields)"])
 
@@ -121,12 +121,44 @@ def _esg_screen_curated(tickers: list[str], as_of: str) -> dict:
            f"Controversy lines: {len(controversies)}"
            + (f" (unverified-only for: {', '.join(unverified)})" if unverified else "") + ".")
     return _envelope("esg_screen", {"tickers": tickers, "as_of": as_of}, out, say,
-                     [f"Controversies are limited to those published on or before {as_of} (point-in-time).",
-                      "Index membership does not explain WHY a stock is excluded "
-                      "(reason not published); it is a discussion signal, not a verdict.",
-                      "Controversy rows with status != 'verified' are unreviewed "
-                      "extracts: absence of evidence is not evidence of absence."],
+                     [f"Only controversies made public by {as_of} are used.",
+                      "Being left out of the ESG index doesn't say why (the index doesn't publish its reasons): "
+                      "it is something to discuss, not a verdict.",
+                      "Some controversy information could not be confirmed yet. Finding no controversy does not "
+                      "mean there is none."],
                      ["curated/esg_index_screen.csv (State Street/iShares holdings vs "
                       "Vanguard ESGV FTSE screen)",
                       "curated/controversies.csv (10-K extracts via SEC EDGAR; NBIM "
                       "Council on Ethics recommendations)"])
+
+
+@tool
+def esg_flags(tickers: list[str]) -> dict:
+    """Companies excluded or placed under observation by a public exclusion list (NBIM), with the reason as written
+    and the decision date. Information to share with the investor, never a verdict on its own.
+
+    Args:
+        tickers: Assets from the universe (e.g. ["BA", "CNQ.TO"]).
+    """
+    return esg_flags_data(tickers, effective_as_of(None))
+
+
+def esg_flags_data(tickers: list[str], as_of: str) -> dict:
+    """The flags of `tickers` decided on or before `as_of` (point-in-time), as an evidence envelope."""
+    from app.tools.esg_flags import load_esg_flags
+
+    data = load_esg_flags()
+    flags = {t: [f for f in (data["companies"].get(t) or {}).get("flags", []) if (f.get("since") or "") <= as_of]
+             for t in tickers}
+    flags = {t: f for t, f in flags.items() if f}
+    src = data["sources"].get("1") or {}
+    say = ("; ".join(f"{t}: {', '.join(x['reason'] for x in f)}" for t, f in flags.items()) + "."
+           if flags else f"{tickers[0]} is not on the exclusion list." if len(tickers) == 1
+           else f"None of {', '.join(tickers)} is on the exclusion list.")
+    out = {"flags": flags, "not_listed": [t for t in tickers if t not in flags],
+           "sources": {k: {"name": v["name"], "url": v["url"], "as_of": v.get("as_of")} for k, v in data["sources"].items()}}
+    return _envelope("esg_flags", {"tickers": tickers, "as_of": as_of}, out, say,
+                     ["An exclusion list reflects the decisions of the investor that publishes it: it is information "
+                      "to discuss, not a rule of your profile.",
+                      f"The list as published on {src.get('as_of') or 'its latest update'}; decisions after {as_of} are not used."],
+                     [f"esg_flags.json (NBIM exclusion list, as of {src.get('as_of') or 'n/a'})"])

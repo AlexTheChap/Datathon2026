@@ -3,7 +3,7 @@
 // to Amazon Cognito for the login (settings served by the API as config.js, from backend/app/core/signin.json).
 // Every piece of user or server text goes into the page as a text node (never as HTML).
 
-import { renderPortfolio, onProfileSaved, syncPortfolio } from "./portfolio.js";
+import { renderPortfolio, onProfileSaved, syncPortfolio, needsStartChoice, startChoice } from "./portfolio.js";
 import { PORTFOLIO_PROMPT, RISK_PROMPT_PREFIX } from "./portfolio-data.js";
 import { buildProfileSteps } from "./profile-steps.js";
 import { EXPERIENCE_BANDS, RISK_BANDS, scale } from "./scale.js";
@@ -293,9 +293,8 @@ async function api(method, path, body, retried = false) {
     const s = readSession();
     if (!s) throw new ApiError(401, (data && data.detail) || "Sign in to continue."); // another request signed out first
     const fresh = s && s.signedInAt && Date.now() - s.signedInAt < 120_000;
-    const reason = (data && typeof data.detail === "string" && data.detail) || "unauthorized";
     signOut(fresh
-      ? `AlphaForge's server refused your sign-in (\u201C${reason}\u201D). If you run the API yourself, start it with the Cognito settings from .env.`
+      ? "AlphaForge couldn't confirm your sign-in. Please try signing in again."
       : "Your session has expired. Sign in again.");
   }
   if (!res.ok) throw new ApiError(res.status, data && data.detail);
@@ -304,16 +303,16 @@ async function api(method, path, body, retried = false) {
 
 /** POST a file (multipart): same sign-in as api(), the browser sets the multipart boundary. */
 function errorText(err, what) {
-  if (err.status === 0) return { title: "AlphaForge isn't responding", body: "The app can't reach its server. Check that the API is running, then try again." };
+  if (err.status === 0) return { title: "AlphaForge isn't responding", body: "The app can't reach its server. Check your connection, then try again." };
   if (err.status === 401) return { title: "You're not signed in", body: "Sign in again, then try again." };
   const detail = typeof err.detail === "string" ? err.detail : "";
   if (err.status === 502 && /expired|security token|credentials|UnrecognizedClient|AccessDenied/i.test(detail)) {
-    return { title: "AlphaForge can't reach its AI model", body: "The server's AWS credentials have expired or were refused. Whoever runs AlphaForge needs to renew them; your text is kept, try again after that." };
+    return { title: "AlphaForge can't reach its AI service", body: "The service is unavailable right now. Your text is kept: try again in a few minutes." };
   }
   if (err.status === 502 && /could not be reached|unreachable|Throttl/i.test(detail)) {
-    return { title: "AlphaForge can't reach its AI model right now", body: "The language model service didn't answer. Your text is kept: try again in a moment." };
+    return { title: "AlphaForge can't reach its AI service right now", body: "The service didn't answer. Your text is kept: try again in a moment." };
   }
-  if (err.status === 502) return { title: `AlphaForge couldn't read ${what}`, body: "The language model didn't give a usable answer this time. Your text is kept: try again." };
+  if (err.status === 502) return { title: `AlphaForge couldn't read ${what}`, body: "AlphaForge didn't get a usable answer this time. Your text is kept: try again." };
   if (err.status === 422 && detail) return { title: "That didn't work", body: detail };
   if (err.status === 422) return { title: "Some details aren't valid", body: "Check the highlighted fields, then try again." };
   return { title: "Something went wrong", body: `The server answered with an error (${err.status}). Try again in a moment.` };
@@ -398,6 +397,7 @@ function plainNote(w) {
   if (/^as_of not set/.test(w)) return "No analysis date was given: the latest available data is used.";
   if (/^intake_confidence/.test(w)) return "Your question was a little unclear: the answer will state the assumptions it makes.";
   if (/enabled although|but disabled by/.test(w)) return null;
+  if (/[_=]|\bprofile\.|\bas_of\b/.test(w)) return null; // an internal note: not for the reader
   return w;
 }
 
@@ -439,8 +439,7 @@ function renderNoSignIn(main) {
     h("h1", null, "Sign-in isn't available"),
     h("p", null, "AlphaForge can only be used with an account, and this server has no sign-in set up. Try again later."))),
   band("body", h("div", { class: "panel stack-sm" },
-    h("p", { class: "small muted" }, "For whoever runs this server: backend/app/core/signin.json has no user pool, "
-      + "or the server was started with an AF_AUTH_MODE that turns sign-in off. Run scripts/setup_cognito.py."))));
+    h("p", { class: "small muted" }, "If this keeps happening, contact the team that runs AlphaForge."))));
 }
 function route() {
   if (!COGNITO && !DEV) { renderNoSignIn(document.getElementById("main")); setWho(); return; }
@@ -801,6 +800,8 @@ function profileSummary(p) {
       h("dt", null, "Portfolio"), h("dd", null, p.portfolio
         ? Object.entries(p.portfolio).sort((a, b) => b[1] - a[1]).map(([t, w]) => `${t} ${Math.round(w * 100)}%`).join(", ")
         : "Not built yet"),
+      p.holdings ? [h("dt", null, "What you hold"), h("dd", null,
+        Object.entries(p.holdings).sort((a, b) => b[1] - a[1]).map(([t, w]) => `${t} ${Math.round(w * 100)}%`).join(", "))] : null,
       h("dt", null, "Limits"), h("dd", null, limits.length ? limits.join(", ") : "None"),
       h("dt", null, "Analyses off"), h("dd", null, off.length ? off.join(", ") : "None")),
     h("div", { class: "notice" }, h("a", { class: "link-btn", href: HOME }, "My portfolio"),
@@ -862,10 +863,16 @@ function profileForm(saved) {
       const fresh = (await api("PUT", "/v1/profile", payload)).data;
       state.profile = fresh;
       // A new or changed profile gets a new portfolio, built in the background (portfolio.js), once every question is answered.
-      let building = null;
-      if (complete) { building = onProfileSaved(dashboardContext(), baseline, fresh); baseline = fresh; }
-      return { profile: fresh, building: Boolean(building) };
+      // A blank profile (no portfolio yet) first asks how to start: build one, or enter the one the person already has.
+      let building = null; let choose = false;
+      if (complete) {
+        if (needsStartChoice(dashboardContext(), fresh)) choose = true;
+        else building = onProfileSaved(dashboardContext(), baseline, fresh);
+        baseline = fresh;
+      }
+      return { profile: fresh, building: Boolean(building), choose };
     },
+    startChoice: () => startChoice(dashboardContext(), { title: "Your profile is complete", headingLevel: "h2" }),
   }, { saved, record: store.get(recordKey, null) });
   // The challenge's three investors (Amira, Mateo, Robert) are offered as demo accounts at sign-in only.
   const root = h("div", { class: "stack" }, steps.el);
@@ -908,8 +915,8 @@ function drawAnswer(run, { scope = "page", chat = false, animate = false } = {})
     const waiting = run.status === "QUEUED" || run.status === "RUNNING";
     section.append(h("div", { class: chat ? "stack-sm" : "empty" },
       h("p", null, run.status === "FAILED" ? "No answer: the analysis stopped before the end." : "The answer will appear here."),
-      run.status === "QUEUED" && run.note ? h("p", { class: "muted small" }, "The analysis agents aren't running on this server, so the analysis stops at its plan.") : null,
-      run.status === "RUNNING" ? h("p", { class: "muted small" }, "Working on it: the agents gather the evidence, then the answer is written and checked.") : null,
+      run.status === "QUEUED" && run.note ? h("p", { class: "muted small" }, "Analyses aren't available right now, so AlphaForge stops at the plan.") : null,
+      run.status === "RUNNING" ? h("p", { class: "muted small" }, "Working on it: AlphaForge gathers the figures, then writes and checks the answer.") : null,
       !waiting && run.result && run.result.answer_error ? h("p", { class: "muted small" }, "The explanation could not be written this time.") : null));
     return section;
   }
@@ -1143,10 +1150,10 @@ function renderRun(main, runId) {
     const userOff = (plan.disabled_agents || []).filter((d) => !/not needed/.test(d.reason));
     const notNeeded = (plan.disabled_agents || []).filter((d) => /not needed/.test(d.reason));
     const statusLine = {
-      QUEUED: "Waiting for the analysis agents.",
+      QUEUED: "Waiting to start.",
       RUNNING: "AlphaForge is analysing and writing your answer. This takes about a minute; the page updates by itself.",
       DONE: "The analysis is complete.",
-      FAILED: run.error || "The analysis stopped with an error.",
+      FAILED: "The analysis stopped before the end. You can ask your question again.",
     }[run.status];
 
     const jump = (id) => () => { const el = document.getElementById(id); if (el) { el.scrollIntoView({ block: "start" }); el.setAttribute("tabindex", "-1"); el.focus({ preventScroll: true }); } };
@@ -1193,13 +1200,10 @@ function renderRun(main, runId) {
           req.positions.map((p) => p.weight == null ? p.ticker : `${p.ticker} ${Math.round(p.weight * 100)}%`).join(", "))] : null,
         h("dt", null, "Data up to"), h("dd", { class: "num" }, plan.as_of || "Latest available"),
         h("dt", null, "How sure the reading is"), h("dd", { class: "num" }, `${Math.round(plan.intake_confidence * 100)}%`),
-        h("dt", null, "Explained for"), h("dd", null, `${titleOf(EXPERIENCE, run.prompt_ref.experience)} investors${run.prompt_ref.style === "learning" ? ", explained so you learn" : ""} (template ${run.prompt_ref.version})`),
+        h("dt", null, "Explained for"), h("dd", null, `${titleOf(EXPERIENCE, run.prompt_ref.experience)} investors${run.prompt_ref.style === "learning" ? ", explained so you learn" : ""}`),
         (plan.warnings || []).map(plainNote).filter(Boolean).length ? [h("dt", null, "Notes"), h("dd", null,
           h("ul", { class: "warning-list" }, plan.warnings.map(plainNote).filter(Boolean).map((w) => h("li", null, w))))] : null,
-        h("dt", null, "Run"), h("dd", { class: "code" }, run.run_id),
-        h("dt", null, "Created"), h("dd", null, timeText(run.created_at)),
-        h("dt", null, "Raw reasons"), h("dd", { class: "code code--lines" },
-          [...enabled, ...(plan.disabled_agents || [])].map((a) => `${a.agent}: ${a.reason}`).join("\n"))));
+        h("dt", null, "Created"), h("dd", null, timeText(run.created_at))));
 
     const p = run.profile;
     const basedOn = h("section", { class: "panel stack-sm", "aria-labelledby": "based-title" },

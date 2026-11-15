@@ -199,14 +199,13 @@ def fundamentals_snapshot(tickers: list[str], as_of: str | None = None) -> dict:
         say += f" No data: {', '.join(no_data)}."
     return {**_envelope(
         "company_fundamentals", inputs, out, say,
-        [("Point-in-time: only filings made on or before as_of are read; for each period the latest such filing wins, "
-          "so a restatement filed before as_of replaces the first publication."),
-         ("Amounts are in each company's reporting currency (see `currency`: USD or CAD) and are never converted; "
-          "compare two companies' figures only after checking their currencies. No valuation ratio is computed."),
-         "Fiscal years are not calendar-aligned: compare companies with care (fiscal_year_end is given).",
-         ("SEC XBRL filers only (10-K / 10-Q, and 40-F / 6-K for Canadian companies, us-gaap or IFRS): companies that do "
-          "not file with the SEC have no data. Ratios are computed here from the reported values; margins and growth "
-          "are fractions. Banks and insurers carry a `note`: their figures are not comparable with industrials."),
+        [("Only filings made by the analysis date are used; when a company restated a period before that date, "
+          "the restated figures are used."),
+         ("Amounts are in each company's reporting currency (U.S. or Canadian dollars) and are never converted: "
+          "check the currency before comparing two companies. No valuation ratio is given."),
+         "Fiscal years don't all end in December: compare companies with care.",
+         ("Only companies that file their financial statements with the U.S. SEC are covered. Margins and growth are "
+          "calculated from the reported figures. Banks' and insurers' figures are not comparable with other companies'."),
          "Reported past results; not a forecast and not a recommendation."],
         ["data/curated/fundamentals.csv (SEC EDGAR XBRL company facts, public domain)"]), "as_of": cut}
 

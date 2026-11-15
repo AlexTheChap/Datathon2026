@@ -143,9 +143,9 @@ def governance_check(weights: dict[str, float]) -> dict:
     # Evidence envelope (same shape as every tool) around the check, so the verdict can be cited.
     return {**result, "evidence_id": _eid("governance_check", inputs), "tool": "governance_check",
             "inputs": inputs, "output": result, "say": say, "currency": "CAD", "as_of": run_as_of(),
-            "assumptions": ["Thresholds in rules.yaml are team assumptions, not regulatory standards.",
-                            "Position and sector checks decompose equity ETFs with their CURRENT holdings.",
-                            "Unverifiable exclusions are reported as UNVERIFIED, never as PASS."],
+            "assumptions": ["These limits are guidelines to help keep your portfolio diversified. They are not regulatory requirements.",
+                            "Position and sector limits look inside stock funds, at the companies they hold today.",
+                            "When an exclusion can't be confirmed, it is reported as not confirmed, never as met."],
             "data_sources": ["backend/app/core/rules.yaml", "data/curated (prices, holdings, ESG screens)"]}
 
 

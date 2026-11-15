@@ -51,9 +51,8 @@ def macro_snapshot(curated_dir: str | Path, as_of: str | None = None) -> dict:
            f"CA 10y {out.get('CA 10y yield (%)', 'n/a')}%, US 10y {out.get('US 10y yield (%)', 'n/a')}%, "
            f"CA CPI {out.get('CA CPI y/y (%)', 'n/a')}%.")
     return _envelope("macro_snapshot", {"as_of": as_of}, out, say,
-                     ["Monthly series (CPI, unemployment) are dated to the reference "
-                      "month and only appear on/after their release date.",
-                      "No data after the as_of date is used."],
+                     ["Monthly figures (inflation, unemployment) are only used once they were published.",
+                      "Only data available on the analysis date is used."],
                      ["macro_rates.csv (Bank of Canada Valet API; FRED) via "
                       "curated/macro_daily_asof.csv (release-aware alignment)"],
                      as_of=out["date"])
@@ -81,7 +80,7 @@ def fx_usdcad(curated_dir: str | Path, as_of: str | None = None, start: str | No
         say += (f" Since {out['start_date']}: {chg * 100:+.1f}% "
                 f"({'USD stronger' if chg > 0 else 'CAD stronger'}).")
     return _envelope("fx_usdcad", {"as_of": as_of, "start": start}, out, say,
-                     ["Bank of Canada daily rate; holidays carried forward from the previous business day "
-                      "(flag `filled`).", "No data after the as_of date is used."],
+                     ["Bank of Canada daily rate; on a holiday, the previous business day's rate is used.",
+                      "Only data available on the analysis date is used."],
                      ["fx_usdcad_daily.csv (Bank of Canada, series FXUSDCAD) via curated/fx_usdcad_filled.csv"],
                      as_of=out["date"], period=f"{df['date'].min().date()}/{out['date']}")

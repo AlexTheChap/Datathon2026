@@ -142,8 +142,8 @@ export function heatmap({ id, title, note, labels, matrix, format }) {
       labels.map((col, j) => cell(matrix[i][j], `${row} with ${col}`))]));
   const scale = el("div", { class: "viz-heat__scale", "aria-hidden": "true" },
     el("span", null, "Move apart"), el("span", { class: "viz-heat__ramp" }), el("span", null, "Move together"));
-  return frame({ id, title, note, chart: el("div", { class: "viz-heat-wrap" }, grid), legend: scale,
-    table: { headers: ["", ...labels], rows: labels.map((l, i) => [l, ...matrix[i].map(format)]) } });
+  // No "Show the numbers" table: every cell already prints its value and has an accessible name.
+  return frame({ id, title, note, chart: el("div", { class: "viz-heat-wrap" }, grid), legend: scale });
 }
 
 /* ---------- Fan chart (SVG): a range over time ---------- */
