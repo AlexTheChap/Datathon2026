@@ -158,9 +158,12 @@ flowchart TB
   %%      macro: macro_snapshot/rate_sensitivity/correlation · esg: esg_screen ·
   %%      fundamentals: company_fundamentals (SEC XBRL, point-in-time) + news_search(8-K) + esg_screen · allocation: optimize/metrics/concentration/governance_check).
   SUB -->|"tool calls (in-process)"| GW
-  %% L13 News → KB: TARGET: Bedrock Knowledge Bases (Retrieve API + metadata filter published
-  %%      ≤ as_of), S3 Vectors index. CURRENT: news_subagent is a SIMULATED placeholder (no
-  %%      feed, no licence) — content labeled fictional end to end.
+  %% L13 News → KB: Bedrock Knowledge Base "alphaforge-news-docs" (Titan Text Embeddings v2, S3 Vectors index, metadata
+  %%      filter published_date <= as_of applied BEFORE ranking), deployed by scripts/deploy_news_kb.py (AF_KB_ID).
+  %%      Corpus: news_index.csv (SEC 8-K filings with the text of the reported item, rate decisions, press headlines)
+  %%      and the annual-report risk / legal sections. Without AF_KB_ID the sub-agent falls back to news_search, a
+  %%      keyword search over the same file with the same date rule; SIMULATED (labeled fictional) only if that file is
+  %%      missing. After scripts/ingest_news.py or scripts/enrich_8k.py, re-run deploy_news_kb.py to re-sync and re-index.
   NEWS -.->|"RAG · published ≤ as_of (later)"| KB
   %% L14 Tools → Data: TARGET: Gateway Lambdas read S3 Parquet (pandas/DuckDB, point-in-time).
   %%      CURRENT: in-process pandas reads over data/curated CSVs (returns_daily_cad,

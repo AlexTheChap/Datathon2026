@@ -31,16 +31,19 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 import time
 from datetime import date
 from pathlib import Path
 
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))   # sibling helper: sec_cik.py
+
 # ---------------------------------------------------------------- helpers
 
 COLUMNS = ["event_id", "published_at", "title", "summary", "source", "source_url", "tickers",
-           "theme", "language", "origin", "n_sources", "date_method", "retrieved_on"]
+           "theme", "language", "origin", "n_sources", "date_method", "retrieved_on", "excerpt"]
 TODAY = date.today().isoformat()
 
 
@@ -93,7 +96,7 @@ def macro_events(curated: Path, start: str, end: str) -> pd.DataFrame:
                 "date_method": "announcement estimated as effective date - 1 business day",
                 "retrieved_on": TODAY,
             })
-    return pd.DataFrame(rows, columns=COLUMNS)
+    return pd.DataFrame(rows, columns=COLUMNS).fillna({"excerpt": ""})
 
 
 # ---------------------------------------------------------------- 2. SEC 8-K
@@ -110,16 +113,17 @@ ITEMS_8K = {  # 8-K items kept (the most informative for an investor)
 def sec_8k_events(universe: pd.DataFrame, start: str, end: str, email: str) -> pd.DataFrame:
     import requests
     h = {"User-Agent": f"AlphaForge Datathon {email}"}
-    tick = requests.get("https://www.sec.gov/files/company_tickers.json", headers=h, timeout=30).json()
-    cik = {v["ticker"]: str(v["cik_str"]).zfill(10) for v in tick.values()}
+    from sec_cik import cik_for, cik_map
+    sec = cik_map(h)
     rows = []
     for t in universe.loc[universe["asset_class"] == "equity", "ticker"]:
-        c = cik.get(t.replace(".TO", ""))         # Canadian stocks listed in New York often file
+        c = cik_for(t, sec)                       # Canadian stocks listed in New York often file
         if not c:                                 # 6-K/40-F (not handled); ENB files 8-Ks
             continue
         time.sleep(0.15)                          # SEC rule: max 10 requests/second
         f = requests.get(f"https://data.sec.gov/submissions/CIK{c}.json", headers=h, timeout=30).json()
         r = f["filings"]["recent"]
+        print(f"[sec8k] {t:<8} -> SEC entity {f.get('name')!r} (CIK {c})")
         for form, acc, filed, items, doc in zip(r["form"], r["accessionNumber"], r["filingDate"],
                                                 r.get("items", [""] * len(r["form"])), r["primaryDocument"]):
             if form != "8-K" or not (start <= filed <= end):
@@ -314,7 +318,13 @@ def write_outputs(df: pd.DataFrame, out: Path) -> None:
     kb.mkdir(exist_ok=True)
     idx = out / "news_index.csv"
     if idx.exists():                              # merge with an existing index (other sources)
-        old = pd.read_csv(idx, dtype=str)
+        old = pd.read_csv(idx, dtype=str).fillna("")
+        df = df.astype(object).fillna("")
+        if "excerpt" in old.columns:                # a refreshed event keeps what enrich_8k.py already read in it
+            keep = old.set_index("event_id")[["excerpt", "summary"]]
+            known = df["event_id"].isin(keep.index) & (df["excerpt"] == "")
+            df.loc[known, "excerpt"] = df.loc[known, "event_id"].map(keep["excerpt"])
+            df.loc[known, "summary"] = df.loc[known, "event_id"].map(keep["summary"])
         df = pd.concat([old[~old["event_id"].isin(df["event_id"])], df.astype(str)], ignore_index=True)
     df = df.sort_values(["published_at", "event_id"])
     df.to_csv(idx, index=False)

@@ -54,6 +54,8 @@ def _numbers(value: Any, out: list[float]) -> None:
     if isinstance(value, (int, float)):
         out.append(float(value))
     elif isinstance(value, str):
+        # An amount written in words in a passage ("$ 11.4 billion", "5 million") is also the number it stands for.
+        out.extend(v for m in MONEY.finditer(value) if (v := _parse(m.group(1), m.group(2))) is not None)
         out.extend(float(x.replace(",", "")) for x in re.findall(r"-?\d[\d,]*\.?\d*", NOISE.sub(" ", value))
                    if x.strip("-,."))
     elif isinstance(value, dict):

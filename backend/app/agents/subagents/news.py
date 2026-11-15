@@ -38,6 +38,9 @@ Using ONLY the `news_search` tool, find the dated news relevant to the brief. Se
 and/or themes and keywords; try origins ["sec_8k"] for company events (primary sources), ["macro_derived"] for
 central bank decisions and ["gdelt"] for press headlines. Never use anything that the tool did not return.
 Distinguish reliability: SEC filings and rate decisions are facts; press headlines are unreviewed, noisy signals.
+An 8-K event carries an `excerpt`: the first words of the filing's own item text (who joined or left, what was issued,
+acquired or impaired). Report what the excerpt says, in your own words, never more; the filing may contain more, and a
+results 8-K (Item 2.02) only announces a press release, with no figures.
 If nothing relevant is found, say so: the corpus is incomplete, so absence is not proof that nothing happened.
 Return ONLY a JSON object:
 {
@@ -45,7 +48,7 @@ Return ONLY a JSON object:
   "details": ["<date> <title> (<origin>) [event_id] — <evidence_id of the search>"],
   "severity": "info" | "warn" | "block",
   "items": [{"event_id": "N-...", "published_at": "YYYY-MM-DD", "title": "...", "origin": "sec_8k|macro_derived|gdelt",
-             "source_url": "..."}],
+             "what_it_says": "<one sentence from the excerpt, or the title for a headline>", "source_url": "..."}],
   "no_news": ["<tickers or topics with no matching event>"]
 }
 Copy event_id, date, title and source_url exactly from the tool results. No investment advice, no forecasts.

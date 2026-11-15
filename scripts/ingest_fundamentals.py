@@ -29,6 +29,7 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 # metric -> (kind, [(taxonomy, tag), ...]) in order of preference. A company may change tag over the years and an IFRS filer
 # uses other names: every pair is read, the first one that has a value for a period wins. kind: "flow" (duration) or
@@ -83,7 +84,8 @@ def parse_company_facts(ticker: str, facts: dict, since: str = "2019-01-01") -> 
                         if not start:
                             continue
                         days = (pd.Timestamp(end) - pd.Timestamp(start)).days
-                        if form in ANNUAL_FORMS and 350 <= days <= 380:
+                        if form in ANNUAL_FORMS | QUARTER_FORMS and 350 <= days <= 380:
+                            # a full year, also in a 6-K: Canadian companies publish their year-end results in a 6-K
                             period_kind = "annual"
                         elif form in QUARTER_FORMS and 80 <= days <= 100:
                             period_kind = "quarter"
@@ -97,6 +99,11 @@ def parse_company_facts(ticker: str, facts: dict, since: str = "2019-01-01") -> 
                     if key not in rows or priority < rows[key]["_priority"]:
                         rows[key] = row
     return [{k: v for k, v in r.items() if k != "_priority"} for r in rows.values()]
+
+
+def merge_partial(old: pd.DataFrame, new: pd.DataFrame, tickers: list[str]) -> pd.DataFrame:
+    """Rows of `old` for the tickers that were re-read are replaced by `new`; every other company is kept as is."""
+    return pd.concat([old[~old["ticker"].isin(tickers)], new], ignore_index=True)
 
 
 def main() -> int:
@@ -113,11 +120,11 @@ def main() -> int:
     h = {"User-Agent": f"AlphaForge Datathon {a.email}"}
     uni = pd.read_csv(a.universe)
     wanted = a.tickers or uni.loc[uni["asset_class"] == "equity", "ticker"].tolist()
-    tick = requests.get("https://www.sec.gov/files/company_tickers.json", headers=h, timeout=30).json()
-    cik = {v["ticker"]: str(v["cik_str"]).zfill(10) for v in tick.values()}
+    from sec_cik import cik_for, cik_map
+    sec = cik_map(h)
     all_rows, report = [], []
     for t in wanted:
-        c = cik.get(t.replace(".TO", ""))
+        c = cik_for(t, sec)
         if not c:
             report.append((t, "no SEC CIK (not an SEC filer)"))
             continue
@@ -126,18 +133,21 @@ def main() -> int:
         if r.status_code != 200:
             report.append((t, f"HTTP {r.status_code}"))
             continue
+        entity = r.json().get("entityName")
         rows = parse_company_facts(t, r.json(), a.since)
         if not rows:
             report.append((t, "no us-gaap / ifrs-full annual or quarterly facts"))
             continue
         all_rows += rows
-        report.append((t, f"{len(rows)} facts"))
+        report.append((t, f"{len(rows)} facts  [SEC entity: {entity}]"))
     df = pd.DataFrame(all_rows, columns=COLUMNS)
     if df.empty:
         print("No fundamentals found.", file=sys.stderr)
         return 1
-    df = df.sort_values(["ticker", "metric", "period_kind", "period_end", "filed"]).reset_index(drop=True)
     out = Path(a.out)
+    if a.tickers and out.exists():      # a partial run replaces only its own tickers, never the whole file
+        df = merge_partial(pd.read_csv(out), df, a.tickers)
+    df = df.sort_values(["ticker", "metric", "period_kind", "period_end", "filed"]).reset_index(drop=True)
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out, index=False)
     for t, msg in report:

@@ -77,3 +77,12 @@ def test_a_digit_suffix_of_a_word_is_not_glued_to_the_next_figure():
     r = verify_answer("Daily VaR95 0.86% and CVaR95 1.17% [ev-3f2a91c0de].", {
         "ev-3f2a91c0de": {"evidence_id": "ev-3f2a91c0de", "say": "", "output": {"var95_daily": 0.0086, "cvar": 0.0117}}})
     assert r.unmatched_numbers == [] and r.uncited_numbers == []
+
+
+def test_an_amount_written_in_words_in_a_passage_matches_the_figure_quoted_from_it():
+    ev = {"ev-aaaaaaaaaa": {"evidence_id": "ev-aaaaaaaaaa", "say": "",
+                            "output": {"hits": [{"text": "investment commitments were $ 11.4 billion and other commitments "
+                                                         "were $ 3.4 billion; Notes of US$400M due 2024"}]}}}
+    ok = verify_answer("Commitments were $11.4 billion [ev-aaaaaaaaaa] and $3.4 billion [ev-aaaaaaaaaa].", ev)
+    assert ok.unmatched_numbers == []
+    assert verify_answer("Commitments were $114 billion [ev-aaaaaaaaaa].", ev).unmatched_numbers
