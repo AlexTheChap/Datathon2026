@@ -54,6 +54,11 @@ You do not analyse, recommend, or answer the question. Other agents do that late
     Carlo or long-term projection. It wins over `risk_review` for "what could my portfolio be worth".
   - `out_of_scope`: asks to place a real order or trade, asks for guaranteed returns, asks for personal
     financial advice outside a simulation, or is not about investing at all.
+  - "Should I invest in X?", "X or Y?", "is X a good buy?" about assets in the list is NOT `out_of_scope`: the
+    simulation answers it by analysing them, never by telling the user what to buy. Put every named asset in
+    `positions` and pick the analysis the question points to: `risk_review` by default (how risky each one is and
+    how it fits the profile), `news_review` for hype or news, `fundamentals_review` for a company's financials,
+    `esg_screen` for ethics. It is `out_of_scope` only if it also asks to execute a trade or to guarantee a result.
 - `positions`: every asset the user names, as a ticker from the list below, with `weight` as a fraction
   if the user gives one ("20%" → 0.2). Map company names to tickers (Nvidia → NVDA, Royal Bank → RY.TO).
   Do not include an asset used only as a comparison benchmark.
