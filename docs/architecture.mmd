@@ -91,6 +91,7 @@ flowchart TB
     GW["AgentCore Gateway (MCP)<br/>Lambda quant tools: metrics · concentration · correlation<br/>risk_contribution · macro · rates · esg_screen · company_fundamentals · optimizer (later)"]
     KB["Bedrock Knowledge Base<br/>news & docs · S3 Vectors"]
     S3[("S3 curated Parquet<br/>prices · FX · macro · point-in-time")]
+    SM["SageMaker AI Processing (batch, no endpoint)<br/>GARCH(1,1) volatility job → vol_forecast.csv"]
     DDB[("DynamoDB<br/>profiles · runs · evidence ledger")]
   end
 
@@ -185,6 +186,13 @@ flowchart TB
   %%      CURRENT: in-process pandas reads over data/curated CSVs (returns_daily_cad,
   %%      macro_daily_asof, rate_sensitivity, esg_index_screen, controversies…).
   GW --> S3
+  %% L20 GARCH job ↔ curated data: scripts/run_garch_sagemaker.py runs sagemaker/garch_job/processing.py
+  %%      (FrameworkProcessor, SKLearn image, app/quant/garch.py) on returns_daily_cad.csv ≤ as_of; outputs
+  %%      vol_forecast.csv + garch_backtest.csv + manifest.json under s3://$AF_DATA_BUCKET/quant/garch/as_of=…/,
+  %%      downloaded to data/curated/. Risk (volatility) forecast only, never returns. --local runs the same code
+  %%      without AWS. Details: docs/garch_job.md.
+  S3 -.->|"returns ≤ as_of"| SM
+  SM -.->|"vol_forecast.csv"| S3
   %% L15 Tools → Evidence ledger: a Strands hook (Before/AfterToolCallEvent) fires around every
   %%      tool call. TARGET sink: DynamoDB (RUN#id / EVID#ev-<hash>). CURRENT: local JSONL ledger
   %%      data/runs/<run_id>.jsonl behind the same EvidenceLedger interface — every call is
@@ -215,7 +223,7 @@ flowchart TB
   classDef agent fill:#eaf8ee,stroke:#2f9e55,color:#1f1f1f;
   classDef json fill:#f6f0ff,stroke:#8a63d2,color:#1f1f1f;
   classDef ui fill:#ffffff,stroke:#555,color:#1f1f1f;
-  class API,GW,KB,S3,DDB,MEM,X aws;
+  class API,GW,KB,S3,SM,DDB,MEM,X aws;
   class PLAN,LOAD,GOV det;
   class ING,ORCH,RISK,NEWS,ESG,FUND,MACRO,ALLOC,EXP agent;
   class PROF,REQ json;
@@ -245,6 +253,7 @@ flowchart TB
 %% Bedrock Guardrails: configurable filters (denied topics, prompt attack, personal data,
 %%   contextual grounding) on model inputs and outputs.
 %% AgentCore Observability: OpenTelemetry traces from the agents to CloudWatch (GenAI observability view).
+%% Amazon SageMaker AI Processing: managed batch jobs in a container (here: the daily GARCH fit); no endpoint.
 %% Amazon CloudWatch: logs, metrics, dashboards, alarms.
 %% AWS IAM: roles and permissions; one least-privilege role per component.
 %% Not in the diagram: AWS CDK (infrastructure as code) · Secrets Manager (API keys) ·

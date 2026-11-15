@@ -51,6 +51,7 @@ DEPS = ["numpy", "pandas", "python-dateutil<3", "fastparquet"]  # dateutil<3: sa
 CSVS = ["returns_daily_cad.csv", "prices_cad.csv", "assets_universe.csv", "etf_holdings.csv",
         "fx_usdcad_filled.csv", "macro_daily_asof.csv",   # bundled only when the S3 data layer is absent
         "esg_index_screen.csv", "controversies.csv", "asset_risk_metrics.csv"]   # in-memory market graph
+OPTIONAL_CSVS = ["vol_forecast.csv"]   # GARCH job output (scripts/run_garch_sagemaker.py): bundled when present
 DATA_LAYER = BUILD / "data_layer.json"   # written by scripts/deploy_data_layer.py (S3 curated Parquet, L14)
 GRAPH = BUILD / "graph.json"             # written by scripts/deploy_graph.py (VPC + Neptune)
 
@@ -91,7 +92,7 @@ def build_zip() -> Path:
         shutil.copy(ROOT / "backend" / "app" / "market" / f, pkg / "app" / "market" / f)
     if curated_s3() is None:  # no S3 data layer: ship the CSVs inside the zip (previous behaviour)
         (pkg / "data" / "curated").mkdir(parents=True)
-        for f in CSVS:
+        for f in CSVS + [o for o in OPTIONAL_CSVS if (ROOT / "data" / "curated" / o).is_file()]:
             shutil.copy(ROOT / "data" / "curated" / f, pkg / "data" / "curated" / f)
     zip_path = BUILD / "quant_lambda.zip"
     zip_path.unlink(missing_ok=True)

@@ -1,0 +1,8 @@
+# Installed by the SageMaker FrameworkProcessor (SKLearn 1.4-2 image) before processing.py runs.
+# Ranges include the repo's versions (arch 9.0, numpy 2.5, pandas 3.1, scipy 1.18) and still resolve on the
+# image's Python (3.10 or 3.12); manifest.json records the exact versions that ran.
+arch>=7,<10
+numpy>=1.26,<3
+pandas>=2.2,<4
+scipy>=1.11,<2
+pyyaml>=6
