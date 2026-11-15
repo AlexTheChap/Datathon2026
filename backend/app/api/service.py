@@ -283,7 +283,10 @@ def _dispatcher(runs: RunStore, dispatch: str) -> Dispatcher:
 
 
 def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
-    """AF_STORE=memory (default, local) | dynamodb (AF_TABLE, default "alphaforge").
+    """AF_STORE=memory (default, local) | file | dynamodb (AF_TABLE, default "alphaforge").
+    AF_STORE=file keeps profiles as JSON files (one per user) under AF_DATA_DIR/profiles (default ".af_store/",
+    relative paths are resolved against the repo root), so they survive a restart. Runs stay in memory in this mode
+    (there is no file-backed run store): after a restart the run history is empty.
     AF_DISPATCH=inline (default: the orchestrator runs before POST /v1/runs returns — live answers, no queue,
     app.api.dispatch.InlineDispatcher) | local (the orchestrator runs in a background thread after the 202;
     clients poll GET /v1/runs/{id}) | none (the run stays QUEUED with its plan only)."""
@@ -295,6 +298,15 @@ def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
     if kind == "memory":
         runs = InMemoryRunStore()
         return ApiService(runs=runs, dispatcher=_dispatcher(runs, dispatch))
+    if kind == "file":
+        from app.core.config import REPO_ROOT
+        from app.store.profiles import JsonFileProfileStore
+
+        root = Path(env.get("AF_DATA_DIR") or ".af_store")
+        root = root if root.is_absolute() else REPO_ROOT / root
+        runs = InMemoryRunStore()
+        return ApiService(profiles=JsonFileProfileStore(root / "profiles"), runs=runs,
+                          dispatcher=_dispatcher(runs, dispatch))
     if kind == "dynamodb":
         import boto3
 
@@ -305,4 +317,4 @@ def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
             env.get("AF_TABLE", "alphaforge"))
         runs = DynamoDBRunStore(table)
         return ApiService(profiles=DynamoDBProfileStore(table), runs=runs, dispatcher=_dispatcher(runs, dispatch))
-    raise ValueError(f"Unknown AF_STORE: {kind!r} (expected: memory or dynamodb)")
+    raise ValueError(f"Unknown AF_STORE: {kind!r} (expected: memory, file or dynamodb)")
