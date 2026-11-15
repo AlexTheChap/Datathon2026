@@ -377,6 +377,7 @@ export function buildProfileSteps(ctx, { saved = null, record = null } = {}) {
     if (st === "pending") fs.setAttribute("aria-disabled", "true"); else fs.removeAttribute("aria-disabled");
     const acts = [];
     const n = noun(key).toLowerCase();
+    if (locked && stepper.isSkipped(key)) acts.push(h("span", { class: "small muted" }, "Skipped. Press Change to answer."));
     if (locked) acts.push(button("Change", { label: `Change ${n}`, onclick: () => change(key) }));
     else if (st === "editing") {
       acts.push(button("Cancel", { label: `Cancel changing ${n}`, onclick: () => cancel(key) }),
