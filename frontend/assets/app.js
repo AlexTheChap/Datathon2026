@@ -5,7 +5,7 @@
 
 import { renderPortfolio, onProfileSaved, syncPortfolio } from "./portfolio.js";
 import { PORTFOLIO_PROMPT, RISK_PROMPT_PREFIX } from "./portfolio-data.js";
-import { renderOnboarding } from "./onboarding.js";
+import { buildProfileSteps } from "./profile-steps.js";
 import { EXPERIENCE_BANDS, RISK_BANDS, scale } from "./scale.js";
 
 const API_BASE = window.AF_API_BASE || ""; // same origin by default (the API serves this folder locally)
@@ -433,9 +433,9 @@ const routes = [
   { re: /^#\/signin$/, nav: null, title: "Sign in", view: renderSignIn, public: true },
   { re: /^#\/portfolio$/, nav: "portfolio", title: "Your portfolio", view: (main) => renderPortfolio(main, dashboardContext()) },
   { re: /^#\/ask$/, nav: "ask", title: "Ask", view: renderAsk },
-  { re: /^#\/profile$/, nav: "profile", title: "Your profile", view: (main) => renderProfile(main, "auto") },
-  { re: /^#\/profile\/form$/, nav: "profile", title: "Your profile", view: (main) => renderProfile(main, "form") },
-  { re: /^#\/profile\/assistant$/, nav: "profile", title: "Set up your profile", view: (main) => renderOnboarding(main, onboardingContext()) },
+  { re: /^#\/profile$/, nav: "profile", title: "Your profile", view: (main) => renderProfile(main) },
+  { re: /^#\/profile\/form$/, nav: "profile", title: "Your profile", view: (main) => renderProfile(main) },
+  { re: /^#\/profile\/assistant$/, nav: "profile", title: "Your profile", view: (main) => renderProfile(main) },
   { re: /^#\/settings$/, nav: "settings", title: "My profile settings", view: renderSettings },
   { re: /^#\/runs\/([\w-]+)$/, nav: "ask", title: "Analysis plan", view: renderRun },
 ];
@@ -443,13 +443,6 @@ const routes = [
 let currentHash = null;
 let routeSeq = 0; // one number per page shown: a view that loads asynchronously draws only while it is still current
 const HOME = "#/portfolio";
-
-/** What the profile conversation (onboarding.js) needs from the app. */
-function onboardingContext() {
-  return { h, icon, api, upload, band, alertBox, announce, money, horizonText, RISK, EXPERIENCE, LIMITS, AGENTS, AGENT_ORDER, ANALYSES,
-    loadProfile: async (force) => loadProfile(force),
-    onSaved: (before, fresh) => { state.profile = fresh; onProfileSaved(dashboardContext(), before, fresh); } };
-}
 
 /** What the portfolio dashboard (portfolio.js) needs from the app: same API client, components and state. */
 function dashboardContext() {
@@ -471,7 +464,7 @@ function renderNoSignIn(main) {
 function route() {
   if (!COGNITO && !DEV) { renderNoSignIn(document.getElementById("main")); setWho(); return; }
   const hash = window.location.hash || HOME;
-  if (state.dirty && currentHash === "#/profile" && hash !== "#/profile") {
+  if (state.dirty && (currentHash || "").startsWith("#/profile") && !hash.startsWith("#/profile")) {
     if (!window.confirm("Your profile has unsaved changes. Leave without saving?")) {
       history.replaceState(null, "", currentHash);
       return;
@@ -601,7 +594,9 @@ function renderAsk(main) {
       turn.status = "done";
       state.profile = undefined; // the intake may have saved or changed the profile
       drawSide();
-      announce(data.kind === "run" ? "AlphaForge answered." : data.kind === "question" ? "AlphaForge needs one detail." : "AlphaForge replied.");
+      // A detail asked in the thread (risk level, experience) is saved with the question: say so, never echo the answer.
+      const savedWords = profileForm ? `${[profileForm.risk_band && "Risk level", profileForm.experience && "Experience"].filter(Boolean).join(" and ")} saved. ` : "";
+      announce(savedWords + (data.kind === "run" ? "AlphaForge answered." : data.kind === "question" ? "AlphaForge needs one detail." : "AlphaForge replied."));
     } catch (err) {
       turn.status = "error";
       turn.error = err;
@@ -849,119 +844,105 @@ function skeleton(lines = 3) {
 
 /* ---------------- Profile ---------------- */
 
-function renderProfile(main, mode = "auto") {
+function renderProfile(main) {
   const body = h("div", null, h("div", { class: "panel" }, skeleton(6)));
-  const head = band("head", h("div", { class: "page-head page-head--split" },
+  const head = band("head", h("div", { class: "page-head" },
     h("div", { class: "stack-sm" },
       h("h1", null, "Your investor profile"),
-      h("p", null, "AlphaForge uses it to decide what to analyse and how to explain the results. Only your risk level and experience are required.")),
-    h("a", { class: "btn btn--secondary btn--sm", href: "#/profile/assistant" }, "Set it up as a conversation")));
-
+      h("p", null, "One question at a time. AlphaForge uses your answers to decide what to analyse and how to explain the results. Only your risk level and experience are required."))));
   const seq = routeSeq;
   Promise.all([loadProfile(true), loadPersonas()]).then(([profile]) => {
     if (seq !== routeSeq) return; // the person went elsewhere (or came back) meanwhile: never draw twice
-    if (!profile && mode === "auto") { renderOnboarding(main, onboardingContext()); return; } // first time: the conversation
     main.append(head, band("body", body));
     body.replaceChildren(profileForm(profile));
   }).catch((err) => {
     if (seq !== routeSeq) return;
-    main.replaceChildren(head, band("body", alertBox(err, "your profile", () => { main.replaceChildren(); renderProfile(main, mode); })));
+    main.replaceChildren(head, band("body", alertBox(err, "your profile", () => { main.replaceChildren(); renderProfile(main); })));
   });
 }
-
 async function loadPersonas() {
   if (state.personas) return state.personas;
   try { state.personas = (await api("GET", "/v1/personas")).data; } catch { state.personas = []; }
   return state.personas;
 }
 
-function profileForm(saved, initialStatus = null) {
-  const form = h("form", { class: "stack profile-form", novalidate: true });
-  const status = h("p", { class: "small muted", role: "status" }, initialStatus || (saved ? "" : "Not saved yet."));
-  const errors = {};
-
-  function textField(name, label, { help, type = "text", inputmode, suffix, optional = true, attrs = {} } = {}) {
-    const input = h("input", { class: "input", id: name, name, type, inputmode, autocomplete: "off",
-      "aria-describedby": `${name}-help ${name}-error`, ...attrs });
-    return h("div", { class: "field" },
-      h("label", { class: "field__label", for: name }, label, optional ? [" ", h("span", { class: "optional" }, "(optional)")] : null),
-      suffix ? h("div", { class: "affix" }, input, h("span", { class: "affix__text", "aria-hidden": "true" }, suffix)) : input,
-      h("p", { class: "field__help", id: `${name}-help` }, help || ""),
-      errors[name] = h("p", { class: "field__error", id: `${name}-error` }));
-  }
-
-  const riskScale = scale(h, { id: "risk_band", name: "risk_band", label: "Risk level (required)", bands: RISK_BANDS, options: RISK,
-    help: "How much ups and downs you can live with: 1 = no loss at all, 10 = big swings are fine." });
-  const expScale = scale(h, { id: "experience", name: "experience", label: "Experience (required)", bands: EXPERIENCE_BANDS, options: EXPERIENCE,
-    help: "1 = new to investing, 10 = you follow the markets closely. It changes how answers are explained, not what is analysed." });
-  const scaleField = (sc, name) => {
-    sc.input.setAttribute("aria-describedby", `${sc.input.getAttribute("aria-describedby")} ${name}-error`);
-    return h("div", { class: "field" }, sc, errors[name] = h("p", { class: "field__error", id: `${name}-error` }));
-  };
-
+function profileForm(saved) {
+  const recordKey = `af.profile-steps.${actorId()}`;   // which questions this browser has answered or skipped
+  let baseline = saved;                                // the profile the last portfolio build was compared with
+  const steps = buildProfileSteps({
+    h, icon, alertBox, RISK, EXPERIENCE, LIMITS, ANALYSES, AGENTS,
+    hasProfile: () => Boolean(state.profile),
+    persist: (record) => store.set(recordKey, record),
+    setDirty: (on) => { state.dirty = on; },
+    async save(payload, { complete }) {
+      // Send only the toggles that changed: the API forgets the chat quote of any toggle the form sets.
+      const known = state.profile && state.profile.agent_toggles;
+      if (known && payload.agent_toggles) {
+        const changed = Object.fromEntries(Object.entries(payload.agent_toggles).filter(([a, on]) => known[a] !== on));
+        if (Object.keys(changed).length) payload.agent_toggles = changed; else delete payload.agent_toggles;
+      }
+      const fresh = (await api("PUT", "/v1/profile", payload)).data;
+      state.profile = fresh;
+      // A new or changed profile gets a new portfolio, built in the background (portfolio.js), once every question is answered.
+      let building = null;
+      if (complete) { building = onProfileSaved(dashboardContext(), baseline, fresh); baseline = fresh; }
+      return { profile: fresh, building: Boolean(building) };
+    },
+  }, { saved, record: store.get(recordKey, null) });
   const personas = state.personas || [];
   const examples = personas.length ? h("section", { class: "panel stack-sm", "aria-labelledby": "examples-title" },
     h("h2", { id: "examples-title", class: "section-title" }, "Start from an example"),
-    h("p", { class: "lede small" }, "The three investors from the challenge brief. Picking one fills the form; nothing is saved until you save."),
+    h("p", { class: "lede small" }, "The three investors from the challenge brief. Picking one fills every question; nothing is saved until you press Save all."),
     h("div", { class: "examples" }, personas.map((p) => h("button", { class: "example", type: "button",
-      onclick: () => { fill(p.profile_form); markDirty(); status.textContent = `Filled with ${p.name}'s profile. Review it, then save.`; announce(status.textContent); } },
+      onclick: () => { steps.fillAll(p.profile_form); announce(`Filled with ${p.name}'s profile. Review it, then save all.`); } },
       `${p.name}: ${p.summary}`)))) : null;
-
-  const toggleRows = ANALYSES.map((a) => {
-    const quote = saved && saved.agent_toggle_reasons ? saved.agent_toggle_reasons[a] : null;
-    return h("div", { class: "switch-row" },
-      h("div", { class: "switch-row__text" },
-        h("label", { for: `toggle-${a}`, class: "choice__title" }, AGENTS[a].name),
-        h("span", { class: "small muted" }, AGENTS[a].desc),
-        quote ? h("span", { class: "small" }, `Changed from chat: “${quote}”`) : null),
-      h("input", { class: "switch", type: "checkbox", role: "switch", id: `toggle-${a}`, name: `toggle-${a}` }));
-  });
-
-  form.append(
-    scaleField(riskScale, "risk_band"),
-    scaleField(expScale, "experience"),
-    h("div", { class: "panel panel--plain" }, h("div", { class: "switch-row" },
-      h("div", { class: "switch-row__text" },
-        h("label", { for: "wants_to_learn", class: "choice__title" }, "Explain things so I learn"),
-        h("span", { class: "small muted", id: "wants_to_learn-help" }, "Answers explain the terms they use and why the numbers matter. For beginner and intermediate levels; advanced answers already assume the terms.")),
-      h("input", { class: "switch", type: "checkbox", role: "switch", id: "wants_to_learn", name: "wants_to_learn", "aria-describedby": "wants_to_learn-help" }))),
-    h("fieldset", null,
-      h("legend", null, "Investment horizon ", h("span", { class: "optional" }, "(optional)")),
-      h("p", { class: "legend-help" }, "When you expect to need the money. Leave the second box empty for “or more”."),
-      h("div", { class: "input-row" },
-        textField("horizon_min", "From", { type: "number", inputmode: "numeric", suffix: "years", optional: false, attrs: { min: "0", max: "60", step: "1" } }),
-        textField("horizon_max", "To", { type: "number", inputmode: "numeric", suffix: "years", optional: false, attrs: { min: "0", max: "60", step: "1" } }))),
-    h("fieldset", null,
-      h("legend", null, "Money"),
-      h("p", { class: "legend-help" }, "Simulated amounts only. Nothing is invested."),
-      h("div", { class: "input-row" },
-        textField("capital", "Capital", { type: "number", inputmode: "numeric", suffix: "CAD", help: "Example: 150000", attrs: { min: "1", step: "1000" } }),
-        textField("loss_capacity", "Largest loss you could accept", { type: "number", inputmode: "decimal", suffix: "%", help: "Example: 15", attrs: { min: "0", max: "100", step: "1" } }))),
-    textField("objective", "Your goal", { help: "Example: grow my savings for a house in ten years." }),
-    h("div", { class: "field" },
-      h("label", { class: "field__label", for: "preferences" }, "Interests ", h("span", { class: "optional" }, "(optional)")),
-      h("textarea", { class: "textarea", id: "preferences", name: "preferences", rows: "3", "aria-describedby": "preferences-help" }),
-      h("p", { class: "field__help", id: "preferences-help" }, "One per line, in your own words.")),
-    h("fieldset", null,
-      h("legend", null, "Hard limits ", h("span", { class: "optional" }, "(optional)")),
-      h("p", { class: "legend-help" }, "Rules applied to your portfolio and to every answer, whatever you ask."),
-      h("div", { class: "choices" }, LIMITS.map((l) => h("label", { class: "choice" },
-        h("input", { type: "checkbox", name: `limit-${l.key}` }),
-        h("span", { class: "choice__title" }, l.title),
-        h("span", { class: "choice__desc" }, l.desc))))),
-    h("fieldset", null,
-      h("legend", null, "Analyses"),
-      h("p", { class: "legend-help" }, "On means AlphaForge may use it when a question needs it: it doesn't run for every question. Off means it is skipped, unless a question can't be answered without it (the answer then says why). You can also say it in a question, like “I don't care about the news”."),
-      h("div", { class: "panel panel--plain" }, toggleRows)),
-  );
-
-  const saveBtn = h("button", { class: "btn btn--primary", type: "submit" }, "Save profile");
-  const resetBtn = h("button", { class: "btn btn--quiet", type: "button", onclick: () => { fill(saved || {}); state.dirty = false; status.textContent = "Changes discarded."; } }, "Discard changes");
-  const topError = h("div");
-  form.append(topError, h("div", { class: "form-actions" }, saveBtn, resetBtn, status));
-
+  const documentPanel = profileDocumentPanel(steps);
+  const root = h("div", { class: "columns" }, h("div", { class: "stack" }, examples, documentPanel, steps.el),
+    h("aside", { class: "stack" }, profileAccount(), settingsPointer()));
+  state.dirty = false;
+  return root;
+}
+const DOCUMENT_FIELDS = { risk_band: "Risk level", experience: "Experience", horizon_years: "Investment horizon", capital: "Capital",
+  loss_capacity: "Largest acceptable loss", objective: "Goal", wants_to_learn: "Learning explanations", exclusions: "Hard limits",
+  agent_toggles: "Analyses", age: "Age", preferences_text: "Preferences and constraints" };
+/** "Fill it from a document": the API reads a PDF or Word file; what it found fills the questions, unsaved. */
+function profileDocumentPanel(steps) {
+  const report = h("div", { class: "stack-sm", role: "status" });
+  const input = h("input", { class: "input", id: "profile-file", type: "file", accept: ".pdf,.docx,.txt,.md",
+    "aria-describedby": "profile-file-help", onchange: async () => {
+      const file = input.files[0];
+      if (!file) return;
+      report.replaceChildren(h("p", { class: "small muted" }, "Reading your document…"));
+      const form = new FormData();
+      form.append("file", file);
+      try {
+        const r = (await upload("/v1/profile/draft/file", form)).data;
+        if (r.refused) { report.replaceChildren(h("p", null, "This document can't be used. Answer the questions instead.")); return; }
+        const fields = { ...r.fields };
+        const said = [...(fields.preferences || []), ...(fields.constraints || [])];
+        if (said.length) fields.preferences_text = said.join(".\n");   // the server splits it again on save
+        const found = [...(r.found || []), ...(said.length ? ["preferences_text"] : [])].map((k) => DOCUMENT_FIELDS[k]).filter(Boolean);
+        if (found.length) steps.fillAll({ ...steps.readAll(), ...fields });
+        report.replaceChildren(
+          h("p", null, found.length ? `Found in the document: ${found.join(", ")}. Review the answers, then press Save all.`
+            : "Nothing about your investing profile was found in it."),
+          r.irrelevant && r.irrelevant.length ? h("div", null, h("p", { class: "small" }, "Not relevant to your profile, so ignored:"),
+            h("ul", { class: "warning-list" }, r.irrelevant.map((x) => h("li", null, x)))) : null);
+        announce("Document read.");
+      } catch (err) {
+        report.replaceChildren(alertBox(err, "your document", null));
+      }
+    } });
+  return h("section", { class: "panel stack-sm", "aria-labelledby": "document-title" },
+    h("h2", { id: "document-title", class: "section-title" }, "Fill it from a document"),
+    h("label", { class: "field__label", for: "profile-file" }, "A PDF or Word file about your situation ", h("span", { class: "optional" }, "(optional)")),
+    input,
+    h("p", { class: "field__help", id: "profile-file-help" }, "For example notes from an advisor. It is read to fill the questions and is not kept. Nothing is saved until you press Save all."),
+    report);
+}
+function profileAccount() {
   const session = COGNITO ? readSession() : null;
-  const account = COGNITO ? h("section", { class: "panel stack-sm", "aria-labelledby": "account-title" },
+  return COGNITO ? h("section", { class: "panel stack-sm", "aria-labelledby": "account-title" },
     h("h2", { id: "account-title", class: "section-title" }, "Account"),
     h("p", { class: "small" }, "Signed in as ", h("strong", null, session ? session.email : "")),
     session && DEMO_EMAIL.test(session.email)
@@ -980,142 +961,7 @@ function profileForm(saved, initialStatus = null) {
       setWho(); window.location.hash = "#/profile"; route();
     } }, "Start over as a new user")));
 
-  /* fill + read */
-  function fill(p) {
-    const set = (name, v) => { const el = form.elements.namedItem(name); if (el) el.value = v ?? ""; };
-    riskScale.setCategory(p.risk_band || null);
-    expScale.setCategory(p.experience || null);
-    set("horizon_min", p.horizon_years ? p.horizon_years.min : "");
-    set("horizon_max", p.horizon_years ? p.horizon_years.max : "");
-    set("capital", p.capital ?? "");
-    set("loss_capacity", p.loss_capacity == null ? "" : Math.round(p.loss_capacity * 100));
-    set("objective", p.objective || "");
-    set("preferences", (p.preferences || []).join("\n"));
-    for (const l of LIMITS) form.elements.namedItem(`limit-${l.key}`).checked = (p.exclusions || []).some((e) => e.type === l.exclusion.type);
-    for (const a of ANALYSES) form.elements.namedItem(`toggle-${a}`).checked = !p.agent_toggles || p.agent_toggles[a] !== false;
-    form.elements.namedItem("wants_to_learn").checked = !!p.wants_to_learn;
-    form._otherExclusions = (p.exclusions || []).filter((e) => !LIMITS.some((l) => l.exclusion.type === e.type));
-    clearErrors();
-  }
-  function num(name) { const v = form.elements.namedItem(name).value.trim(); return v === "" ? null : Number(v); }
-  function read() {
-    const out = {
-      risk_band: riskScale.value(),
-      experience: expScale.value(),
-      language: "en",
-      horizon_years: { min: num("horizon_min"), max: num("horizon_max") },
-      capital: num("capital"),
-      loss_capacity: num("loss_capacity") === null ? null : num("loss_capacity") / 100,
-      objective: form.elements.namedItem("objective").value.trim() || null,
-      preferences: form.elements.namedItem("preferences").value.split("\n").map((s) => s.trim()).filter(Boolean),
-      exclusions: [...LIMITS.filter((l) => form.elements.namedItem(`limit-${l.key}`).checked).map((l) => l.exclusion), ...(form._otherExclusions || [])],
-      agent_toggles: Object.fromEntries([...ANALYSES.map((a) => [a, form.elements.namedItem(`toggle-${a}`).checked]),
-        ...LIMITS.filter((l) => l.toggle).map((l) => [l.toggle, form.elements.namedItem(`limit-${l.key}`).checked])]),
-      wants_to_learn: form.elements.namedItem("wants_to_learn").checked,
-    };
-    return out;
-  }
-
-  /* validation */
-  function clearErrors() {
-    for (const el of Object.values(errors)) el.replaceChildren();
-    for (const el of form.querySelectorAll("[aria-invalid]")) el.removeAttribute("aria-invalid");
-  }
-  function setError(name, msg) {
-    errors[name].replaceChildren(icon("alert", 14), h("span", null, msg));
-    const el = form.elements.namedItem(name);
-    const target = el instanceof RadioNodeList ? el[0] : el;
-    if (target && !(el instanceof RadioNodeList)) target.setAttribute("aria-invalid", "true");
-    return target;
-  }
-  function validate(data) {
-    clearErrors();
-    const bad = [];
-    if (!data.risk_band) bad.push(setError("risk_band", "Pick the risk level that fits you best."));
-    if (!data.experience) bad.push(setError("experience", "Pick your experience level."));
-    const { min, max } = data.horizon_years;
-    for (const [name, val] of [["horizon_min", min], ["horizon_max", max]]) {
-      if (val !== null && (!Number.isInteger(val) || val < 0 || val > 60)) bad.push(setError(name, "Use whole years between 0 and 60."));
-    }
-    if (min !== null && max !== null && max < min) bad.push(setError("horizon_max", "The end can't be before the start."));
-    if (max !== null && min === null) bad.push(setError("horizon_min", "Add the start of your horizon too."));
-    if (data.capital !== null && !(data.capital > 0)) bad.push(setError("capital", "Use an amount above zero, without spaces."));
-    if (data.loss_capacity !== null && !(data.loss_capacity >= 0 && data.loss_capacity <= 1)) bad.push(setError("loss_capacity", "Use a percentage between 0 and 100."));
-    return bad;
-  }
-
-  function markDirty() {
-    state.dirty = true;
-    status.textContent = "Unsaved changes.";
-  }
-  form.addEventListener("input", markDirty);
-  form.addEventListener("change", markDirty);
-  form.addEventListener("focusout", (e) => {
-    if (!e.target.name || e.target.type === "radio" || e.target.type === "checkbox") return;
-    const data = read();
-    const before = Object.values(errors).some((el) => el.childNodes.length);
-    if (before || e.target.value) { validate(data); for (const name of ["risk_band", "experience"]) if (!data[name]) errors[name].replaceChildren(); }
-  });
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    topError.replaceChildren();
-    const data = read();
-    const bad = validate(data);
-    if (bad.length) {
-      const first = bad.find(Boolean);
-      if (first) first.focus();
-      announce("Some fields need attention.");
-      return;
-    }
-    const payload = { ...data };
-    if (data.horizon_years.min === null) delete payload.horizon_years;
-    // Send only the toggles that changed: the API forgets the chat quote of any toggle the form sets.
-    const before = (state.profile && state.profile.agent_toggles) || null;
-    if (before) {
-      const changed = Object.fromEntries(Object.entries(data.agent_toggles).filter(([a, on]) => before[a] !== on));
-      if (Object.keys(changed).length) payload.agent_toggles = changed; else delete payload.agent_toggles;
-    }
-    saveBtn.disabled = true;
-    saveBtn.setAttribute("aria-busy", "true");
-    saveBtn.replaceChildren(h("span", { class: "spinner", "aria-hidden": "true" }), "Saving");
-    try {
-      const before = state.profile || null;
-      const fresh = (await api("PUT", "/v1/profile", payload)).data;
-      state.profile = fresh;
-      state.dirty = false;
-      // A new or changed profile gets a new portfolio, built in the background (portfolio.js).
-      const building = onProfileSaved(dashboardContext(), before, fresh);
-      // Rebuild from what the server saved (e.g. a chat quote it dropped), keeping the confirmation.
-      const toggled = before && JSON.stringify(before.agent_toggles) !== JSON.stringify(fresh.agent_toggles);
-      const confirmation = h("span", { class: "saved" }, icon("check", 14),
-        `Saved at ${new Date().toLocaleTimeString("en-CA", { timeStyle: "short" })}.`,
-        building ? [" Building your portfolio (about a minute). ", h("a", { href: HOME }, "See my portfolio")]
-          : toggled ? " Your portfolio stays the same: the analyses change what AlphaForge looks at in its answers, not what the portfolio holds." : null);
-      const next = profileForm(fresh, confirmation);
-      root.replaceWith(next);
-      next.querySelector('button[type="submit"]').focus();
-      announce("Profile saved.");
-      return;
-    } catch (err) {
-      const box = alertBox(err, "your profile");
-      if (err.status === 422 && Array.isArray(err.detail)) {
-        box.querySelector(".alert__body").textContent =
-          err.detail.map((d) => `${(d.loc || []).slice(-1)[0] || "profile"}: ${d.msg}`).join(" ");
-      }
-      topError.replaceChildren(box);
-      box.focus();
-    } finally {
-      saveBtn.disabled = false;
-      saveBtn.removeAttribute("aria-busy");
-      saveBtn.replaceChildren("Save profile");
-    }
-  });
-
-  fill(saved || {});
-  state.dirty = false;
-  const root = h("div", { class: "columns" }, h("div", { class: "stack" }, examples, form), h("aside", { class: "stack" }, account, settingsPointer()));
-  return root;
+  return account;
 }
 
 /* ---------------- Run (the plan) ---------------- */
