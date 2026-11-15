@@ -8,6 +8,8 @@
     "upload_id": "abc123"
   },
   "user_message": "Is my portfolio too risky? Also show me what would happen in a crash.",
+  "positions": [],
+  "capital": null,
   "parameters": {
     "scenarios": [
       "2022"
@@ -18,5 +20,6 @@
     "stress_tests": true,
     "include_rag": false
   },
+  "as_of": null,
   "intake_confidence": 0.92
 }

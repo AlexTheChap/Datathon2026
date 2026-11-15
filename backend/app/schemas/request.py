@@ -21,6 +21,18 @@ class PortfolioRef(BaseModel):
     upload_id: Optional[str] = None
 
 
+class Position(BaseModel):
+    """Asset named in the request, with its weight if the user gives one.
+
+    `ticker` must exist in `data/curated/assets_universe.csv`; otherwise the Intake drops it with a warning.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    ticker: str
+    weight: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="Fraction of the portfolio (0.2 = 20%).")
+
+
 class Parameters(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -44,6 +56,8 @@ class Request(BaseModel):
     task: Task
     portfolio_ref: Optional[PortfolioRef] = None
     user_message: str
+    positions: list[Position] = Field(default_factory=list, description="Assets and weights named in the request.")
+    capital: Optional[float] = Field(default=None, gt=0, description="Simulated capital for this request, in CAD.")
     parameters: Parameters = Field(default_factory=Parameters)
     toggles: Toggles = Field(default_factory=Toggles)
     as_of: Optional[date] = Field(default=None, description="Analysis date; no data published after it is read.")

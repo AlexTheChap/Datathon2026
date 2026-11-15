@@ -1,0 +1,4 @@
+# Prompt templates are hashed (sha256 in PromptRef): keep LF on every OS.
+backend/app/prompts/*.md text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf

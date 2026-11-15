@@ -19,7 +19,7 @@ from strands import Agent
 from app.agents.hooks import EvidenceHook
 from app.agents.subagents import subagents_for_toggles
 from app.agents.subagents.base import run_context
-from app.context.prompt_loader import load_prompt
+from app.context.template_loader import render_prompt
 from app.context.tool_guide import tools_block
 from app.core.config import Settings, get_settings
 from app.schemas.models import OrchestratorInput, OrchestratorOutput, Profile
@@ -66,8 +66,8 @@ def build_orchestrator(inp: OrchestratorInput, ledger: JsonlLedger | None = None
                        settings: Settings | None = None) -> Agent:
     """Strands Agent for one run (never reused across runs)."""
     s = settings or get_settings()
-    system_prompt = load_prompt(
-        "orchestrator", "en",
+    system_prompt = render_prompt(
+        "orchestrator",
         persona_block=persona_block(inp.profile, inp.language),
         task=inp.request.task,
         as_of=inp.as_of or "2026-11-12",
