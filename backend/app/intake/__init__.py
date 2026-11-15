@@ -1,6 +1,6 @@
 """Box 3 — Intake agent: free text -> validated Profile JSON + Request JSON (see docs/architecture.mmd)."""
 from .agent import IntakeError, run_intake
-from .backends import BedrockBackend, IntakeRefused, MockBackend, get_backend
+from .backends import BedrockBackend, IntakeRefused, IntakeUnavailable, LambdaBackend, MockBackend, get_backend
 from .schemas import IntakeDraft, IntakeResult
 
 __all__ = [
@@ -9,6 +9,8 @@ __all__ = [
     "IntakeError",
     "IntakeRefused",
     "IntakeResult",
+    "IntakeUnavailable",
+    "LambdaBackend",
     "MockBackend",
     "get_backend",
     "run_intake",

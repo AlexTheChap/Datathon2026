@@ -11,7 +11,7 @@ const POLL_MAX = 45; // ~3 minutes: a real analysis (agents + Explainer) takes a
 
 const AGENTS = {
   risk: { name: "Portfolio risk", desc: "Volatility, worst drop and concentration of your holdings." },
-  macro_scenarios: { name: "Crash scenarios", desc: "How the portfolio would have held up in a past crisis." },
+  macro_scenarios: { name: "Macro and rates", desc: "Interest rates, inflation, and how sensitive your holdings are to rate changes." },
   esg: { name: "ESG and controversies", desc: "Environmental, social and governance screens, and known controversies." },
   fundamentals: { name: "Company fundamentals", desc: "Facts from company filings, such as annual reports." },
   news: { name: "News", desc: "What the news says about the assets you mention." },
@@ -21,7 +21,7 @@ const AGENT_ORDER = ["risk", "macro_scenarios", "esg", "fundamentals", "news", "
 
 const TASKS = {
   risk_review: "risk review",
-  scenario_analysis: "crash scenario",
+  scenario_analysis: "scenario question",
   allocation_proposal: "allocation proposal",
   esg_screen: "ESG screen",
   fundamentals_review: "fundamentals review",
@@ -48,13 +48,9 @@ const LIMITS = [
   { key: "fossil", exclusion: { type: "esg_activity", value: "fossil_fuels" }, title: "No fossil-fuel companies",
     desc: "Companies earning a large share of revenue from oil, gas or coal are flagged." },
 ];
-const SCENARIOS = {
-  "2022": "2022, when rates rose and stocks and bonds fell together",
-  "2022_H1": "the first half of 2022",
-};
 const EXAMPLE_QUESTIONS = [
   "Is my portfolio too risky compared to SPY?",
-  "What would happen to my portfolio in a crash like 2022?",
+  "How exposed is my portfolio to a rate hike?",
   "I'm thinking of putting 20% in Nvidia, everyone is talking about it.",
   "Do Enbridge and Exxon pass an ESG screen?",
 ];
@@ -330,7 +326,6 @@ function whyEnabled(agent, task) {
   const r = agent.reason || "";
   const out = [];
   if (r.includes("required by task")) out.push(`Needed for a ${TASKS[task] || "question like yours"}.`);
-  if (r.includes("stress_tests") || r.includes("parameters.scenarios")) out.push("You asked about a crash or a stress test.");
   if (r.includes("include_rag")) out.push("You asked about news or what people are saying.");
   if (r.includes("preference mentions ESG")) out.push("Your profile says ESG matters to you.");
   if (r.includes("profile exclusion")) out.push("Your profile excludes controversial companies, so they must be checked.");
@@ -365,9 +360,6 @@ function settingsOf(agent) {
   const p = agent.parameters || {};
   const out = [];
   if (p.benchmark) out.push(`Compared with ${p.benchmark}.`);
-  if (Array.isArray(p.scenarios) && p.scenarios.length) {
-    out.push(`Scenario: ${p.scenarios.map((s) => SCENARIOS[s] || s).join(", ")}.`);
-  }
   return out.join(" ");
 }
 
@@ -908,14 +900,16 @@ function profileForm(saved, initialStatus = null) {
 /* ---------------- The answer (box ⑤ Explainer) ---------------- */
 
 const TOOL_NAMES = {
-  stress: "Crisis replay", metrics: "Risk measures", max_position: "Largest safe position", risk_contribution: "Risk contribution",
-  correlation: "Correlations", concentration: "Concentration", governance_check: "Profile rules check",
-  risk_subagent: "Risk analysis summary", macro_subagent: "Scenario analysis summary", esg_subagent: "ESG summary",
-  fundamentals_subagent: "Company facts summary", news_subagent: "News summary (simulated)", allocation_subagent: "Allocation summary",
+  metrics: "Risk measures", risk_contribution: "Risk contribution", correlation: "Correlations",
+  concentration: "Concentration", governance_check: "Profile rules check", optimize: "Allocation search",
+  macro_snapshot: "Rates and inflation", rate_sensitivity: "Rate sensitivity", esg_screen: "ESG screen",
+  company_fundamentals: "Company financials", news_search: "News search", search_news: "News search",
+  risk_subagent: "Risk analysis summary", macro_subagent: "Macro analysis summary", esg_subagent: "ESG summary",
+  fundamentals_subagent: "Company facts summary", news_subagent: "News summary", allocation_subagent: "Allocation summary",
 };
 const VERDICTS = {
   BLOCK: { word: "Blocked", cls: "block", icon: "alert" }, PASS: { word: "Passes", cls: "pass", icon: "check" },
-  WARN: { word: "Warning", cls: "warn", icon: "alert" }, NON_VERIFIE: { word: "Not verified", cls: "unverified", icon: "alert" },
+  WARN: { word: "Warning", cls: "warn", icon: "alert" }, UNVERIFIED: { word: "Not verified", cls: "unverified", icon: "alert" },
 };
 const toolName = (t) => TOOL_NAMES[t] || (String(t || "").endsWith(" detail") ? "Profile rules check, detail" : t);
 
@@ -949,7 +943,7 @@ function drawAnswer(run) {
   if (a.checks.length) {
     section.append(h("div", { class: "answer__section" }, h("h3", null, "Profile checks"),
       h("div", null, a.checks.map((c) => {
-        const v = VERDICTS[c.verdict] || VERDICTS.NON_VERIFIE;
+        const v = VERDICTS[c.verdict] || VERDICTS.UNVERIFIED;
         return h("div", { class: "check-row" },
           h("span", { class: `verdict verdict--${v.cls}` }, icon(v.icon, 14), v.word),
           h("span", { class: "check-row__what" }, c.allocation),
@@ -1004,7 +998,7 @@ async function loadEvidence(runId, order, box) {
       h("div", { class: "evidence-item__head" },
         n ? h("span", { class: "evidence-item__num" }, String(n)) : null,
         h("span", { class: "evidence-item__tool" }, toolName(e.tool)),
-        e.verdict ? h("span", { class: `verdict verdict--${(VERDICTS[e.verdict] || VERDICTS.NON_VERIFIE).cls}` }, (VERDICTS[e.verdict] || VERDICTS.NON_VERIFIE).word) : null),
+        e.verdict ? h("span", { class: `verdict verdict--${(VERDICTS[e.verdict] || VERDICTS.UNVERIFIED).cls}` }, (VERDICTS[e.verdict] || VERDICTS.UNVERIFIED).word) : null),
       h("p", null, e.say || "No summary sentence."),
       h("p", { class: "evidence-item__meta" }, [e.period ? `Period ${e.period}` : null, `Id ${e.id}`].filter(Boolean).join(". ") + "."),
       (e.data_sources || []).length ? h("p", { class: "evidence-item__meta" }, `Sources: ${e.data_sources.join("; ")}`) : null,

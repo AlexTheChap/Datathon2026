@@ -68,7 +68,6 @@ class RequestDraft(BaseModel):
     positions: list[Position] = Field(default_factory=list)
     capital: Optional[float] = None
     benchmark: Optional[Benchmark] = None
-    stress_tests: bool = False
     include_rag: bool = False
     as_of: Optional[date] = None
     intake_confidence: float = Field(description="Between 0 and 1: how clear the request is.")

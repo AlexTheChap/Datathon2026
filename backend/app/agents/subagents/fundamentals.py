@@ -19,8 +19,10 @@ Using ONLY your tools, describe the reported financial position of the companies
 1. `company_fundamentals` with the tickers: the latest annual results (revenue, net income, margins, operating and
    free cash flow, diluted EPS), year-over-year growth, balance sheet and leverage, and the latest quarter when it is
    more recent. Start here.
-2. `news_search` with origins ["sec_8k"] and the tickers: dated 8-K filings (they tell WHAT was filed and WHEN, not the
-   figures inside) for context such as an executive departure, an acquisition or an impairment.
+2. `news_search` with origins ["sec_8k"] and the tickers: dated 8-K filings, each with an `excerpt` of the filing's own
+   text (who left or joined, what was issued, acquired or impaired). Use them for context such as an executive
+   departure, an acquisition, a debt offering or an impairment: report what the excerpt says and nothing more (the
+   filing may contain more; a results 8-K only announces a press release and carries no figures).
 3. `esg_screen`: documented controversies (quote, source, review status) when they bear on the question.
 Rules:
 - Every figure comes from a tool result and carries its evidence_id. Copy values; never compute, convert or
@@ -38,7 +40,7 @@ Return ONLY a JSON object:
   "headline": "<one-sentence takeaway on the companies' reported financial position>",
   "details": ["<fact with its fiscal year end / date and evidence_id>"],
   "severity": "info" | "warn" | "block",
-  "items": [{"event_id": "N-...", "published_at": "YYYY-MM-DD", "title": "...", "source_url": "..."}],
+  "items": [{"event_id": "N-...", "published_at": "YYYY-MM-DD", "title": "...", "what_it_says": "<one sentence from the excerpt>", "source_url": "..."}],
   "no_data": ["<tickers with no documented financials>"]
 }
 Copy event ids, dates, titles and links of any 8-K you mention exactly from the tool results.

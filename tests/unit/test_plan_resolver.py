@@ -65,13 +65,13 @@ def test_every_agent_listed_exactly_once(make_profile, make_request):
 
 
 def test_deterministic(make_profile, make_request):
-    p, r = make_profile("robert"), make_request("persona-robert", "risk_review", toggles={"stress_tests": True})
+    p, r = make_profile("robert"), make_request("persona-robert", "risk_review", toggles={})
     assert resolve_plan(p, r).model_dump() == resolve_plan(p, r).model_dump()
 
 
 def test_plan_keeps_diagram_order(make_profile, make_request):
     r = make_request("persona-amira", "allocation_proposal",
-                     toggles={"stress_tests": True, "include_rag": True})
+                     toggles={"include_rag": True})
     plan = resolve_plan(make_profile("amira"), r)
     assert plan.enabled_names == [a for a in AGENTS if a in plan.enabled_names]
 
@@ -93,7 +93,7 @@ def test_required_agents_per_task(make_profile, make_request, task, required):
 
 
 def test_out_of_scope_runs_no_agent_and_no_governance(make_profile, make_request):
-    r = make_request("persona-robert", "out_of_scope", toggles={"stress_tests": True, "include_rag": True})
+    r = make_request("persona-robert", "out_of_scope", toggles={"include_rag": True})
     plan = resolve_plan(make_profile("robert"), r)
     assert plan.enabled_agents == []
     assert plan.run_governance is False and plan.run_explainer is True
@@ -155,7 +155,7 @@ def test_mateo_esg_added_for_any_task(make_profile, make_request):
 
 def test_robert_nvidia_demo_runs_risk(make_profile, make_request):
     """Robert: '20% in Nvidia' → the Risk agent runs and governance still checks the plan."""
-    r = make_request("persona-robert", "risk_review", toggles={"stress_tests": True},
+    r = make_request("persona-robert", "risk_review", toggles={},
                      user_message="I'm thinking of putting 20% in Nvidia, everyone is talking about it.")
     plan = resolve_plan(make_profile("robert"), r)
     assert set(plan.enabled_names) == {"risk"}
@@ -193,3 +193,13 @@ def test_plan_rejects_duplicate_or_missing_agents():
                 run_governance=True, intake_confidence=0.9)
     with pytest.raises(ValidationError):
         ExecutionPlan(**base, enabled_agents=[{"agent": "risk", "reason": "x"}], disabled_agents=[])
+
+
+def test_typed_holdings_count_as_a_portfolio(make_profile, make_request):
+    """The dispatcher uses weighted positions from the message as the portfolio: no "no portfolio" warning."""
+    typed = make_request("persona-robert", "allocation_proposal", portfolio_ref=None,
+                         positions=[{"ticker": "XIU.TO", "weight": 0.6}, {"ticker": "XBB.TO", "weight": 0.4}])
+    named = make_request("persona-robert", "risk_review", portfolio_ref=None,
+                         positions=[{"ticker": "NVDA", "weight": None}])
+    assert not [w for w in resolve_plan(make_profile("robert"), typed).warnings if w.startswith("no portfolio_ref")]
+    assert [w for w in resolve_plan(make_profile("robert"), named).warnings if w.startswith("no portfolio_ref")]

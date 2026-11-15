@@ -23,7 +23,7 @@ MODEL_JSON = {
         "loss_capacity": None, "capital": 400000, "learning": "unsaid",
     },
     "request": {
-        "task": "allocation_proposal", "positions": [{"ticker": "NVIDIA", "weight": 0.2}], "capital": None, "benchmark": None, "stress_tests": False, "include_rag": True, "as_of": None,
+        "task": "allocation_proposal", "positions": [{"ticker": "NVIDIA", "weight": 0.2}], "capital": None, "benchmark": None, "include_rag": True, "as_of": None,
         "intake_confidence": 0.93,
     },
     "clarification_question": None,

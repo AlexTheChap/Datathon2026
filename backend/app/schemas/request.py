@@ -42,7 +42,6 @@ class Parameters(BaseModel):
 class Toggles(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    stress_tests: bool = False
     include_rag: bool = False
 
 

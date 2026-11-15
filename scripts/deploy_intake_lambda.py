@@ -3,6 +3,7 @@
     python scripts/deploy_intake_lambda.py --profile workshop            # create or update the function
     python scripts/deploy_intake_lambda.py --profile workshop --test     # + invoke it with Robert's demo
     python scripts/deploy_intake_lambda.py --profile workshop --test-only
+    python scripts/deploy_intake_lambda.py --test         # credentials from the AWS_* variables or the repo .env
 
 What the script does:
 1. builds build/intake_lambda.zip: backend/app + prompt + assets_universe.csv + pydantic and anthropic
@@ -10,7 +11,8 @@ What the script does:
 2. creates the IAM role "alphaforge-intake-lambda" (CloudWatch logs + bedrock:InvokeModel), unless --role-arn;
 3. creates or updates the function "alphaforge-intake" (Python 3.12, AF_INTAKE_MODE=bedrock).
 
-No public URL is created: call it with boto3 (lambda.invoke), the console, or the future API (box 2).
+No public URL is created: call it with boto3 (lambda.invoke), the console, or the API (box 2, AF_INTAKE_MODE=lambda:
+{"op": "extract"}, see backend/app/api/intake_handler.py). --test checks both operations.
 """
 from __future__ import annotations
 
@@ -117,6 +119,18 @@ def test(lam) -> None:
         sys.exit(1)
     print(f"• Test (HTTP {payload['statusCode']}):")
     print(json.dumps(json.loads(payload["body"]), ensure_ascii=False, indent=2))
+
+    # What the API sends with AF_INTAKE_MODE=lambda: the model step only (intake.backends.LambdaBackend).
+    event = {"op": "extract", "text": "I'm a student. Is 20% in Nvidia too risky?",
+             "known_profile": {"risk_band": "moderate", "experience": "beginner"}}
+    out = lam.invoke(FunctionName=FUNCTION, Payload=json.dumps(event).encode())
+    body = json.loads(json.loads(out["Payload"].read())["body"])
+    if out.get("FunctionError") or "draft" not in body:
+        print("✗ extract operation failed:", body)
+        sys.exit(1)
+    d = body["draft"]
+    print(f"✓ extract operation: task={d['request']['task']} learning={d['profile']['learning']} "
+          f"positions={d['request']['positions']}")
 
 
 def main() -> None:

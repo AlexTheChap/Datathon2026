@@ -185,13 +185,16 @@ def test_input_errors_are_dicts_for_the_model(corpus):
 def test_real_file_is_consistent_and_point_in_time():
     token = current_as_of.set("2024-06-01")
     try:
-        ev = ft.fundamentals_snapshot(["NVDA", "XOM", "RY.TO", "ATD.TO"])["output"]
+        ev = ft.fundamentals_snapshot(["NVDA", "XOM", "RY.TO", "ATD.TO", "CNR.TO"])["output"]
     finally:
         current_as_of.reset(token)
     n = ev["companies"]["NVDA"]
     assert n["fiscal_year_end"] <= "2024-06-01" and n["filed"] <= "2024-06-01"
     assert n["annual"]["revenue"] > 0 and 0 < n["margins"]["net"] < 1
-    assert "XOM" in ev["no_data"] and "ATD.TO" in ev["no_data"] and "RY.TO" not in ev["no_data"]
+    assert set(ev["no_data"]) == {"ATD.TO"}                    # XOM has history since its filings are read under Exxon Mobil Corp
+    assert ev["companies"]["XOM"]["fiscal_year_end"] <= "2024-06-01"
+    cn = ev["companies"]["CNR.TO"]                            # Canadian National (CNI), not Core Natural Resources (CNR)
+    assert cn["currency"] == "CAD" and 5e9 < cn["annual"]["revenue"] < 4e10
     ry = ev["companies"]["RY.TO"]
     assert ry["currency"] == "CAD" and "note" in ry and ry["balance_sheet"]["total_assets"] > 0
 

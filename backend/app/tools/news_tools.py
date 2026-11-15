@@ -4,7 +4,8 @@ Deterministic, no LLM. Point-in-time: only events with `published_at <= as_of` a
 `as_of` comes from the run (never from the model). Every call returns an evidence envelope, so the News and
 Fundamentals sub-agents cite real events (`event_id`, source URL, publication date), never invented ones.
 
-Sources in the index (`origin`): sec_8k (SEC 8-K filings, public domain), macro_derived (central bank rate
+Sources in the index (`origin`): sec_8k (SEC 8-K filings, public domain; `excerpt` = the first words of the item text, read by
+scripts/enrich_8k.py), macro_derived (central bank rate
 decisions derived from the curated macro data), gdelt (press headlines: title and link only).
 Local stand-in of the Bedrock Knowledge Base (same filter: published <= as_of).
 """
@@ -20,7 +21,8 @@ from app.tools.context import effective_as_of
 from strands import tool
 
 ORIGINS = ("sec_8k", "macro_derived", "gdelt")
-_COLUMNS = ["event_id", "published_at", "title", "source", "source_url", "tickers", "theme", "origin", "n_sources"]
+_COLUMNS = ["event_id", "published_at", "title", "excerpt", "source", "source_url", "tickers", "theme", "origin",
+            "n_sources"]
 MAX_LIMIT = 20
 
 
@@ -28,6 +30,8 @@ MAX_LIMIT = 20
 def _load(path: str, mtime: float) -> pd.DataFrame:  # mtime in the key: reload when the corpus is rebuilt
     df = pd.read_csv(path, dtype=str).fillna("")
     df["n_sources"] = pd.to_numeric(df["n_sources"], errors="coerce").fillna(1).astype(int)
+    if "excerpt" not in df.columns:               # an index built before scripts/enrich_8k.py
+        df["excerpt"] = ""
     return df
 
 
@@ -49,6 +53,8 @@ def search_news(query: str | None = None, tickers: list[str] | None = None, them
     limit = max(1, min(int(limit), MAX_LIMIT))
     cut = effective_as_of(as_of)
     df = _index()
+    if "excerpt" not in df.columns:               # an index built before scripts/enrich_8k.py
+        df = df.assign(excerpt="")
     df = df[df["published_at"] <= cut]                              # point-in-time filter
     n_before_window = len(df)
     if days_back:
@@ -63,7 +69,7 @@ def search_news(query: str | None = None, tickers: list[str] | None = None, them
         df = df[df["origin"].isin(origins)]
     terms = [t for t in re.findall(r"[a-z0-9]+", (query or "").lower()) if len(t) > 2]
     if terms:
-        text = (df["title"] + " " + df["source"]).str.lower()
+        text = (df["title"] + " " + df["excerpt"] + " " + df["source"]).str.lower()
         df = df.assign(_score=text.map(lambda x: sum(t in x for t in terms)))
         df = df[df["_score"] > 0]
     else:
@@ -82,9 +88,10 @@ def search_news(query: str | None = None, tickers: list[str] | None = None, them
     return {**_envelope(
         "news_search", inputs, out, say,
         ["Only events published on or before as_of are returned (point-in-time).",
-         ("The corpus is incomplete: SEC 8-K filings of 13 universe companies, central bank rate decisions "
-          "derived from the macro data, and a few days of press headlines (title and link only, article "
-          "text not read). No match is not proof that nothing happened."),
+         ("The corpus is incomplete: SEC 8-K filings of the universe's SEC filers (the `excerpt` is the first ~700 "
+          "characters of the reported item, not the whole filing), central bank rate decisions derived from the "
+          "macro data, and a few days of press headlines (title and link only, article text not read). "
+          "No match is not proof that nothing happened."),
          "Press headlines (origin gdelt) are noisy and unreviewed; 8-K filings are primary sources."],
         ["data/external/news/news_index.csv (SEC EDGAR 8-K, Bank of Canada / FRED derived, GDELT DOC 2.0)"]),
         "as_of": cut}

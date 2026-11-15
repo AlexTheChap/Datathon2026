@@ -6,7 +6,7 @@ module only applies them, in this order, to each sub-agent:
 1. task `out_of_scope` → no sub-agent, no governance, the Explainer declines;
 2. agent REQUIRED by the task → enabled, even if profile.agent_toggles disables it (forced);
 3. forced trigger (e.g. controversy exclusion in the profile → ESG) → enabled (forced);
-4. optional trigger (e.g. toggles.stress_tests → macro_scenarios) → enabled, unless the profile
+4. optional trigger (e.g. toggles.include_rag → news) → enabled, unless the profile
    toggle is false (the profile wins, with a warning);
 5. otherwise → disabled, "not needed for task".
 
@@ -186,7 +186,9 @@ def resolve_plan(profile: Profile, request: Request, registry: Optional[PlanRegi
             )
             warnings.append(f"{agent} requested ({'; '.join(reasons)}) but disabled by profile.agent_toggles.{agent}")
 
-    if request.portfolio_ref is None and task != "news_review":
+    # Weighted positions typed in the message are a portfolio too: the dispatcher passes them as weights (L6).
+    typed_portfolio = any(p.weight is not None for p in request.positions)
+    if request.portfolio_ref is None and not typed_portfolio and task != "news_review":
         warnings.append(f"no portfolio_ref: {task} will run without a portfolio")
     if request.as_of is None:
         warnings.append("as_of not set: tools will use the latest available data")

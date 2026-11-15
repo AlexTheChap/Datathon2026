@@ -1,10 +1,13 @@
 """Intake backends: what turns free text into an `IntakeDraft`.
 
 - `BedrockBackend`: Claude Haiku on Amazon Bedrock with structured outputs (the architecture.mmd path, link L2).
+- `LambdaBackend`: the same Bedrock extraction, run by the deployed `alphaforge-intake` Lambda (link L2). The
+  caller (the API) keeps the profile merge and storage; it only needs lambda:InvokeFunction, not Bedrock.
 - `MockBackend`: deterministic English keyword / regex rules, NO LLM. Used for tests and offline demos.
   It is deliberately simple and does not replace the model in production.
 
-Selected with the `AF_INTAKE_MODE` environment variable: `mock` (default) or `bedrock`.
+Selected with the `AF_INTAKE_MODE` environment variable: `mock` (default), `bedrock` or `lambda`
+(`AF_INTAKE_FUNCTION`, default "alphaforge-intake").
 """
 from __future__ import annotations
 
@@ -102,6 +105,53 @@ class BedrockBackend:
 
 
 # --------------------------------------------------------------------------------------------------
+# Lambda (the deployed alphaforge-intake function runs BedrockBackend.extract)
+# --------------------------------------------------------------------------------------------------
+DEFAULT_INTAKE_FUNCTION = "alphaforge-intake"
+
+
+class IntakeUnavailable(RuntimeError):
+    """The intake Lambda could not be reached or crashed (not a model output problem)."""
+
+
+class LambdaBackend:
+    """`extract` = one synchronous invocation of the intake Lambda with {"op": "extract", ...}.
+
+    The Lambda answers {"draft": IntakeDraft} or {"refused": reason} (model or guardrail refusal) or
+    {"invalid": message} (the model's output did not validate: raised as ValueError, so run_intake retries
+    once with that feedback, exactly as with BedrockBackend)."""
+
+    name = "lambda"
+
+    def __init__(self, function: Optional[str] = None, region: Optional[str] = None, client=None):
+        self.function = function or os.environ.get("AF_INTAKE_FUNCTION", DEFAULT_INTAKE_FUNCTION)
+        if client is None:
+            import boto3
+
+            client = boto3.client("lambda", region_name=region or os.environ.get("AWS_REGION", "us-east-1"))
+        self.client = client  # injectable for tests
+
+    def extract(self, text: str, known_profile: Optional[dict], feedback: Optional[str] = None) -> IntakeDraft:
+        event = {"op": "extract", "text": text, "known_profile": known_profile or {}, "feedback": feedback}
+        try:
+            out = self.client.invoke(FunctionName=self.function, Payload=json.dumps(event).encode())
+        except Exception as e:  # network, permissions, throttling
+            raise IntakeUnavailable(f"Intake Lambda {self.function} unreachable: {type(e).__name__}: {e}") from e
+        raw = json.loads(out["Payload"].read() or b"{}")
+        if out.get("FunctionError"):
+            raise IntakeUnavailable(f"Intake Lambda {self.function} failed: {raw.get('errorMessage', raw)}")
+        body = raw.get("body", raw)
+        body = json.loads(body) if isinstance(body, str) else body
+        if raw.get("statusCode", 200) != 200 or "error" in body:
+            raise IntakeUnavailable(f"Intake Lambda {self.function}: {body.get('error', body)}")
+        if "refused" in body:
+            raise IntakeRefused(body["refused"])
+        if "invalid" in body:
+            raise ValueError(body["invalid"])
+        return IntakeDraft.model_validate(body["draft"])
+
+
+# --------------------------------------------------------------------------------------------------
 # Mock (deterministic English rules, offline)
 # --------------------------------------------------------------------------------------------------
 _RISK = [  # most specific first
@@ -130,7 +180,6 @@ _OUT_OF_SCOPE = re.compile(
     r"place\s+(?:an|the)\s+order|execute\s+(?:the\s+|a\s+)?trade|guaranteed\s+return",
     re.I,
 )
-_STRESS = re.compile(r"crash|stress|scenario|recession|2022|rate\s+hike", re.I)
 _NEWS = re.compile(r"\bnews\b|headlines|hype|buzz|everyone\s+is\s+talking|everybody\s+talks", re.I)
 _NO_CRYPTO = re.compile(r"(?:no|avoid|without|exclude|not\s+interested\s+in)\W+(?:\w+\W+){0,3}?(?:crypto|bitcoin)", re.I)
 _CONTROVERSY = re.compile(r"(?:avoid|exclude|no)\W+(?:\w+\W+){0,8}?controvers", re.I)
@@ -148,6 +197,8 @@ _MONEY = re.compile(
     re.I,
 )
 _PCT = re.compile(r"(\d+(?:\.\d+)?)\s*%")
+_PCT_REACH = 25          # max characters between a percentage and the asset it belongs to
+_CLAUSE_BREAK = re.compile(r"[,;.]\s")  # "XBB.TO 30%, ZST.TO 10%": the 30% belongs to XBB.TO
 _LOSS = re.compile(r"(?:lose|loss)\D{0,30}?(\d+(?:\.\d+)?)\s*%", re.I)
 _TICKER_TOKEN = re.compile(r"\b[A-Z]{2,5}(?:\.TO|-USD)?\b")
 _LEARN_ON = re.compile(r"\b(?:i'?m|i am)\s+(?:a\s+)?(?:student|learning)\b|\bwant\s+to\s+(?:learn|understand)\b|"
@@ -233,25 +284,39 @@ class MockBackend:
         self._aliases = sorted(aliases(self.universe).items(), key=lambda kv: -len(kv[0]))
 
     def _positions(self, text: str, benchmark: Optional[str]) -> list[Position]:
-        found: dict[str, int] = {}  # ticker -> character offset in the text
+        found: dict[str, tuple[int, int]] = {}  # ticker -> (start, end) of its first mention
         for tok in _TICKER_TOKEN.finditer(text):
             t = tok.group(0)
             ticker = t if t in self.universe else next((t + s for s in (".TO", "-USD") if t + s in self.universe), None)
             if ticker and ticker != benchmark:
-                found.setdefault(ticker, tok.start())
+                found.setdefault(ticker, (tok.start(), tok.end()))
         low = text.lower()
         for alias, ticker in self._aliases:
             if ticker == benchmark or ticker in found:
                 continue
             if m := re.search(rf"(?<![\w-]){re.escape(alias)}(?![\w-])", low):
-                found[ticker] = m.start()
+                found[ticker] = (m.start(), m.end())
+        pcts = list(_PCT.finditer(text))
+        best: dict[str, tuple[tuple[bool, int], int]] = {}  # ticker -> ((crosses a clause, gap length), pct index)
+        for ticker, (start, end) in found.items():
+            others = [s for t, (s, _) in found.items() if t != ticker]
+            for i, m in enumerate(pcts):
+                lo, hi = (m.end(), start) if m.end() <= start else (end, m.start()) if m.start() >= end else (None, None)
+                if lo is None or hi - lo > _PCT_REACH or any(lo <= o < hi for o in others):
+                    continue  # overlapping, too far, or another asset sits in between
+                gap = text[lo:hi]
+                score = (bool(_CLAUSE_BREAK.search(gap)), len(gap))  # same clause first ("ZST.TO 10%"), then nearest
+                if ticker not in best or score < best[ticker][0]:
+                    best[ticker] = (score, i)
+        # A percentage reached only across a clause break is not taken from the asset it sits with:
+        # "Nvidia at 20%; the rest in XBB.TO" gives XBB.TO no weight.
+        own = {i for (crosses, _), i in best.values() if not crosses}
         positions = []
-        for ticker, pos in sorted(found.items(), key=lambda kv: kv[1]):
-            start = max(0, pos - 30)
-            window = text[start: pos + 30]
-            pcts = [(abs(m.start() - (pos - start)), m.group(1)) for m in _PCT.finditer(window)]
-            weight = float(min(pcts)[1]) / 100 if pcts else None  # closest percentage to the asset name
-            positions.append(Position(ticker=ticker, weight=weight))
+        for ticker, _span in sorted(found.items(), key=lambda kv: kv[1]):
+            match = best.get(ticker)
+            if match and match[0][0] and match[1] in own:
+                match = None
+            positions.append(Position(ticker=ticker, weight=float(pcts[match[1]].group(1)) / 100 if match else None))
         return positions
 
     def extract(self, text: str, known_profile: Optional[dict], feedback: Optional[str] = None) -> IntakeDraft:
@@ -289,12 +354,10 @@ class MockBackend:
         bench = None
         if m := _BENCH.search(text):
             bench = _BENCH_MAP.get(re.sub(r"\s+", "", m.group(1).lower()))
-        stress = bool(_STRESS.search(request_text))
         request = RequestDraft(
             task=task or "risk_review",
             positions=self._positions(text, bench),
             benchmark=bench,
-            stress_tests=stress,
             include_rag=bool(_NEWS.search(request_text)),
             intake_confidence=0.9 if task else 0.4,
         )
@@ -307,4 +370,6 @@ def get_backend(mode: Optional[str] = None) -> IntakeBackend:
         return BedrockBackend()
     if mode == "mock":
         return MockBackend()
-    raise ValueError(f"Unknown AF_INTAKE_MODE: {mode!r} (expected: mock or bedrock)")
+    if mode == "lambda":
+        return LambdaBackend()
+    raise ValueError(f"Unknown AF_INTAKE_MODE: {mode!r} (expected: mock, bedrock or lambda)")
