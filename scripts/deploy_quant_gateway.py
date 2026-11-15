@@ -232,11 +232,11 @@ ROBERT = {"XIU.TO": 0.3, "XBB.TO": 0.3, "ZST.TO": 0.1, "RY.TO": 0.1, "FTS.TO": 0
 ROBERT_NVDA = {**{k: round(v * 0.8, 4) for k, v in ROBERT.items()}, "NVDA": 0.2}
 TEST_CALLS = [
     ("metrics___metrics", {"tickers": ["NVDA", "XBB.TO"]}),
-    ("metrics___correlation", {"tickers": ["XIU.TO", "XBB.TO"], "start": "2022-01-01", "end": "2022-12-31"}),
+    ("metrics___correlation", {"tickers": ["XIU.TO", "XBB.TO"], "start": "2025-01-01", "end": "2025-12-31"}),
     ("risk___risk_contribution", {"weights": ROBERT_NVDA}),
     ("risk___concentration", {"weights": ROBERT_NVDA}),
-    ("macro___macro_snapshot", {"as_of": "2022-06-30"}),
-    ("macro___fx_usdcad", {"as_of": "2022-12-30", "start": "2022-01-03"}),
+    ("macro___macro_snapshot", {"as_of": "2025-06-30"}),
+    ("macro___fx_usdcad", {"as_of": "2025-12-30", "start": "2025-01-02"}),
 ]
 # market graph: live data (Neptune) vs the local in-memory graph may hold different snapshots, so these are
 # checked for a well-formed evidence record, not for equality with the local result

@@ -17,8 +17,8 @@ def ctx(tool: str):
 
 CASES = [
     ("metrics___metrics", {"tickers": ["NVDA", "XBB.TO"]}, lambda rt: rt.metrics(["NVDA", "XBB.TO"])),
-    ("metrics___correlation", {"tickers": ["XIU.TO", "XBB.TO"], "start": "2022-01-01", "end": "2022-12-31"},
-     lambda rt: rt.correlation(["XIU.TO", "XBB.TO"], start="2022-01-01", end="2022-12-31")),
+    ("metrics___correlation", {"tickers": ["XIU.TO", "XBB.TO"], "start": "2025-01-01", "end": "2025-12-31"},
+     lambda rt: rt.correlation(["XIU.TO", "XBB.TO"], start="2025-01-01", end="2025-12-31")),
     ("risk___risk_contribution", {"weights": ROBERT_NVDA}, lambda rt: rt.risk_contribution(ROBERT_NVDA)),
     ("risk___concentration", {"weights": ROBERT_NVDA}, lambda rt: rt.concentration(ROBERT_NVDA)),
 ]
@@ -37,9 +37,9 @@ def test_gateway_call_returns_the_same_evidence_as_a_direct_call(tool, args, dir
 
 
 @pytest.mark.parametrize("tool, args, direct", [
-    ("macro___macro_snapshot", {"as_of": "2022-06-30"}, lambda d: macro_tools.macro_snapshot(d, "2022-06-30")),
-    ("macro___fx_usdcad", {"as_of": "2022-12-30", "start": "2022-01-03"},
-     lambda d: macro_tools.fx_usdcad(d, "2022-12-30", "2022-01-03")),
+    ("macro___macro_snapshot", {"as_of": "2025-06-30"}, lambda d: macro_tools.macro_snapshot(d, "2025-06-30")),
+    ("macro___fx_usdcad", {"as_of": "2025-12-30", "start": "2025-01-02"},
+     lambda d: macro_tools.fx_usdcad(d, "2025-12-30", "2025-01-02")),
 ])
 def test_macro_family_point_in_time(tool, args, direct):
     out = qg.handler(dict(args), ctx(tool))

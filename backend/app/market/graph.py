@@ -81,7 +81,7 @@ def _metrics(curated_dir: Path, market_dir: Path | None) -> pd.DataFrame:
     if not cs.exists(curated_dir, "asset_risk_metrics"):
         return pd.DataFrame(columns=["ticker", *ASSET_METRICS])
     c = cs.read(curated_dir, "asset_risk_metrics")
-    c = c[c["window"] != "2022"].copy()
+    c = c.sort_values("n_obs").drop_duplicates("ticker", keep="last").copy()  # longest window per asset
     c["risk_class"] = c["ann_vol"].map(risk_class)
     c["last_close"] = None
     return c.assign(metrics_as_of=c["end"].astype(str), metrics_window=c["window"].astype(str) + " (curated, CAD)")

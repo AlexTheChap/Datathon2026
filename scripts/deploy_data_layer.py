@@ -107,13 +107,13 @@ def test(session, bucket: str) -> bool:
         rt_s3, rt_csv = RiskTools(tmp), RiskTools(local)
         w = {"XIU.TO": 0.24, "XBB.TO": 0.24, "ZST.TO": 0.08, "RY.TO": 0.08, "FTS.TO": 0.08, "JNJ": 0.08, "NVDA": 0.2}
         for label, f in [("risk contribution", lambda rt: rt.risk_contribution(w)),
-                         ("metrics as_of 2022-06-30", lambda rt: rt.metrics(["NVDA"], as_of="2022-06-30"))]:
+                         ("metrics as_of 2025-06-30", lambda rt: rt.metrics(["NVDA"], as_of="2025-06-30"))]:
             x, y = f(rt_s3), f(rt_csv)
             same = x["evidence_id"] == y["evidence_id"] and x["output"] == y["output"]
             ok &= same
             print(f"  {'✓' if same else '✗'} RiskTools {label}: S3 Parquet == CSV  ({x['say'][:80]})")
-        m = macro_snapshot(tmp, "2022-06-30")
-        fx = fx_usdcad(tmp, "2022-12-30", start="2022-01-03")
+        m = macro_snapshot(tmp, "2025-06-30")
+        fx = fx_usdcad(tmp, "2025-12-30", start="2025-01-02")
         print(f"  ✓ macro point-in-time: {m['say']}")
         print(f"  ✓ FX point-in-time:    {fx['say']}")
 

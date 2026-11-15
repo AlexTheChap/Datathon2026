@@ -53,7 +53,7 @@ TARGETS: dict[str, list[dict[str, Any]]] = {
                                                           "as_of": _AS_OF}, "required": ["tickers"]}},
         {"name": "correlation",
          "description": "Correlation matrix of daily CAD returns between at least two assets "
-                        "(compare with the 2022 window: stocks and bonds fell together).",
+                        "(optionally over a start/end window).",
          "inputSchema": {"type": "object", "properties": {"tickers": _TICKERS, "start": _DATE, "end": _DATE,
                                                           "as_of": _AS_OF}, "required": ["tickers"]}},
     ],
