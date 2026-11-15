@@ -29,6 +29,7 @@ JOB_DIR = ROOT / "sagemaker" / "garch_job"
 CURATED = ROOT / "data" / "curated"
 BUILD = ROOT / "build" / "garch_job"
 INPUT_FILE = "returns_daily_cad.csv"
+EXT_FILE = "returns_daily_cad_ext.csv"   # S&P 500 extension (scripts/build_extended_universe.py), sent when built
 OUTPUTS = {"vol_forecast.csv": "vol_forecast.csv", "garch_backtest.csv": "garch_backtest.csv",
            "manifest.json": "garch_manifest.json"}
 S3_PREFIX = "quant/garch"
@@ -51,6 +52,11 @@ def last_date(returns_csv: Path) -> str:
     return tail[-1].split(",", 1)[0]
 
 
+def input_files(curated: Path) -> list[Path]:
+    """The curated returns, plus the S&P 500 extension when it has been built."""
+    return [curated / INPUT_FILE] + ([curated / EXT_FILE] if (curated / EXT_FILE).is_file() else [])
+
+
 def copy_outputs(src: Path, dest: Path) -> list[str]:
     dest.mkdir(parents=True, exist_ok=True)
     copied = []
@@ -61,14 +67,16 @@ def copy_outputs(src: Path, dest: Path) -> list[str]:
     return copied
 
 
-def run_local(as_of: str | None, run_backtest: bool, curated: Path = CURATED, dest: Path = CURATED) -> dict:
-    """Same layout as the container: <tmp>/input/returns_daily_cad.csv -> <tmp>/output/*."""
+def run_local(as_of: str | None, run_backtest: bool, curated: Path = CURATED, dest: Path = CURATED,
+              backtest_core_only: bool = False) -> dict:
+    """Same layout as the container: <tmp>/input/returns_daily_cad[_ext].csv -> <tmp>/output/*."""
     proc = _load_processing()
     with tempfile.TemporaryDirectory() as tmp:
         inp, out = Path(tmp) / "input", Path(tmp) / "output"
         inp.mkdir()
-        shutil.copy(curated / INPUT_FILE, inp / INPUT_FILE)
-        manifest = proc.run(inp, out, as_of, run_backtest)
+        for f in input_files(curated):
+            shutil.copy(f, inp / f.name)
+        manifest = proc.run(inp, out, as_of, run_backtest, backtest_core_only=backtest_core_only)
         manifest["copied"] = copy_outputs(out, dest)
     return manifest
 
@@ -96,7 +104,7 @@ def env_settings(env: dict | None = None) -> dict:
 
 
 def run_sagemaker(as_of: str | None, run_backtest: bool, settings: dict, curated: Path = CURATED,
-                  dest: Path = CURATED, boto_session=None) -> dict:
+                  dest: Path = CURATED, boto_session=None, backtest_core_only: bool = False) -> dict:
     import boto3
     from sagemaker.processing import (
         FrameworkProcessor,
@@ -111,7 +119,9 @@ def run_sagemaker(as_of: str | None, run_backtest: bool, settings: dict, curated
     boto_session = boto_session or boto3.Session(region_name=settings["region"])
     session = Session(boto_session=boto_session)
     prefix = f"{S3_PREFIX}/as_of={as_of}"
-    s3_input = session.upload_data(str(curated / INPUT_FILE), bucket=settings["bucket"], key_prefix=f"{prefix}/input")
+    for f in input_files(curated):        # same prefix: the job's input directory receives every file
+        session.upload_data(str(f), bucket=settings["bucket"], key_prefix=f"{prefix}/input")
+    s3_input = f"s3://{settings['bucket']}/{prefix}/input"
     s3_output = f"s3://{settings['bucket']}/{prefix}/output"
     processor = FrameworkProcessor(
         estimator_cls=SKLearn, framework_version=FRAMEWORK_VERSION, py_version="py3", role=settings["role"],
@@ -119,7 +129,8 @@ def run_sagemaker(as_of: str | None, run_backtest: bool, settings: dict, curated
         sagemaker_session=session, env={"PYTHONUNBUFFERED": "1"}, max_runtime_in_seconds=3600,
         code_location=f"s3://{settings['bucket']}/{prefix}/code",      # keep the code on the same prefix
         tags=[{"Key": "project", "Value": "alphaforge"}, {"Key": "component", "Value": "garch"}])
-    args = ["--as-of", as_of] + (["--run-backtest"] if run_backtest else [])
+    args = (["--as-of", as_of] + (["--run-backtest"] if run_backtest else [])
+            + (["--backtest-core-only"] if backtest_core_only else []))
     processor.run(code="processing.py", source_dir=str(build_source_dir()),
                   inputs=[ProcessingInput(source=s3_input, destination="/opt/ml/processing/input")],
                   outputs=[ProcessingOutput(source="/opt/ml/processing/output", destination=s3_output,
@@ -159,8 +170,11 @@ def main(argv: list[str] | None = None) -> dict:
     ap.add_argument("--local", action="store_true", help="run processing.py on this machine (no AWS)")
     ap.add_argument("--as-of", default=None, help="forecast date (default: last date of returns_daily_cad.csv)")
     ap.add_argument("--run-backtest", action="store_true")
+    ap.add_argument("--backtest-core-only", action="store_true",
+                    help="backtest the 31 curated tickers only (the forecast still covers the S&P 500 extension)")
     a = ap.parse_args(argv)
-    m = run_local(a.as_of, a.run_backtest) if a.local else run_sagemaker(a.as_of, a.run_backtest, env_settings())
+    m = (run_local(a.as_of, a.run_backtest, backtest_core_only=a.backtest_core_only) if a.local
+         else run_sagemaker(a.as_of, a.run_backtest, env_settings(), backtest_core_only=a.backtest_core_only))
     print(report(m))
     return m
 

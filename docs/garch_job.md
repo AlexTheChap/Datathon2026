@@ -1,6 +1,7 @@
 # GARCH volatility job (SageMaker AI Processing)
 
-**What it does.** For every ticker of `data/curated/returns_daily_cad.csv`, the job fits a GARCH(1,1) model with
+**What it does.** For every ticker of `data/curated/returns_daily_cad.csv`, and of `returns_daily_cad_ext.csv`
+(the S&P 500 extension, `scripts/build_extended_universe.py`) when it has been built, the job fits a GARCH(1,1) model with
 Student-t errors on the daily CAD returns dated on or before `as_of`, and writes a **volatility (risk)
 forecast**. It forecasts risk, never returns: no expected return, no direction, no target price comes out of it.
 The projection tool (`app/quant/projection.py`) uses the forecast for the volatility of year 1 of its Monte
@@ -42,7 +43,7 @@ estimator class, which installs `requirements.txt` (arch, numpy, pandas, scipy, 
 end it prints the job name, the `as_of` and the backtest summary. Everything lands under one S3 prefix:
 
 ```
-s3://$AF_DATA_BUCKET/quant/garch/as_of=YYYY-MM-DD/input/returns_daily_cad.csv
+s3://$AF_DATA_BUCKET/quant/garch/as_of=YYYY-MM-DD/input/returns_daily_cad.csv (+ returns_daily_cad_ext.csv)
 s3://$AF_DATA_BUCKET/quant/garch/as_of=YYYY-MM-DD/code/...        (source_dir uploaded by the SDK)
 s3://$AF_DATA_BUCKET/quant/garch/as_of=YYYY-MM-DD/output/vol_forecast.csv, garch_backtest.csv, manifest.json
 ```

@@ -138,3 +138,37 @@ def test_sagemaker_launcher_with_mocks(tmp_path, monkeypatch):
     assert run["outputs"][0][1]["destination"] == "s3://test-bucket/quant/garch/as_of=2026-11-12/output"
     assert m["sagemaker_job"] == "alphaforge-garch-2026-11-15"
     assert sorted(p.name for p in dest.iterdir()) == ["garch_manifest.json", "vol_forecast.csv"]
+
+
+# ---------- S&P 500 extension (returns_daily_cad_ext.csv next to the curated file) ----------
+
+def _write_ext(path: Path) -> None:
+    """Extension file built from the fixture: two new tickers + SPY, which the curated file already has."""
+    r = pd.read_csv(FIXTURE, index_col="date")
+    r[["SPY", "XBB.TO"]].rename(columns={"XBB.TO": "EXT1"}).assign(EXT2=r["BTC-USD"] * 0.5,
+                                                                    SPY=r["SPY"] * 9).to_csv(path)
+
+
+def test_processing_forecasts_the_extension_too(job_dirs):
+    inp, out = job_dirs
+    _write_ext(inp / processing.EXT_FILE)
+    m = processing.run(inp, out, run_backtest=True, name="garch-ext", backtest_core_only=True)
+    fc = pd.read_csv(out / "vol_forecast.csv").set_index("ticker")
+    assert list(fc.index) == ["SPY", "XBB.TO", "BTC-USD", "EXT1", "EXT2"]
+    ref = pd.read_csv(FIXTURE, index_col="date")["SPY"]
+    assert abs(fc.loc["SPY", "hist_vol_63d_ann"] - ref.tail(63).std() * 252 ** 0.5) < 1e-6   # curated SPY kept
+    assert (m["tickers_curated"], m["tickers_extension"]) == (3, 2)
+    assert set(m["input_files"]) == {processing.INPUT_FILE, processing.EXT_FILE}
+    assert m["backtest"]["tickers"] == 3 and m["backtest"]["scope"] == "curated tickers only"
+
+
+def test_launchers_send_the_extension_when_built(tmp_path):
+    curated, dest = tmp_path / "curated", tmp_path / "dest"
+    curated.mkdir()
+    shutil.copy(FIXTURE, curated / "returns_daily_cad.csv")
+    assert launcher.input_files(curated) == [curated / "returns_daily_cad.csv"]
+    _write_ext(curated / launcher.EXT_FILE)
+    assert launcher.input_files(curated)[-1].name == "returns_daily_cad_ext.csv"
+    m = launcher.run_local(None, False, curated=curated, dest=dest)
+    assert m["tickers_extension"] == 2
+    assert len(pd.read_csv(dest / "vol_forecast.csv")) == 5

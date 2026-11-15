@@ -24,7 +24,9 @@ def run_rate_exposure(weights: dict[str, float], as_of: str, curated: Path) -> d
     w = {t: float(v) for t, v in weights.items() if v}
     if not w or any(v < 0 for v in w.values()):
         raise ValueError("Give at least one holding with a positive weight.")
-    known = set(pd.read_csv(curated / "assets_universe.csv")["ticker"])
+    from app.tools import curated_store as cs
+
+    known = set(cs.read_extended(curated, "assets_universe")["ticker"])   # + S&P 500 extension
     unknown = sorted(set(w) - known)
     if unknown:
         raise KeyError(f"Not in the data universe: {', '.join(unknown)}.")

@@ -1,13 +1,13 @@
-"""Every ticker of the curated universe maps to exactly one projection category with a rate."""
+"""Every ticker of the universe (curated + S&P 500 extension) maps to exactly one projection category with a rate."""
 from pathlib import Path
 
-import pandas as pd
 import pytest
 from app.quant.assumptions import category_of, load_assumptions
+from app.tools import curated_store as cs
 
 ROOT = Path(__file__).resolve().parents[2]
 CFG = load_assumptions()
-UNIVERSE = pd.read_csv(ROOT / "data" / "curated" / "assets_universe.csv")
+UNIVERSE = cs.read_extended(ROOT / "data" / "curated", "assets_universe")
 
 
 @pytest.mark.parametrize("row", UNIVERSE.to_dict("records"), ids=lambda r: r["ticker"])
