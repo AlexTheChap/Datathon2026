@@ -26,7 +26,7 @@ import time
 from pathlib import Path
 
 import requests
-from bs4 import BeautifulSoup
+from enrich_8k import html_to_text  # same SEC HTML -> text cleaning as the 8-K excerpts
 
 ANNUAL_FORMS = ("10-K", "40-F")
 
@@ -57,15 +57,6 @@ def list_annual(cik, email, forms=ANNUAL_FORMS):
             out.append({"form": form, "accession": acc, "filed": filed, "period": period,
                         "url": f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{acc.replace('-', '')}/{doc}"})
     return out
-
-
-def html_to_text(html):
-    soup = BeautifulSoup(html, "lxml")
-    for t in soup(["script", "style"]):
-        t.decompose()
-    for t in soup.find_all(style=re.compile(r"display:\s*none")):
-        t.decompose()
-    return re.sub(r"\s+", " ", soup.get_text(" ").replace("\xa0", " "))
 
 
 def section(text, start, end):

@@ -13,21 +13,13 @@ from strands import tool
 
 from app.core.config import get_settings
 from app.tools.context import effective_as_of
-from app.tools.risk_tools import _eid
+from app.tools import macro_tools
+from app.tools.macro_tools import _envelope
+
 
 def _curated() -> Path:
     s = get_settings()
     return s.abs_path(s.curated_dir)
-
-
-def _envelope(tool: str, inputs: dict, output: dict, say: str,
-              assumptions: list[str], sources: list[str]) -> dict:
-    return {
-        "evidence_id": _eid(tool, inputs), "tool": tool, "inputs": inputs,
-        "output": output, "say": say, "currency": "CAD",
-        "method": "Deterministic pandas read of data/curated (point-in-time as-of filter).",
-        "assumptions": assumptions, "data_sources": sources,
-    }
 
 
 @tool
@@ -40,8 +32,6 @@ def macro_snapshot(as_of: str | None = None) -> dict:
     """
     # Same logic as the Gateway's macro___macro_snapshot (one implementation: app.tools.macro_tools),
     # with the date bounded by the run's reference date: never later than as_of.
-    from app.tools import macro_tools
-
     return macro_tools.macro_snapshot(_curated(), effective_as_of(as_of))
 
 

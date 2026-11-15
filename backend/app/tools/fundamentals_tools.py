@@ -17,7 +17,7 @@ from functools import lru_cache
 
 import pandas as pd
 from app.core.config import get_settings
-from app.tools.analysis_tools import _envelope
+from app.tools.macro_tools import _envelope
 from app.tools.context import effective_as_of
 from strands import tool
 

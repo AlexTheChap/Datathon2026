@@ -43,16 +43,15 @@ def aliases(universe: dict[str, Asset]) -> dict[str, str]:
     return out
 
 
+def match_symbol(symbol: str, universe: dict[str, Asset]) -> Optional[str]:
+    """Exact ticker, or the symbol with its TSX (.TO) / crypto (-USD) suffix: 'XIU' -> 'XIU.TO'."""
+    return next((t for t in (symbol, symbol + ".TO", symbol + "-USD") if t in universe), None)
+
+
 def normalize_ticker(raw: str, universe: dict[str, Asset]) -> Optional[str]:
     """'nvda', 'NVIDIA', 'XIU', 'xiu.to' -> universe ticker; None if unknown."""
     s = raw.strip()
-    up = s.upper()
-    if up in universe:
-        return up
-    for suffix in (".TO", "-USD"):
-        if up + suffix in universe:
-            return up + suffix
-    return aliases(universe).get(s.lower())
+    return match_symbol(s.upper(), universe) or aliases(universe).get(s.lower())
 
 
 def universe_for_prompt(universe: dict[str, Asset]) -> str:
