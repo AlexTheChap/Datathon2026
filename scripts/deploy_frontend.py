@@ -120,7 +120,9 @@ def distribution_config(bucket_domain: str, oac_id: str, policies: dict[str, str
             "DefaultCacheBehavior": default,
             "CacheBehaviors": {"Quantity": len(behaviors), **({"Items": behaviors} if behaviors else {})},
             "PriceClass": "PriceClass_100", "HttpVersion": "http2and3", "IsIPV6Enabled": True,
-            "ViewerCertificate": {"CloudFrontDefaultCertificate": True},
+            # MinimumProtocolVersion is now required by UpdateDistribution; TLSv1 is the only value the default
+            # *.cloudfront.net certificate accepts (and what the live distribution already has).
+            "ViewerCertificate": {"CloudFrontDefaultCertificate": True, "MinimumProtocolVersion": "TLSv1"},
             "Restrictions": {"GeoRestriction": {"RestrictionType": "none", "Quantity": 0}},
             "CustomErrorResponses": {"Quantity": 0}, "Aliases": {"Quantity": 0}, "Logging": {
                 "Enabled": False, "IncludeCookies": False, "Bucket": "", "Prefix": ""},
