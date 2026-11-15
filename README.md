@@ -161,6 +161,7 @@ python -m app.notify.alerts --source corpus --since 2026-11-01 --until 2026-11-1
 .venv/bin/python scripts/deploy_sms_alerts.py --verify-phone +15145550123    # SMS sandbox: verify each demo phone
 .venv/bin/python scripts/deploy_sms_alerts.py --verify-phone +15145550123 --code 123456
 .venv/bin/python scripts/deploy_sms_alerts.py --send-test +15145550123
+.venv/bin/python scripts/demo_news_sms.py schedule --at "2026-11-20 14:30" --ticker NVDA --source Reuters --headline "..."   # demo: scripted news SMS at an exact time
 ```
 
 A new AWS account is in the **SMS sandbox**: only verified numbers receive texts (enough for a demo). Texting real

@@ -57,7 +57,7 @@ def build_zip() -> Path:
         (pkg / "app" / d).mkdir(parents=True)
     pip_install_linux(pkg, DEPS, "pydantic")
     src = ROOT / "backend" / "app"
-    for f in ("contacts.py", "news.py", "messages.py", "alerts.py"):
+    for f in ("contacts.py", "news.py", "messages.py", "alerts.py", "demo.py"):
         shutil.copy(src / "notify" / f, pkg / "app" / "notify" / f)
     for f in (src / "schemas").glob("*.py"):
         shutil.copy(f, pkg / "app" / "schemas" / f.name)

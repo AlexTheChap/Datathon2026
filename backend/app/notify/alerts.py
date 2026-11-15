@@ -10,7 +10,7 @@ at night is texted at 7:00):
   3. the news on those tickers in (since, until] (SEC 8-K filings), fetched once for everybody;
   4. per person, the news not texted yet (SMSSENT log) -> ONE text (at most 3 items) -> marked as sent.
 
-Lambda handler: {"since"?, "until"?, "dry_run"?}. Default window: the last AF_ALERT_LOOKBACK_DAYS days (3: a
+Lambda handler: {"since"?, "until"?, "dry_run"?, "demo_news"?} (demo_news: one scripted item, app.notify.demo). Default window: the last AF_ALERT_LOOKBACK_DAYS days (3: a
 Friday filing is still caught on Monday; the SMSSENT log prevents a second text).
 
 Local run (prints the texts, sends nothing):
@@ -158,6 +158,13 @@ def handler(event: dict | None, context: Any = None) -> dict:
     contacts, profiles = stores_from_env()
     dry = bool(event.get("dry_run"))
     sender = DryRunSender() if dry else SnsSmsSender()
+    if event.get("demo_news"):     # scripted news item for a live demo (app.notify.demo)
+        from app.notify.demo import run_demo
+
+        report = run_demo(event["demo_news"], contacts, profiles, sender, os.environ.get("AF_APP_URL"))
+        print(json.dumps({**report, "people": [{k: v for k, v in p.items() if k != "text"}
+                                               for p in report["people"]]}))
+        return report
     report = run_alerts(contacts, profiles, SecFilingsSource(), sender, since, until, os.environ.get("AF_APP_URL"),
                         record=not dry)
     log = {**report, "people": [{k: v for k, v in p.items() if k != "text"} for p in report["people"]]}
