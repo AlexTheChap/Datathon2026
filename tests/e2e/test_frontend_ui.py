@@ -423,6 +423,17 @@ def test_what_if_sliders_rescore_the_mix_live_and_keep_100_percent(page, base_ur
     assert abs(sum(shares) - 100) < 0.6 and max(shares) == 80
     text = page.inner_text(".whatif__result")
     assert "−" in text and ("Risk level" in text or "Stocks and bonds" in text)
+    # Improve my score: a closer fit, each change said; "Try this mix" loads it into the sliders.
+    low = int(page.inner_text(".whatif__result .hero-card__figure").rstrip("%"))
+    page.click("button:has-text('Improve my score')")
+    page.wait_for_selector(".whatif__suggest >> text=A closer fit to your profile")
+    jump = page.inner_text(".whatif__jump")
+    assert jump.startswith(f"{low}%") and "Moved the share in stocks" in page.inner_text(".whatif__suggest")
+    page.click("button:has-text('Try this mix')")
+    page.wait_for_selector(".whatif__suggest >> text=The suggested mix is in the sliders")
+    page.wait_for_function(f"parseInt(document.querySelector('.whatif__result .hero-card__figure').textContent) > {low}")
+    shares = page.eval_on_selector_all(".whatif__value", "els => els.map((e) => parseFloat(e.textContent))")
+    assert abs(sum(shares) - 100) < 0.6
     # Add a stock by ticker: it starts at 5%.
     page.fill("#whatif-pick", "NVDA")
     page.click(".whatif__add-row button:has-text('Add')")

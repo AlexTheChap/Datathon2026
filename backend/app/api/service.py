@@ -394,6 +394,28 @@ class ApiService:
             raise ApiError(422, str(e).strip("'\"")) from e
         return {"as_of": as_of, **out}
 
+    def improve_fit(self, actor_id: str, body: FitScoreIn) -> dict[str, Any]:
+        """The mix closest to these weights that fits the saved profile better (deterministic; improve.py)."""
+        from app.agents.governance.improve import improve
+        from app.core.config import get_settings
+        from app.tools.context import default_as_of
+        from app.tools.risk_tools import RiskTools
+        profile = self.profiles.get(actor_id)
+        if profile is None:
+            raise ApiError(404, "Save your profile first.")
+        weights = body.weights or profile.portfolio
+        if not weights:
+            raise ApiError(422, "Give weights, or save a portfolio first.")
+        settings = get_settings()
+        as_of = default_as_of()
+        try:
+            rt = RiskTools(settings.abs_path(settings.curated_dir)).at(as_of)
+            out = improve(weights, profile.model_dump(mode="json"), settings.abs_path(settings.rules_path), rt,
+                          str(settings.abs_path(settings.curated_dir).parent))
+        except (KeyError, ValueError) as e:
+            raise ApiError(422, str(e).strip("'\"")) from e
+        return {"as_of": as_of, **out}
+
     def vol_forecast(self, actor_id: str, tickers: list[str]) -> dict[str, Any]:
         from app.tools.context import default_as_of
         from app.tools.vol_forecast_tool import vol_forecast
