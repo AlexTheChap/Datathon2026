@@ -108,7 +108,7 @@ flowchart TB
   %%      Glue + Athena are for exploration, not for this loop.
   GW --> S3
   %% L15 Gateway → DynamoDB: in practice, a Strands hook (AfterToolCallEvent) in the Runtime writes
-  %%      each tool result as evidence (RUN#id / EVID#E-001).
+  %%      each tool result as evidence (RUN#id / EVID#ev-<hash>).
   GW -->|"each call = 1 evidence"| DDB
   %% L16 DynamoDB → Explainer: reads (Query) the evidence ledger via the get_evidence tool.
   DDB -.->|"evidence ledger"| EXP
