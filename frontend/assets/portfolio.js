@@ -223,8 +223,9 @@ export async function renderPortfolio(main, ctx) {
       level === "detailed" && risk.metrics ? metricsSection(view) : null,
       level === "detailed" && risk.correlation ? correlationSection(view) : null,
       checksSection(view),
-      level !== "simple" && p.esg && wantsEsg(profile) ? esgSection(view) : null,
-      level !== "simple" && p.news.length ? newsSection(view) : null,
+      // The analyses switched off in the profile are not shown (they don't change the mix: no rebuild needed).
+      level !== "simple" && p.esg && wantsEsg(profile) && (analysisOn(profile, "esg") || esgLimit(profile)) ? esgSection(view) : null,
+      level !== "simple" && p.news.length && (analysisOn(profile, "news") || analysisOn(profile, "fundamentals")) ? newsSection(view) : null,
       explanationSection(view),
       history(ctx, runs, run.run_id)].filter(Boolean));
   }
@@ -486,16 +487,20 @@ function checksSection(view) {
     learnNote(view, "your profile sets limits, for example how big one company can be. AlphaForge's rules check every limit; a portfolio that breaks one is never proposed."));
 }
 
+const analysisOn = (profile, agent) => !(profile.agent_toggles && profile.agent_toggles[agent] === false);
+
+// The ESG hard limit (or an ESG exclusion said in chat) makes the ESG screening run (box ④ forces it).
+const esgLimit = (profile) => (profile.exclusions || []).some((e) => e.type === "controversy" || e.type === "esg_activity");
+
 function wantsEsg(profile) {
   const prefs = (profile.preferences || []).join(" ").toLowerCase();
-  return (profile.exclusions || []).some((e) => e.type === "controversy" || e.type === "esg_activity")
-    || /esg|controvers|ethic|sustainab/.test(prefs);
+  return esgLimit(profile) || /esg|controvers|ethic|sustainab/.test(prefs);
 }
 
 function esgSection(view) {
   const { h, p } = view;
   return h("section", { class: "panel stack-sm", "aria-labelledby": "esg-title" },
-    h("h2", { id: "esg-title", class: "section-title" }, "ESG and controversies"),
+    h("h2", { id: "esg-title", class: "section-title" }, "ESG screening"),
     p.esg.absent.length ? h("p", { class: "small" }, "Outside the reference ESG index: ", p.esg.absent.map((a) => a.ticker).join(", "),
       ". Absence is a signal to discuss, not a ban: the index does not publish its reasons.") : null,
     p.esg.controversies.length ? h("ul", { class: "answer-list" }, p.esg.controversies.map((c) => h("li", null,

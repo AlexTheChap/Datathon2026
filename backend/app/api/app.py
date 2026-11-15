@@ -11,19 +11,26 @@
     POST /v1/profile/draft[/file] → profile fields read from the person's text or a PDF / Word file (onboarding)
     PUT  /v1/profile        → save the profile form
     GET  /v1/personas       → the brief's three example profiles (Amira, Mateo, Robert) as profile forms
+    GET  /v1/notifications → the caller's notification choice (opt_in, channel sms|email, phone, email, alerts)
+    PUT  /v1/notifications {opt_in, channel?, phone?, email?, alerts?} → save it (opting out deletes the addresses)
+    DELETE /v1/account     → erase the caller's data (profile, notification choice, analyses); the page then deletes
+                            the sign-in account itself (Cognito DeleteUser)
+    GET  /v1/notifications/sms → the caller's text-alert choice (opt_in, phone)
+    PUT  /v1/notifications/sms {opt_in, phone?} → save it (opting out deletes the phone number)
     GET  /v1/me             → who is signed in (actor_id, email, demo persona)
     GET  /health
     /                       → the frontend (box ①, frontend/), served locally when that folder exists
 
 Identity (actor_id): the `sub` of a verified Amazon Cognito ID token (see auth.py: API Gateway authorizer
-claims, or AF_AUTH_MODE=cognito to verify the Bearer token here). Local tests only (AF_AUTH_MODE=dev): the
-X-Actor-Id header. Never trust an actor_id from a body. A demo account (amira/mateo/robert.demo@alphaforge.example)
+claims on Lambda; everywhere else, by default, the Bearer token is verified here against the pool in
+backend/app/core/signin.json). Local tests only (AF_AUTH_MODE=dev, never a default): the X-Actor-Id header. Never trust an actor_id from a body. A demo account (amira/mateo/robert.demo@alphaforge.example)
 gets its persona's profile on its first request.
 
 Lambda: `handler` (Mangum adapter). Local: `uvicorn app.api.app:app --app-dir backend --reload`.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 from pathlib import Path
@@ -33,6 +40,7 @@ from fastapi import Body, Depends, FastAPI, File, HTTPException, Request, Upload
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from app.notify.contacts import NotifyPrefsIn, SmsPrefsIn
 from app.schemas import Profile
 from app.store.runs import RunRecord
 
@@ -61,14 +69,18 @@ def identity_from(request: Request) -> Identity:
 
 
 def auth_mode() -> str:
-    return os.environ.get("AF_AUTH_MODE", "jwt").lower()
+    from .auth import auth_mode as _mode
+
+    return _mode()
 
 
 def log_auth_mode() -> None:
     """One line at startup saying how callers are identified (the first thing to check when sign-in fails)."""
     mode, log = auth_mode(), logging.getLogger("uvicorn.error")
     if mode == "cognito":
-        pool = os.environ.get("AF_COGNITO_USER_POOL_ID") or "NOT SET: every request will get 401"
+        from .auth import signin_settings
+
+        pool = signin_settings()["user_pool_id"] or "NOT SET (backend/app/core/signin.json): every request will get 401"
         log.info("AlphaForge API sign-in: Amazon Cognito (user pool %s)", pool)
     elif mode == "dev":
         log.info("AlphaForge API sign-in: dev mode, X-Actor-Id header, no password (local tests only)")
@@ -142,6 +154,30 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
     def put_profile(form: dict[str, Any] = Body(...), actor_id: str = Depends(current_actor)) -> Profile:
         return svc.put_profile(actor_id, form)
 
+    # News alerts by text (app.notify): opt-in + phone, kept apart from the profile (never sent to a model).
+    @api.get("/v1/notifications/sms")
+    def get_sms(actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.get_sms(actor_id)
+
+    @api.put("/v1/notifications/sms")
+    def put_sms(body: SmsPrefsIn, actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.put_sms(actor_id, body)
+
+    # Every channel and alert type (sign-up "Inform me when…", My profile settings). Same item as above.
+    @api.get("/v1/notifications")
+    def get_notifications(actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.get_notifications(actor_id)
+
+    @api.put("/v1/notifications")
+    def put_notifications(body: NotifyPrefsIn, request: Request) -> dict[str, Any]:
+        ident = identity_from(request)            # the account's email is the default address for email alerts
+        svc.ensure_demo_profile(ident.actor_id, ident.demo_persona)
+        return svc.put_notifications(ident.actor_id, body, ident.email)
+
+    @api.delete("/v1/account")
+    def delete_account(actor_id: str = Depends(actor_id_from)) -> dict[str, Any]:
+        return svc.delete_account(actor_id)
+
     # Onboarding (box ③): read the person's answers or a document, return the profile fields found. Saves nothing.
     @api.post("/v1/profile/draft")
     def profile_draft(body: dict[str, Any] = Body(...), actor_id: str = Depends(current_actor)) -> dict[str, Any]:
@@ -162,13 +198,20 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
 
         @api.get("/config.js", include_in_schema=False)
         def frontend_config() -> Response:
-            """The page's sign-in settings always match how this API checks callers: the Cognito config only when
-            this API verifies Cognito tokens, otherwise none (the page then runs in dev mode)."""
-            cfg = frontend / "config.js"
-            if auth_mode() == "cognito" and cfg.is_file():
-                body = cfg.read_text(encoding="utf-8")
+            """The page's sign-in settings always match how this API checks callers: the Cognito config when this API
+            verifies Cognito tokens; the no-password test mode only when this API runs with AF_AUTH_MODE=dev (local
+            tests); otherwise none, and the page then refuses to run (no account, no app: never a guest user)."""
+            from .auth import browser_config
+
+            cfg = browser_config(os.environ.get("AF_DEMO_PASSWORD")) if auth_mode() == "cognito" else None
+            if cfg:
+                body = ("// Sign-in settings of this server (backend/app/core/signin.json).\n"
+                        f"window.AF_CONFIG = {json.dumps(cfg, indent=2)};\n")
+            elif auth_mode() == "dev":
+                body = ("// Local test mode (AF_AUTH_MODE=dev): no password, X-Actor-Id header. Never for real users.\n"
+                        'window.AF_CONFIG = {"auth": "dev"};\n')
             else:
-                body = "// Sign-in is off: this API does not verify Cognito tokens (AF_AUTH_MODE is not cognito).\n"
+                body = "// No sign-in settings on this server: the page does not run without an account.\n"
             return Response(body, media_type="application/javascript", headers={"Cache-Control": "no-store"})
 
         api.mount("/", _FreshStaticFiles(directory=frontend, html=True), name="frontend")
@@ -183,7 +226,19 @@ _mangum = None  # built on the first Lambda invocation, reused by the warm conta
 
 
 def handler(event: dict, context: Any) -> dict:
-    """AWS Lambda entry point (API Gateway HTTP API → Mangum → FastAPI)."""
+    """AWS Lambda entry point (API Gateway HTTP API or Function URL → Mangum → FastAPI).
+
+    {"af_dispatch_run": run_id}: the asynchronous self-invocation of AF_DISPATCH=lambda (api/dispatcher.py):
+    runs the orchestrator + Explainer for that QUEUED run and writes the outcome to the run store."""
+    if isinstance(event, dict) and event.get("af_dispatch_run"):
+        from .dispatch import InlineDispatcher
+
+        runs, run_id = service_from_env().runs, str(event["af_dispatch_run"])
+        run = runs.get(run_id)
+        if run is not None and run.status == "QUEUED":   # an async retry never runs the same analysis twice
+            InlineDispatcher(runs).dispatch(run)
+            run = runs.get(run_id)
+        return {"run_id": run_id, "status": run.status if run else "NOT_FOUND"}
     global _mangum
     if _mangum is None:
         from mangum import Mangum

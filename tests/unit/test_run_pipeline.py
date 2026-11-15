@@ -170,7 +170,7 @@ def test_the_payload_carries_the_stored_snapshot():
 
 def test_service_from_env_picks_the_dispatcher():
     from app.api.dispatch import InlineDispatcher
-    assert isinstance(service_from_env({}).dispatcher, InlineDispatcher)             # queue-free default
-    assert isinstance(service_from_env({"AF_DISPATCH": "none"}).dispatcher, NoDispatcher)
+    assert isinstance(service_from_env({"AF_STORE": "memory"}).dispatcher, InlineDispatcher)             # queue-free default
+    assert isinstance(service_from_env({"AF_STORE": "memory", "AF_DISPATCH": "none"}).dispatcher, NoDispatcher)
     with pytest.raises(ValueError):
-        service_from_env({"AF_DISPATCH": "carrier-pigeon"})
+        service_from_env({"AF_STORE": "memory", "AF_DISPATCH": "carrier-pigeon"})

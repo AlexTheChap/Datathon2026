@@ -20,6 +20,11 @@ from app.intake import MockBackend  # noqa: E402
 SERVICE = ApiService(intake_backend=MockBackend(), dispatcher=NoDispatcher())  # plan only (no Bedrock in tests); tests attach answers to its runs
 
 
+def DEV_CONFIG(route):
+    """These tests use the explicit local test mode (the page never falls back to it on its own)."""
+    route.fulfill(status=200, content_type="application/javascript", body='window.AF_CONFIG = {"auth": "dev"};')
+
+
 def NO_CONFIG(route):
     route.fulfill(status=200, content_type="application/javascript", body="")
 
@@ -53,7 +58,7 @@ def page(base_url):
         except Exception as e:  # browser binary not installed
             pytest.skip(f"Chromium for Playwright is not installed: {e}")
         ctx = browser.new_context(viewport={"width": 1280, "height": 860})
-        ctx.route("**/config.js", NO_CONFIG)  # local sign-in config (git-ignored) must not leak into dev-mode tests
+        ctx.route("**/config.js", DEV_CONFIG)  # explicit local test mode; the git-ignored sign-in config must not leak in
         ctx.add_init_script("localStorage.setItem('af.actor', JSON.stringify('e2e-' + Math.random().toString(36).slice(2)))")
         pg = ctx.new_page()
         pg.errors = []
@@ -159,7 +164,7 @@ def test_phone_layout_has_no_horizontal_scroll(base_url):
         except Exception as e:
             pytest.skip(f"Chromium for Playwright is not installed: {e}")
         pg = browser.new_page(viewport={"width": 360, "height": 780})
-        pg.route("**/config.js", NO_CONFIG)
+        pg.route("**/config.js", DEV_CONFIG)
         for route in ("#/ask", "#/profile"):
             pg.goto(f"{base_url}/{route}")
             pg.wait_for_selector("h1")
@@ -394,7 +399,7 @@ def test_saving_a_profile_builds_the_portfolio(page, base_url):
 def test_portfolio_without_a_profile_asks_for_one(page, base_url):
     page.goto(f"{base_url}/#/portfolio")
     page.wait_for_selector("text=First, tell AlphaForge about you")
-    page.click("a:has-text('Set up my profile')")
+    page.click("main a:has-text('Set up my profile')")
     page.wait_for_selector("text=Answer the questions")                       # a new user gets the conversation
     assert page.errors == []
 
@@ -406,7 +411,7 @@ def test_portfolio_on_a_phone_has_no_sideways_scroll(base_url):
         except Exception as e:
             pytest.skip(f"Chromium for Playwright is not installed: {e}")
         ctx = browser.new_context(viewport={"width": 360, "height": 780})
-        ctx.route("**/config.js", NO_CONFIG)
+        ctx.route("**/config.js", DEV_CONFIG)
         ctx.add_init_script("localStorage.setItem('af.actor', JSON.stringify('e2e-phone-pf'))")
         page = ctx.new_page()
         page.goto(f"{base_url}/#/ask")
@@ -415,14 +420,15 @@ def test_portfolio_on_a_phone_has_no_sideways_scroll(base_url):
         page.wait_for_selector(".hero-card")
         wide = page.evaluate("""() => [...document.querySelectorAll('body *')].filter(
             (e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 1).map((e) => e.className)""")
-        assert wide == [] and page.locator("a.nav__link:has-text('My profile')").is_visible()
+        assert wide == [] and page.locator("#usermenu-btn").is_visible()
         browser.close()
 
 
 # ---------- Profile set-up as a conversation (onboarding.js) ----------
 
 def test_profile_set_up_by_answering_questions(page, base_url):
-    page.click("a.nav__link:has-text('My profile')")
+    page.click("#usermenu-btn")
+    page.click("text=Set up my profile")
     page.click("button:has-text('Answer the questions')")
     page.wait_for_selector("text=How much up and down can you live with?")
     page.click("form.onboarding__step button:has-text('Continue')")              # nothing chosen yet
@@ -514,3 +520,204 @@ def test_my_portfolio_questions_know_the_portfolio_without_opening_the_dashboard
     asked = [r for r in SERVICE.runs.list_for_actor(run.actor_id, 10) if r.request.user_message.startswith("Is my portfolio")][0]
     assert {p.ticker: p.weight for p in asked.request.positions} == {"SPY": 0.3481, "XBB.TO": 0.3054, "XIU.TO": 0.2509, "QQQ": 0.0956}
     assert page.errors == []
+
+
+def test_profile_page_is_drawn_once_when_the_user_navigates_during_its_load(page, base_url):
+    """Leaving and coming back while the profile loads used to add the form twice (Hard limits, Analyses twice)."""
+    page.add_init_script("""const f = window.fetch; window.fetch = async (u, o) => {
+      if (String(u).includes('/v1/personas')) await new Promise((r) => setTimeout(r, 700)); return f(u, o); };""")
+    fill_profile_form(page, risk=6, experience=5)
+    page.click("button:has-text('Save profile')")
+    page.wait_for_selector("text=Saved at")
+    page.goto(page.url.split("#")[0] + "#/portfolio")
+    for h in ("#/profile", "#/ask", "#/profile"):
+        page.evaluate(f"window.location.hash = '{h}'")
+        page.wait_for_timeout(120)
+    page.wait_for_selector("text=Hard limits")
+    page.wait_for_timeout(1500)
+    assert page.locator("main legend:has-text('Hard limits')").count() == 1
+    assert page.locator("main legend:has-text('Analyses')").count() == 1
+    assert page.errors == []
+
+
+def test_esg_screening_and_controversies_are_one_hard_limit(page, base_url):
+    run = _portfolio_for(page)                                                     # Mateo: no major controversies
+    page.goto(page.url.split("#")[0] + "#/profile/form")
+    page.wait_for_selector("input[name=limit-esg]")
+    page.wait_for_timeout(300)
+    assert page.is_checked("input[name=limit-esg]")
+    assert page.locator("input[name=limit-fossil], #toggle-esg").count() == 0      # no fossil limit, no ESG switch
+    assert page.locator("main label:has-text('ESG')").count() == 1                 # ESG is named once, in the limits
+    page.uncheck("input[name=limit-esg]")
+    page.click("button:has-text('Save profile')")
+    for _ in range(50):
+        saved = SERVICE.profiles.get(run.actor_id)
+        if not saved.exclusions:
+            break
+        page.wait_for_timeout(100)
+    assert saved.exclusions == [] and saved.agent_toggles.esg is False       # the one setting turns both off
+    assert page.errors == []
+
+
+def test_switching_an_analysis_off_does_not_rebuild(page, base_url):
+    run = _portfolio_for(page)
+    page.goto(page.url.split("#")[0] + "#/profile/form")
+    page.wait_for_selector("#toggle-news")
+    page.uncheck("#toggle-news")
+    page.click("button:has-text('Save profile')")
+    page.wait_for_selector("text=Your portfolio stays the same")                  # explained, no rebuild
+    assert [r.request.user_message for r in SERVICE.runs.list_for_actor(run.actor_id, 20)].count(
+        "Build a simulated portfolio that fits my profile.") == 1                  # no new build
+    assert page.errors == []
+
+
+def test_without_sign_in_settings_there_is_no_guest_and_no_app(base_url):
+    """No config.js (or one without Cognito): the page shows nothing of the app and creates no guest user."""
+    with playwright_api.sync_playwright() as p:
+        try:
+            browser = p.chromium.launch()
+        except Exception as e:  # noqa: BLE001  (browser binary not installed)
+            pytest.skip(f"Chromium for Playwright is not installed: {e}")
+        pg = browser.new_page()
+        calls = []
+        pg.on("request", lambda r: calls.append(r.url) if "/v1/" in r.url else None)
+        pg.route("**/config.js", NO_CONFIG)
+        pg.goto(f"{base_url}/#/portfolio")
+        pg.wait_for_selector("text=Sign-in isn't available")
+        assert pg.is_hidden(".nav") and pg.inner_text("#who") == ""
+        assert "guest" not in pg.inner_text("body").lower() and "demo user" not in pg.inner_text("body").lower()
+        assert pg.evaluate("localStorage.getItem('af.actor')") is None and calls == []
+        pg.goto(f"{base_url}/#/ask")
+        pg.wait_for_selector("text=Sign-in isn't available")
+        browser.close()
+
+
+# ---------- User menu and My profile settings ----------
+
+def test_user_menu_opens_both_pages_by_mouse_and_keyboard(page, base_url):
+    btn = page.locator("#usermenu-btn")
+    assert btn.get_attribute("aria-expanded") == "false" and page.is_hidden("#usermenu-list")
+    btn.click()
+    assert btn.get_attribute("aria-expanded") == "true"
+    page.click("#usermenu-list >> text=My profile settings")
+    page.wait_for_selector("h1:has-text('My profile settings')")
+    assert page.is_hidden("#usermenu-list") and btn.get_attribute("aria-current") == "page"
+    btn.focus()
+    page.keyboard.press("ArrowDown")                                   # opens and focuses the first item
+    assert page.evaluate("document.activeElement.textContent") == "Set up my profile"
+    page.keyboard.press("ArrowDown")
+    assert page.evaluate("document.activeElement.textContent") == "My profile settings"
+    page.keyboard.press("Escape")
+    assert page.is_hidden("#usermenu-list") and page.evaluate("document.activeElement.id") == "usermenu-btn"
+    page.keyboard.press("Enter")
+    page.keyboard.press("Enter")                                       # first item: Set up my profile
+    page.wait_for_function("location.hash.startsWith('#/profile')")
+    page.mouse.click(5, 5)
+    assert page.is_hidden("#usermenu-list")
+    assert page.errors == []
+
+
+def test_settings_delete_account_erases_the_data(page, base_url):
+    actor = page.evaluate("JSON.parse(localStorage.getItem('af.actor'))")
+    from app.schemas import Profile
+
+    SERVICE.profiles.put(Profile(actor_id=actor, risk_band="moderate", experience="beginner", language="en"))
+    page.goto(f"{base_url}/#/settings")
+    page.wait_for_selector("section[aria-labelledby=set-delete-title]")
+    assert page.locator("text=Local test mode").count() == 1                    # no Cognito account here
+    page.click("button:has-text('Delete my account')")
+    page.wait_for_selector("text=Type DELETE in capital letters.")
+    assert SERVICE.profiles.get(actor) is not None                               # nothing deleted yet
+    page.fill("#set-delete-confirm", "DELETE")
+    page.once("dialog", lambda d: d.accept())
+    page.click("button:has-text('Delete my account')")
+    page.wait_for_function("location.hash.startsWith('#/profile')")
+    assert SERVICE.profiles.get(actor) is None
+    assert page.errors == []
+
+
+def test_signed_in_account_changes_use_cognito_with_the_access_token(base_url, monkeypatch):
+    import json
+    import time as _time
+
+    import jwt
+    from app.api import auth
+    from app.schemas import Profile
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    region, pool, client = "us-east-1", "us-east-1_E2E", "e2e-client"
+    issuer = f"https://cognito-idp.{region}.amazonaws.com/{pool}"
+
+    class Keys:
+        def get_signing_key_from_jwt(self, token):
+            return type("K", (), {"key": key.public_key()})()
+
+    monkeypatch.setenv("AF_AUTH_MODE", "cognito")
+    monkeypatch.setattr(auth, "verifier_from_env", lambda: auth.CognitoVerifier(region, pool, client, jwk_client=Keys()))
+    now = int(_time.time())
+    id_token = jwt.encode({"sub": "sub-settings", "email": "me@example.com", "iss": issuer, "aud": client,
+                           "token_use": "id", "iat": now, "exp": now + 3600}, key, algorithm="RS256")
+    SERVICE.profiles.put(Profile(actor_id="sub-settings", risk_band="moderate", experience="beginner", language="en"))
+    config = {"auth": "cognito", "region": region, "userPoolId": pool, "clientId": client, "demoAccounts": []}
+    calls = []
+
+    def fake_cognito(route):
+        target = route.request.headers.get("x-amz-target", "").split(".")[-1]
+        calls.append((target, json.loads(route.request.post_data or "{}")))
+        body = {"InitiateAuth": {"AuthenticationResult": {"IdToken": id_token, "AccessToken": "access-1",
+                                                          "RefreshToken": "refresh", "ExpiresIn": 3600}},
+                "ChangePassword": {}, "UpdateUserAttributes": {"CodeDeliveryDetailsList": []},
+                "VerifyUserAttribute": {}, "DeleteUser": {}, "RevokeToken": {}}.get(target, {})
+        if target == "ChangePassword" and json.loads(route.request.post_data)["PreviousPassword"] == "Wrong-pass1":
+            route.fulfill(status=400, content_type="application/x-amz-json-1.1",
+                          body=json.dumps({"__type": "NotAuthorizedException", "message": "Incorrect username or password."}))
+            return
+        route.fulfill(status=200, content_type="application/x-amz-json-1.1", body=json.dumps(body))
+
+    with playwright_api.sync_playwright() as p:
+        try:
+            browser = p.chromium.launch()
+        except Exception as e:  # noqa: BLE001  (browser binary not installed)
+            pytest.skip(f"Chromium for Playwright is not installed: {e}")
+        pg = browser.new_page()
+        errors = []
+        pg.on("pageerror", lambda e: errors.append(str(e)))
+        pg.route("**/config.js", lambda r: r.fulfill(status=200, content_type="application/javascript",
+                                                     body=f"window.AF_CONFIG = {json.dumps(config)};"))
+        pg.route("https://cognito-idp.us-east-1.amazonaws.com/", fake_cognito)
+        pg.goto(f"{base_url}/#/settings")
+        pg.fill("#auth-email", "me@example.com")
+        pg.fill("#auth-password", "Right-pass1")
+        pg.click("form.auth-form button[type=submit]")
+        pg.wait_for_selector("h1:has-text('My profile settings')")                    # back to the page asked for
+        assert pg.locator("text=You sign in with me@example.com.").count() == 1
+        # password: the wrong current password is said plainly; the right one goes with the ACCESS token, no ClientId
+        pg.fill("#set-pw-current", "Wrong-pass1")
+        pg.fill("#set-pw-new", "Brand-new-pass2")
+        pg.click("button:has-text('Change password')")
+        pg.wait_for_selector("text=The current password is incorrect.")
+        pg.fill("#set-pw-current", "Right-pass1")
+        pg.click("button:has-text('Change password')")
+        pg.wait_for_selector("text=Your password was changed.")
+        change = [b for t, b in calls if t == "ChangePassword"][-1]
+        assert change["AccessToken"] == "access-1" and "ClientId" not in change and change["ProposedPassword"] == "Brand-new-pass2"
+        # email: new address, then the code sent to it
+        pg.fill("#set-email-new", "new@example.com")
+        pg.click("button:has-text('Change email')")
+        pg.wait_for_selector("text=Enter the code we sent to new@example.com.")
+        pg.fill("#set-email-code", "123456")
+        pg.click("button:has-text('Confirm new email')")
+        pg.wait_for_selector("text=Done: you now sign in with new@example.com.")
+        assert [b["UserAttributes"] for t, b in calls if t == "UpdateUserAttributes"] == [[{"Name": "email", "Value": "new@example.com"}]]
+        assert [b["Code"] for t, b in calls if t == "VerifyUserAttribute"] == ["123456"]
+        # delete: the app's data first (API), then the sign-in account (Cognito DeleteUser), then the sign-in page
+        pg.fill("#set-delete-confirm", "DELETE")
+        pg.once("dialog", lambda d: d.accept())
+        pg.click("button:has-text('Delete my account')")
+        pg.wait_for_selector("text=Your account and its data were deleted.")
+        assert SERVICE.profiles.get("sub-settings") is None
+        assert [b for t, b in calls if t == "DeleteUser"] == [{"AccessToken": "access-1"}]
+        assert pg.evaluate("localStorage.getItem('af.session')") is None and pg.is_hidden(".nav")
+        browser.close()
+    assert errors == []

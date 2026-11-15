@@ -37,3 +37,5 @@ frontend/config.js
 
 # Market graph tables (python -m app.market.refresh): regenerated twice a day, published to S3 in AWS
 data/market/
+# Local file store (AF_STORE=file)
+.af_store/

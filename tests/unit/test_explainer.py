@@ -278,5 +278,5 @@ def test_the_explainer_sees_the_holdings_analysed(make_profile):
     """A question about "my portfolio" carries the saved holdings: the Explainer gets them with the reader."""
     client = FakeClient(draft())
     run_explain(make_run(make_profile), client)
-    reader = json.loads(client.calls[0]["messages"][0]["content"])["reader"]
+    reader = json.loads(client.calls[0]["messages"][0]["content"][0]["text"])["reader"]   # a cached content block
     assert reader["portfolio"] == [{"ticker": "NVDA", "weight": 0.2}]

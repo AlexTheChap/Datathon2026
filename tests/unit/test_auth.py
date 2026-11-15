@@ -81,11 +81,56 @@ def test_api_gateway_claims_win(monkeypatch):
     assert identify(event, {}) == Identity(actor_id="gw-sub", email="x@y.z")
 
 
-def test_unconfigured_server_refuses_cleanly(monkeypatch):
+def test_unconfigured_server_refuses_cleanly(monkeypatch, tmp_path):
     monkeypatch.setenv("AF_AUTH_MODE", "cognito")
+    monkeypatch.setenv("AF_SIGNIN_FILE", str(tmp_path / "missing.json"))
     monkeypatch.delenv("AF_COGNITO_USER_POOL_ID", raising=False)
     with pytest.raises(AuthError, match="not configured"):
         identify(None, {"authorization": f"Bearer {token()}"})
+
+
+# ---------- Sign-in is part of the app: on by default, settings in the tracked signin.json ----------
+
+def test_sign_in_is_on_by_default_and_never_dev(monkeypatch):
+    monkeypatch.delenv("AF_AUTH_MODE", raising=False)
+    monkeypatch.delenv("AWS_LAMBDA_FUNCTION_NAME", raising=False)
+    assert auth.auth_mode() == "cognito"
+    with pytest.raises(AuthError):
+        identify(None, {"x-actor-id": "guest-12345"})                  # the old guest trick gets nothing
+    monkeypatch.setenv("AWS_LAMBDA_FUNCTION_NAME", "alphaforge-api")
+    assert auth.auth_mode() == "jwt"                                   # behind API Gateway's authorizer
+
+
+def test_tracked_settings_are_used_and_the_environment_overrides_them(monkeypatch):
+    import json as _json
+
+    for k in ("AF_COGNITO_USER_POOL_ID", "AF_COGNITO_CLIENT_ID", "AF_COGNITO_REGION", "AF_SIGNIN_FILE"):
+        monkeypatch.delenv(k, raising=False)
+    tracked = _json.loads(auth.SIGNIN_FILE.read_text(encoding="utf-8"))
+    assert tracked["user_pool_id"] and tracked["client_id"]             # committed: no local setting needed
+    s = auth.signin_settings()
+    assert s["user_pool_id"] == tracked["user_pool_id"] and s["client_id"] == tracked["client_id"]
+    monkeypatch.setenv("AF_COGNITO_USER_POOL_ID", "us-east-1_OTHER")
+    assert auth.signin_settings()["user_pool_id"] == "us-east-1_OTHER"
+
+
+def test_browser_config_adds_demo_accounts_only_with_their_password(monkeypatch):
+    monkeypatch.delenv("AF_COGNITO_USER_POOL_ID", raising=False)
+    cfg = auth.browser_config()
+    assert cfg["auth"] == "cognito" and cfg["userPoolId"] and cfg["demoAccounts"] == []
+    demo = auth.browser_config("Pw-1234567890a")
+    assert {a["email"] for a in demo["demoAccounts"]} == {f"{n}.demo@alphaforge.example" for n in ("amira", "mateo", "robert")}
+
+
+def test_config_js_needs_no_local_file(monkeypatch, tmp_path):
+    """The page gets the sign-in settings from the API even when frontend/config.js does not exist."""
+    (tmp_path / "index.html").write_text("<!doctype html><title>t</title>", encoding="utf-8")
+    monkeypatch.setenv("AF_FRONTEND_DIR", str(tmp_path))
+    monkeypatch.delenv("AF_AUTH_MODE", raising=False)
+    monkeypatch.delenv("AWS_LAMBDA_FUNCTION_NAME", raising=False)
+    monkeypatch.delenv("AF_COGNITO_USER_POOL_ID", raising=False)
+    r = TestClient(create_app(ApiService(intake_backend=MockBackend(), dispatcher=NoDispatcher()))).get("/config.js")
+    assert '"auth": "cognito"' in r.text and auth.signin_settings()["user_pool_id"] in r.text
 
 
 def test_demo_persona_only_for_the_demo_domain():
@@ -159,13 +204,18 @@ def site(tmp_path, monkeypatch):
     return tmp_path
 
 
-@pytest.mark.parametrize("mode, served", [("cognito", True), ("dev", False), ("jwt", False)])
-def test_config_js_is_served_only_when_the_api_verifies_cognito_tokens(site, monkeypatch, mode, served):
+@pytest.mark.parametrize("mode, auth", [("cognito", "cognito"), ("dev", "dev"), ("jwt", None)])
+def test_config_js_matches_how_the_api_checks_callers(site, monkeypatch, mode, auth):
+    """Cognito settings only when the API verifies Cognito tokens; the no-password test mode only with AF_AUTH_MODE=dev;
+    otherwise no settings at all, and the page refuses to run (never a guest user)."""
     monkeypatch.setenv("AF_AUTH_MODE", mode)
     r = TestClient(create_app(ApiService(intake_backend=MockBackend(), dispatcher=NoDispatcher()))).get("/config.js")
     assert r.status_code == 200 and r.headers["content-type"].startswith("application/javascript")
-    assert ("AF_CONFIG" in r.text) is served
     assert r.headers["cache-control"] == "no-store"
+    if auth is None:
+        assert "AF_CONFIG" not in r.text
+    else:
+        assert f'"auth": "{auth}"' in r.text
 
 
 def test_startup_log_names_the_sign_in_mode(monkeypatch, caplog):

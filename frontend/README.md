@@ -14,8 +14,9 @@ frontend/
 ## Sign-in
 
 Amazon Cognito (user pool `alphaforge-users`), set up by `python scripts/setup_cognito.py` (`--delete` removes it).
-That script writes the git-ignored `frontend/config.js` (shape in `config.example.js`) and the `AF_COGNITO_*`
-settings in `.env`.
+Sign-in is part of the app and always on: the pool and web client ids are in `backend/app/core/signin.json`
+(tracked in git, written by that script; not secrets, every browser receives them). The API serves them to the
+page as `config.js`. Nothing to set in `.env`, except `AF_DEMO_PASSWORD` for the one-click demo buttons.
 
 - **Demo accounts:** "Sign in as Amira / Mateo / Robert" buttons. Each account starts with that persona's
   profile from the brief (seeded by the API on first sign-in) and is shared by everyone trying the demo.
@@ -25,16 +26,15 @@ settings in `.env`.
 - The browser talks to Cognito directly and sends the ID token to the API (`Authorization: Bearer`). The API
   accepts only tokens signed by this user pool for this app, of type ID, not expired; anything else is a 401
   and the app signs out with a message. Sessions refresh silently for 7 days.
-- Without `config.js` the app runs in local dev mode (a demo user name kept in the browser, no password).
+- No account, no app: without a user pool the page only says "Sign-in isn't available". The no-password
+  mode (`AF_AUTH_MODE=dev`) exists for automated tests only and is never a default.
 
 ## Run it
 
 ```bash
 .venv/bin/pip install -e ".[dev,api]"
-cd backend && AF_AUTH_MODE=dev AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app --port 8000
+cd backend && AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app --port 8000
 
-# with the real sign-in (after scripts/setup_cognito.py): load .env, which sets AF_AUTH_MODE=cognito
-(set -a; . ./.env; set +a; cd backend && AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app --port 8000)
 ```
 
 Open <http://127.0.0.1:8000>. The API serves this folder at `/` (same origin, no CORS). With
@@ -49,7 +49,7 @@ Each question runs the analysis and the Explainer in a background thread (`AF_DI
 .venv/bin/python scripts/deploy_frontend.py --api-url https://<id>.execute-api.us-east-1.amazonaws.com
 ```
 
-Only `index.html`, `assets/` and a generated `config.js` (the Cognito settings of `frontend/config.js`) are
+Only `index.html`, `assets/` and a generated `config.js` (the sign-in settings of `backend/app/core/signin.json`) are
 published; never this README. The bucket stays private: CloudFront reads it through an
 Origin Access Control. With `--api-url`, CloudFront also sends `/v1/*` to the API Gateway, so the page calls the API
 on its own URL (no CORS) and the Cognito token is forwarded to the API's authorizer. Re-run to update; `--delete`

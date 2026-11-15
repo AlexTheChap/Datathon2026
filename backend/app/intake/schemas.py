@@ -70,6 +70,9 @@ class RequestDraft(BaseModel):
     benchmark: Optional[Benchmark] = None
     include_rag: bool = False
     as_of: Optional[date] = None
+    about_own_portfolio: bool = Field(
+        default=False, description="True when the question is about the user's own current holdings, in any wording, "
+                                   "language or spelling (\"my portofolio\", \"mon portefeuille\", \"what I own\").")
     intake_confidence: float = Field(description="Between 0 and 1: how clear the request is.")
 
 

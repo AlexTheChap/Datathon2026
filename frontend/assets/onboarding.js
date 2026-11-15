@@ -127,7 +127,10 @@ export function renderOnboarding(main, ctx) {
       save.replaceChildren(h("span", { class: "spinner", "aria-hidden": "true" }), "Saving");
       try {
         const before = await ctx.loadProfile(true).catch(() => null);
-        const fresh = (await ctx.api("PUT", "/v1/profile", answers)).data;
+        // A hard limit that is also an analysis (ESG screening) sets that analysis too: one setting, one answer.
+        const limits = Object.fromEntries(ctx.LIMITS.filter((l) => l.toggle).map((l) => [l.toggle, (answers.exclusions || []).some((e) => e.type === l.exclusion.type)]));
+        const body = Object.keys(limits).length ? { ...answers, agent_toggles: { ...(answers.agent_toggles || {}), ...limits } } : answers;
+        const fresh = (await ctx.api("PUT", "/v1/profile", body)).data;
         ctx.onSaved(before, fresh);
         add(ai(h("p", null, "Saved. I'm building your portfolio from it now: it takes about a minute."),
           h("div", { class: "notice" }, h("a", { class: "btn btn--primary btn--sm", href: "#/portfolio" }, "See my portfolio"))));
@@ -159,7 +162,7 @@ export function renderOnboarding(main, ctx) {
       return ["Limits", names.length ? names.join(", ") : "None"];
     }
     if (k === "agent_toggles" && a.agent_toggles) {
-      const off = ctx.AGENT_ORDER.filter((x) => a.agent_toggles[x] === false).map((x) => ctx.AGENTS[x].name);
+      const off = ctx.ANALYSES.filter((x) => a.agent_toggles[x] === false).map((x) => ctx.AGENTS[x].name);
       return ["Analyses off", off.length ? off.join(", ") : "None"];
     }
     return null;
@@ -242,7 +245,7 @@ const QUESTIONS = {
     const boxes = ctx.LIMITS.map((l) => h("label", { class: "choice" },
       h("input", { type: "checkbox", name: `ob-limit-${l.key}`, checked: (a.exclusions || []).some((e) => e.type === l.exclusion.type) }),
       h("span", { class: "choice__title" }, l.title), h("span", { class: "choice__desc" }, l.desc)));
-    return step(h, "Is there anything AlphaForge must never include? These are hard limits, checked on every answer.",
+    return step(h, "Is there anything you never want in your portfolio? These rules apply to every answer.",
       h("div", { class: "choices" }, boxes),
       () => {
         const picked = ctx.LIMITS.filter((l, i) => boxes[i].querySelector("input").checked);
@@ -251,16 +254,16 @@ const QUESTIONS = {
   },
   agent_toggles(ctx, a, answer) {
     const { h } = ctx;
-    const rows = ctx.AGENT_ORDER.map((x) => h("div", { class: "switch-row" },
+    const rows = ctx.ANALYSES.map((x) => h("div", { class: "switch-row" },
       h("div", { class: "switch-row__text" }, h("label", { for: `ob-toggle-${x}`, class: "choice__title" }, ctx.AGENTS[x].name),
         h("span", { class: "small muted" }, ctx.AGENTS[x].desc)),
       h("input", { class: "switch", type: "checkbox", role: "switch", id: `ob-toggle-${x}`,
         checked: !(a.agent_toggles && a.agent_toggles[x] === false) })));
-    return step(h, "Last one: which analyses should AlphaForge run? Turn off what you don't want. If a question can't be answered without one, it still runs and the answer says why.",
+    return step(h, "Last one: which analyses may AlphaForge use? Each one runs only when a question needs it. Turn off what you don't want; if a question can't be answered without it, it still runs and the answer says why.",
       h("div", { class: "panel panel--plain onboarding__switches" }, rows),
       () => {
-        const toggles = Object.fromEntries(ctx.AGENT_ORDER.map((x, i) => [x, rows[i].querySelector("input").checked]));
-        const off = ctx.AGENT_ORDER.filter((x) => !toggles[x]).map((x) => ctx.AGENTS[x].name);
+        const toggles = Object.fromEntries(ctx.ANALYSES.map((x, i) => [x, rows[i].querySelector("input").checked]));
+        const off = ctx.ANALYSES.filter((x) => !toggles[x]).map((x) => ctx.AGENTS[x].name);
         answer(off.length ? `All on except ${off.join(", ")}` : "All analyses on", { agent_toggles: toggles });
       });
   },

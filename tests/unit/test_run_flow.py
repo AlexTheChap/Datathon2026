@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from app.agents.explainer import explain
 from app.api.app import create_app
 from app.api.dispatch import InlineDispatcher
-from app.api.dispatcher import LocalDispatcher
+from app.api.dispatcher import LambdaDispatcher, LocalDispatcher
 from app.api.service import ApiService, MessageIn, NoDispatcher, service_from_env
 from app.context.prompt_loader import LocalPromptSource
 from app.intake import MockBackend
@@ -99,11 +99,62 @@ def test_local_dispatcher_runs_the_explainer_in_the_background():
 
 
 def test_every_dispatch_mode_gets_the_explainer():
-    assert isinstance(service_from_env({}).dispatcher, InlineDispatcher)             # queue-free default
-    assert isinstance(service_from_env({"AF_DISPATCH": "local"}).dispatcher, LocalDispatcher)
-    assert isinstance(service_from_env({"AF_DISPATCH": "none"}).dispatcher, NoDispatcher)
+    assert isinstance(service_from_env({"AF_STORE": "memory"}).dispatcher, InlineDispatcher)             # queue-free default
+    assert isinstance(service_from_env({"AF_STORE": "memory", "AF_DISPATCH": "local"}).dispatcher, LocalDispatcher)
+    assert isinstance(service_from_env({"AF_STORE": "memory", "AF_DISPATCH": "none"}).dispatcher, NoDispatcher)
+    assert isinstance(service_from_env({"AF_STORE": "memory", "AF_DISPATCH": "lambda"}).dispatcher, LambdaDispatcher)
     with pytest.raises(ValueError):
-        service_from_env({"AF_DISPATCH": "lambda"})
+        service_from_env({"AF_STORE": "memory", "AF_DISPATCH": "bogus"})
+
+
+class _FakeLambda:
+    def __init__(self, fail=False):
+        self.calls, self.fail = [], fail
+
+    def invoke(self, **kw):
+        if self.fail:
+            raise RuntimeError("throttled")
+        self.calls.append(kw)
+
+
+def test_lambda_dispatcher_invokes_itself_asynchronously():
+    svc = ApiService(intake_backend=MockBackend(), runs=InMemoryRunStore())
+    fake = _FakeLambda()
+    svc.dispatcher = LambdaDispatcher(svc.runs, function_name="alphaforge-api", client=fake)
+    status, out = svc.post_message("robert", MessageIn(text="Is my portfolio too risky?", profile_form=FORM))
+    assert status == 202 and out.run_status == "QUEUED"   # answered at once, the analysis runs elsewhere
+    (call,) = fake.calls
+    assert call["InvocationType"] == "Event" and call["FunctionName"] == "alphaforge-api"
+    assert json.loads(call["Payload"]) == {"af_dispatch_run": out.run_id}
+
+
+def test_lambda_dispatch_failure_is_visible():
+    runs = InMemoryRunStore()
+    svc = ApiService(intake_backend=MockBackend(), runs=runs)
+    svc.dispatcher = LambdaDispatcher(runs, function_name="x", client=_FakeLambda(fail=True))
+    _, out = svc.post_message("robert", MessageIn(text="Is my portfolio too risky?", profile_form=FORM))
+    run = runs.get(out.run_id)
+    assert run.status == "FAILED" and "throttled" in run.error   # never stuck in QUEUED
+
+
+def test_handler_runs_a_dispatched_run_once(monkeypatch):
+    import app.api.app as app_mod
+    import app.api.dispatch as dispatch_mod
+
+    runs = InMemoryRunStore()
+    svc = ApiService(intake_backend=MockBackend(), runs=runs, dispatcher=NoDispatcher())
+    _, out = svc.post_message("robert", MessageIn(text="Is my portfolio too risky?", profile_form=FORM))
+    ran = []
+
+    def fake_dispatch(self, run):
+        ran.append(run.run_id)
+        self.runs.put(run.model_copy(update={"status": "DONE"}))
+
+    monkeypatch.setattr(app_mod, "service_from_env", lambda: svc)
+    monkeypatch.setattr(dispatch_mod.InlineDispatcher, "dispatch", fake_dispatch)
+    assert app_mod.handler({"af_dispatch_run": out.run_id}, None)["status"] == "DONE"
+    assert app_mod.handler({"af_dispatch_run": out.run_id}, None)["status"] == "DONE"   # a retry: not run again
+    assert ran == [out.run_id]
 
 
 def test_evidence_catalog_endpoint_is_owner_only(monkeypatch):

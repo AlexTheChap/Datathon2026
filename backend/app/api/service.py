@@ -22,6 +22,17 @@ from app.context import handler as context_handler
 from app.intake import IntakeError, get_backend, run_intake
 from app.intake.backends import IntakeBackend
 from app.intake.schemas import AgentToggleChange
+from app.notify.contacts import (
+    ALERT_TYPES,
+    ContactStore,
+    InMemoryContactStore,
+    NotifyPrefsIn,
+    SmsContact,
+    SmsPrefsIn,
+    mask,
+    save_notify,
+    save_prefs,
+)
 from app.schemas import PortfolioRef, Profile
 from app.schemas.models import profile_from_persona
 from app.schemas.profile import AgentToggles
@@ -108,6 +119,7 @@ class ApiService:
     dispatcher: Optional[Dispatcher] = None   # None -> InlineDispatcher(runs): live answers, queue-free
     intake_backend: Optional[IntakeBackend] = None
     ledger: Optional[Any] = None   # EvidenceLedger; None -> chosen from the settings (JSONL or DynamoDB)
+    contacts: ContactStore = field(default_factory=InMemoryContactStore)   # SMS opt-in + phone (not in Profile)
 
     def __post_init__(self):
         if self.dispatcher is None:
@@ -252,6 +264,69 @@ class ApiService:
         return profile
 
 
+    # ----- GET / PUT /v1/notifications/sms (news alerts by text, app.notify) -----
+    def get_sms(self, actor_id: str) -> dict[str, Any]:
+        c = self.contacts.get(actor_id)
+        if c and c.opt_in and c.channel == "sms":
+            return sms_view(True, c.phone, c.consent_at)
+        return sms_view(False, None, None)
+
+    def put_sms(self, actor_id: str, body: SmsPrefsIn) -> dict[str, Any]:
+        try:
+            c = save_prefs(self.contacts, actor_id, body)
+        except ValidationError as e:
+            raise ApiError(422, _field_errors(e)) from e
+        return sms_view(c.opt_in, c.phone, c.consent_at)
+
+    # ----- GET / PUT /v1/notifications (sign-up "Inform me when…" and My profile settings) -----
+    def get_notifications(self, actor_id: str) -> dict[str, Any]:
+        return notify_view(self.contacts.get(actor_id))
+
+    def put_notifications(self, actor_id: str, body: NotifyPrefsIn, account_email: str | None) -> dict[str, Any]:
+        try:
+            c = save_notify(self.contacts, actor_id, body, account_email)
+        except ValidationError as e:
+            raise ApiError(422, _field_errors(e)) from e
+        return notify_view(c)
+
+    # ----- DELETE /v1/account (My profile settings > Delete account) -----
+    def delete_account(self, actor_id: str) -> dict[str, Any]:
+        """Erase what AlphaForge keeps about the person: profile, notification choice (phone, email, texts sent),
+        analyses and their evidence. The sign-in account itself is deleted by the page (Cognito DeleteUser)."""
+        run_ids = self.runs.delete_for_actor(actor_id)
+        ledger = self._ledger()
+        for run_id in run_ids:
+            if hasattr(ledger, "delete_run"):
+                ledger.delete_run(run_id)
+        self.contacts.delete(actor_id)
+        self.profiles.delete(actor_id)
+        return {"deleted": True, "runs": len(run_ids)}
+
+
+def _field_errors(e: ValidationError) -> list[dict[str, Any]]:
+    return [{"loc": err.get("loc"), "msg": err["msg"].removeprefix("Value error, ")} for err in e.errors(include_url=False)]
+
+
+ALERT_WORDS = {"up": "A stock I hold goes up", "down": "A stock I hold goes down",
+               "news": "There is news about a stock I hold"}
+
+
+def notify_view(c: SmsContact | None) -> dict[str, Any]:
+    """The owner's own notification choice (addresses shown back so the form can be edited)."""
+    on = bool(c and c.opt_in)
+    return {"opt_in": on, "channel": c.channel if on else None, "phone": c.phone if on else None,
+            "phone_masked": mask(c.phone) if on else None, "email": c.email if on else None,
+            "alerts": list(c.alerts) if on else [], "consent_at": c.consent_at if on else None,
+            "choices": [{"id": a, "label": ALERT_WORDS[a]} for a in ALERT_TYPES],
+            "what": "Alerts are only about stocks you hold. Facts only, never advice."}
+
+
+def sms_view(opt_in: bool, phone: Optional[str], consent_at: Optional[str]) -> dict[str, Any]:
+    """The owner's own preferences (the phone is shown back to them so the form can be edited)."""
+    return {"opt_in": opt_in, "phone": phone, "phone_masked": mask(phone), "consent_at": consent_at,
+            "what": "News on the stocks you hold (SEC filings), at most one text a day. Information only."}
+
+
 def example_personas(path: Path = PERSONAS_PATH) -> list[dict[str, Any]]:
     """The brief's three personas as ready-to-save profile forms (the frontend's "start from an example").
     Fictional profiles; the form never carries an actor_id (the login decides who saves it)."""
@@ -275,6 +350,10 @@ def _dispatcher(runs: RunStore, dispatch: str) -> Dispatcher:
         from .dispatcher import LocalDispatcher
 
         return LocalDispatcher(runs)
+    if dispatch == "lambda":
+        from .dispatcher import LambdaDispatcher
+
+        return LambdaDispatcher(runs)
     if dispatch == "inline":
         from .dispatch import InlineDispatcher
 
@@ -283,18 +362,35 @@ def _dispatcher(runs: RunStore, dispatch: str) -> Dispatcher:
 
 
 def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
-    """AF_STORE=memory (default, local) | dynamodb (AF_TABLE, default "alphaforge").
+    """Where the data lives, chosen without any setting: dynamodb on AWS Lambda (table AF_TABLE, default
+    "alphaforge"), file everywhere else. AF_STORE (memory | file | dynamodb) overrides it (tests use memory).
+    file keeps profiles (one per user), notification choices and runs (one per run) as JSON files under
+    AF_DATA_DIR (default ".af_store/", relative paths are resolved against the repo root), so they survive a
+    restart: the dashboard finds the user's last portfolio run instead of building a new one. The evidence
+    ledger is already on disk (data/runs/*.jsonl).
     AF_DISPATCH=inline (default: the orchestrator runs before POST /v1/runs returns — live answers, no queue,
     app.api.dispatch.InlineDispatcher) | local (the orchestrator runs in a background thread after the 202;
     clients poll GET /v1/runs/{id}) | none (the run stays QUEUED with its plan only)."""
     env = os.environ if env is None else env
-    kind = env.get("AF_STORE", "memory").lower()
+    kind = (env.get("AF_STORE") or ("dynamodb" if env.get("AWS_LAMBDA_FUNCTION_NAME") else "file")).lower()
     dispatch = env.get("AF_DISPATCH", "inline").lower()
-    if dispatch not in ("local", "none", "inline"):
-        raise ValueError(f"Unknown AF_DISPATCH: {dispatch!r} (expected: local, none or inline)")
+    if dispatch not in ("local", "none", "inline", "lambda"):
+        raise ValueError(f"Unknown AF_DISPATCH: {dispatch!r} (expected: local, none, inline or lambda)")
     if kind == "memory":
         runs = InMemoryRunStore()
         return ApiService(runs=runs, dispatcher=_dispatcher(runs, dispatch))
+    if kind == "file":
+        from app.core.config import REPO_ROOT
+        from app.store.profiles import JsonFileProfileStore
+        from app.store.runs import JsonFileRunStore
+
+        root = Path(env.get("AF_DATA_DIR") or ".af_store")
+        root = root if root.is_absolute() else REPO_ROOT / root
+        runs = JsonFileRunStore(root / "runs")
+        from app.notify.contacts import JsonFileContactStore
+
+        return ApiService(profiles=JsonFileProfileStore(root / "profiles"), runs=runs,
+                          dispatcher=_dispatcher(runs, dispatch), contacts=JsonFileContactStore(root / "contacts"))
     if kind == "dynamodb":
         import boto3
 
@@ -303,6 +399,9 @@ def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
 
         table = boto3.resource("dynamodb", region_name=env.get("AWS_REGION", "us-east-1")).Table(
             env.get("AF_TABLE", "alphaforge"))
+        from app.notify.contacts import DynamoDBContactStore
+
         runs = DynamoDBRunStore(table)
-        return ApiService(profiles=DynamoDBProfileStore(table), runs=runs, dispatcher=_dispatcher(runs, dispatch))
-    raise ValueError(f"Unknown AF_STORE: {kind!r} (expected: memory or dynamodb)")
+        return ApiService(profiles=DynamoDBProfileStore(table), runs=runs, dispatcher=_dispatcher(runs, dispatch),
+                          contacts=DynamoDBContactStore(table))
+    raise ValueError(f"Unknown AF_STORE: {kind!r} (expected: memory, file or dynamodb)")

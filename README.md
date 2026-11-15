@@ -42,11 +42,9 @@ Before writing or reviewing any code, read it. See
 ```bash
 .venv/bin/pip install -e ".[dev,api]"
 
-# With sign-in (Amazon Cognito, demo accounts for Amira, Mateo and Robert). Once: python scripts/setup_cognito.py
-(set -a; . ./.env; set +a; cd backend && AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app --port 8000)
+# Sign-in (Amazon Cognito) is always on: settings in backend/app/core/signin.json, nothing to set in .env
+cd backend && AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app --port 8000
 
-# Without sign-in (a demo user name kept in the browser, no password; local only)
-cd backend && AF_AUTH_MODE=dev AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app --port 8000
 ```
 
 Open http://127.0.0.1:8000. The first log line says which sign-in mode the API runs in, and the page follows it.
@@ -124,6 +122,33 @@ python -m app.market.refresh --mode midday --system-certs       # Windows behind
   graph is built in memory, from `data/market/` or, failing that, from the curated metrics.
 - **Source**: Yahoo Finance via yfinance, an unofficial and unlicensed feed (prototype only); it is isolated in
   `app.market.refresh.download`, to be swapped for a licensed feed in production.
+
+## News alerts by text message (Amazon SNS)
+
+At sign-up, "Inform me when…" (optional) asks which alerts a person wants (a stock they hold goes up, goes down,
+or has news) and how: by email or by text message, with a Canadian or U.S. mobile number only for texts. They change
+it later in the user menu → **My profile settings** (also: email, password, delete the account). Alerts are only
+ever about stocks the person holds. This text sender handles the news alerts of people who chose texts. Every 15 minutes from 7:00 to 22:45 (Toronto), the news-alert agent
+(`app.notify.alerts`, no language model) fetches the **SEC 8-K filings of the stocks each person holds** (their
+saved portfolio, nothing else) and sends one short text with at most 3 items. The same filing is never texted
+twice.
+
+- **Never advice**: fixed wording ("NVDA: SEC 8-K filing on Nov 12 (financial results)."), the same closing line
+  ("Info only, not investment advice. Reply STOP to opt out."), and a check that refuses any advice word.
+- **Privacy**: the phone number is stored apart from the profile (`ACTOR#…/CONTACT#sms`), so it never reaches an
+  agent prompt; opting out deletes it; logs show masked numbers only.
+- **Limits**: TSX-only companies (SEDAR+, no free API) and ETFs file no 8-K, so they get no alert.
+
+```bash
+python -m app.notify.alerts --source corpus --since 2026-11-01 --until 2026-11-12 --dry-run   # from backend/
+.venv/bin/python scripts/deploy_sms_alerts.py --sec-contact "AlphaForge Datathon you@example.com" --test
+.venv/bin/python scripts/deploy_sms_alerts.py --verify-phone +15145550123    # SMS sandbox: verify each demo phone
+.venv/bin/python scripts/deploy_sms_alerts.py --verify-phone +15145550123 --code 123456
+.venv/bin/python scripts/deploy_sms_alerts.py --send-test +15145550123
+```
+
+A new AWS account is in the **SMS sandbox**: only verified numbers receive texts (enough for a demo). Texting real
+customers needs leaving the sandbox (AWS support) and a registered origination number.
 
 ## Repository layout
 
