@@ -1,5 +1,9 @@
 """L8 — parallel sub-agent graph (Strands fork/join): plan-enabled sub-agents run
-CONCURRENTLY, then one synthesis node joins their findings.
+CONCURRENTLY, then one synthesis agent joins their findings.
+
+The synthesis agent runs AFTER the graph, not as a graph node: Strands refuses a session manager on a graph
+agent ("Session persistence is not supported for Graph agents yet"), and the synthesis agent carries the run's
+AgentCore Memory session (L17, short-term conversation).
 
 Why: the tools mode called sub-agents serially — each delegation was a full
 orchestrator round-trip. Here the plan decides dispatch (no routing turns) and
@@ -68,32 +72,32 @@ def _tool_name(key: str, fn: Callable) -> str:
     return getattr(fn, "tool_name", None) or getattr(fn, "__name__", key)
 
 
-def _all_arrived(keys: list[str]):
-    """AND-join: the synthesis node fires only when every fork has produced a result
-    (default graph semantics are OR — the first finished node would trigger it)."""
-    def check(state) -> bool:
-        return all(k in state.results for k in keys)
-    return check
+def synthesis_message(brief: str, findings: list[dict]) -> str:
+    """What the synthesis agent reads: the run's brief, then every sub-agent's evidence envelope."""
+    import json as _json
+
+    parts = [brief, "Findings of the sub-agents (evidence envelopes):"]
+    for f in findings:
+        envelope = {k: v for k, v in f.items() if not k.startswith("_")}
+        parts.append(f"From {f['_key']}:\n{_json.dumps(envelope, ensure_ascii=False, default=str)}")
+    return "\n\n".join(parts)
 
 
 def run(enabled: list[tuple[str, Callable[..., dict]]], subject: str,
         weights: dict[str, float] | None, tickers: list[str] | None,
-        synthesis_agent=None, ledger=None, run_id: str | None = None) -> dict:
-    """Fork every (key, sub-agent tool) in parallel, join into `synthesis_agent`.
+        synthesis_agent=None, ledger=None, run_id: str | None = None, brief: str | None = None) -> dict:
+    """Fork every (key, sub-agent tool) in parallel, then join their findings in `synthesis_agent`.
 
     Returns {"summary": <synthesis text>, "findings": [envelope dicts]} — the
     envelopes are also appended to the run ledger (tagged with the sub-agent name),
     so the Explainer and the dashboard read the same records as the tools mode.
+    `brief` (default: the subject) opens the synthesis message: question, portfolio, reference date.
     """
     builder = GraphBuilder()
     keys = [key for key, _ in enabled]
     for key, fn in enabled:
         builder.add_node(ToolNode(key, fn, subject, weights, tickers), key)
-    if synthesis_agent is not None:
-        builder.add_node(synthesis_agent, "synthesis")   # node before its edges
-        for key in keys:
-            builder.add_edge(key, "synthesis", condition=_all_arrived(keys))
-    # Bounded by construction: each node runs once (fork/join DAG), plus margin.
+    # Bounded by construction: each node runs once (independent forks), plus margin.
     builder.set_max_node_executions(len(keys) + 4)
     builder.set_execution_timeout(900)   # 15 min, same ceiling as the Bedrock clients
     result = builder.build()(subject)
@@ -130,9 +134,6 @@ def run(enabled: list[tuple[str, Callable[..., dict]]], subject: str,
         findings.append({**envelope, "_duration_ms": _node_ms(key),
                          "_key": key, "_tool_name": _tool_name(key, _fn)})
 
-    synthesis_result = result.results.get("synthesis")
-    summary = str(synthesis_result.result) if synthesis_result is not None else ""
-
     if ledger is not None and run_id:
         for f in findings:
             envelope = {k: v for k, v in f.items() if not k.startswith("_")}
@@ -141,4 +142,8 @@ def run(enabled: list[tuple[str, Callable[..., dict]]], subject: str,
                                    "evidence_id": envelope.get("evidence_id"),
                                    "say": envelope.get("say", ""),
                                    "duration_ms": f["_duration_ms"]})
+
+    # AND-join: the synthesis runs once every fork has returned (its governance_check calls follow the
+    # sub-agents' evidence in the ledger).
+    summary = str(synthesis_agent(synthesis_message(brief or subject, findings))) if synthesis_agent else ""
     return {"summary": summary, "findings": findings}

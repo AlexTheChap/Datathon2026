@@ -22,7 +22,7 @@
 %%   ① frontend: static S3 + CloudFront (deploy_frontend.py; --api-url routes /v1/* to the Function URL) ·
 %%     Cognito user pool + web client + 3 shared demo accounts (setup_cognito.py).
 %% BUILT IN CODE: ⑤ orchestration = Strands GRAPH by default (AF_ORCHESTRATION=graph): the plan's sub-agents run
-%%   as parallel fork nodes, an AND-join feeds one synthesis node (Claude Sonnet, holds governance_check);
+%%   as parallel fork nodes, then one synthesis agent joins them (Claude Sonnet, holds governance_check);
 %%   AF_ORCHESTRATION=tools = the older agents-as-tools orchestrator (serial) · 6 sub-agents (Claude Haiku) ·
 %%   governance_check = deterministic tool (rules.yaml) · evidence hook → ledger (DynamoDB, or JSONL in data/runs
 %%   locally) · Explainer (Claude Sonnet, structured sections, deterministic claim check, retry once then remove,
@@ -30,8 +30,7 @@
 %%   notification settings (SMS / email) and account deletion · AgentCore entrypoint (app/entrypoint.py).
 %% DIVERGES from target: ⑤ runs inside the API Lambda, not AgentCore Runtime (entrypoint ready, not deployed) ·
 %%   no API Gateway: Function URL + in-app JWT verification · uploads go through the API (5 MB, never stored),
-%%   not S3 presigned URLs · Memory (L17): with AF_MEMORY_ID the long-term soft preferences reach the synthesis
-%%   prompt, but in graph mode (the default) the short-term session manager is not attached to any agent.
+%%   not S3 presigned URLs.
 %% NOT BUILT: Guardrails grounding check on the answer (L18) · AgentCore Observability wiring · S3 offload of
 %%   large run results (DynamoDB 400 KB item limit).
 %% =====================================================================================
@@ -167,8 +166,9 @@ flowchart TB
   %%      Explainer loads the template and refuses it if its version or sha256 changed since planning.
   LOAD -.->|"prompts"| EXP
   %% L8  Orchestrator → Sub-agents: CURRENT default (AF_ORCHESTRATION=graph, app/agents/graph.py): a Strands
-  %%      GraphBuilder with one fork node per plan-enabled sub-agent (run in worker threads, in parallel) and an
-  %%      AND-join into the synthesis node (Sonnet); each fork's envelope is appended to the run ledger.
+  %%      GraphBuilder with one fork node per plan-enabled sub-agent (run in worker threads, in parallel); each
+  %%      fork's envelope is appended to the run ledger, then the synthesis agent (Sonnet) joins them. It runs after
+  %%      the graph, not as a node, because it carries the memory session (Strands refuses sessions on graph agents).
   %%      AF_ORCHESTRATION=tools: agents-as-tools — ORCH calls each <domain>_subagent tool in turn. Either way the
   %%      payload is structured (subject + weights + tickers) and the investor context is rendered into the brief by
   %%      deterministic code (render_brief). Target: the same graph hosted in AgentCore Runtime.
@@ -243,8 +243,7 @@ flowchart TB
   %%      preferences into /preferences/{actorId}/; code loads them at each run into the system prompt.
   %%      They guide tone and emphasis, never override profile or governance, and are not evidence.
   %%      Setup: scripts/agentcore_memory.py create --write-env (AF_MEMORY_ID). Without it the run goes on, memory off.
-  %%      GAP: in graph mode (the default) only the long-term preferences are used (synthesis prompt); the session
-  %%      manager is built but attached to no agent, so the short-term conversation is not kept. Tools mode keeps both.
+  %%      The top-level agent carries both: the synthesis agent in graph mode (default), the orchestrator in tools mode.
   ORCH <-.-> MEM
   %% L18 Explainer → DynamoDB: RunRecord.result["answer"] (RunAnswer: sections, citations, verification,
   %%      model, PromptRef) via the RunStore. Target: S3 if > 400 KB; Guardrails grounding check (not built).

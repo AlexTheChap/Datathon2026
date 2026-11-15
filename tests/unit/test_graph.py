@@ -5,7 +5,7 @@ import asyncio
 
 from strands.multiagent.base import Status
 
-from app.agents.graph import ToolNode, _all_arrived, run
+from app.agents.graph import ToolNode, run, synthesis_message
 from app.store.ledger import InMemoryLedger
 
 
@@ -37,14 +37,30 @@ def test_tool_node_failed_when_the_tool_reports_an_error():
     assert _json.loads(str(result.results["node"].result))["error"].startswith("no valid finding")
 
 
-def test_all_arrived_requires_every_key():
-    class State:
-        results = {"risk": object()}
+def test_synthesis_joins_every_finding_after_the_forks():
+    """The synthesis agent runs once, after every fork, on the brief + all envelopes (not as a graph node:
+    it may carry a memory session, which Strands refuses on graph agents)."""
+    led = InMemoryLedger()
+    seen = []
 
-    check = _all_arrived(["risk", "macro"])
-    assert check(State()) is False
-    State.results["macro"] = object()
-    assert check(State()) is True
+    def synthesis(message):
+        seen.append((message, [r["agent"] for r in led.records("run-s")]))
+        return "joined"
+
+    out = run([("risk", lambda **kw: {"evidence_id": "ev-r", "tool": "risk_subagent", "say": "risk ok"}),
+               ("macro", lambda **kw: {"evidence_id": "ev-m", "tool": "macro_subagent", "say": "macro ok"})],
+              "question", {"NVDA": 0.2}, None, synthesis_agent=synthesis, ledger=led, run_id="run-s",
+              brief="question\n\nCurrent (fictional) portfolio: NVDA 20%.")
+    assert out["summary"] == "joined"
+    (message, recorded_before), = seen
+    assert sorted(recorded_before) == ["<lambda>", "<lambda>"]        # forks already in the ledger
+    assert message.startswith("question\n\nCurrent (fictional) portfolio: NVDA 20%.")
+    assert '"evidence_id": "ev-r"' in message and '"evidence_id": "ev-m"' in message
+
+
+def test_synthesis_message_drops_internal_fields():
+    msg = synthesis_message("q", [{"evidence_id": "ev-1", "say": "s", "_key": "risk", "_duration_ms": 5}])
+    assert "From risk:" in msg and "_duration_ms" not in msg
 
 
 def test_run_finds_envelopes_and_tags_the_ledger():
