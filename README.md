@@ -79,6 +79,21 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev,bedrock,api]"
 Every tool call the agent makes is recorded as evidence in `data/runs/<run_id>.jsonl`
 (evidence_id, inputs, assumptions) — the basis for the Explainer's citations.
 
+## On AWS: intake, context resolution, web app (boxes ③ ④ ①)
+
+```bash
+.venv/bin/python scripts/deploy_intake_lambda.py --test     # ③ alphaforge-intake (Haiku + Guardrails), both operations tested
+.venv/bin/python scripts/deploy_context_lambda.py --test    # ④ alphaforge-context + the explainer.*.md templates in S3
+.venv/bin/python scripts/deploy_context_lambda.py --test-only  # is the deployed plan/template still the repo's? (drift check)
+.venv/bin/python scripts/deploy_frontend.py --dry-run       # ① S3 + CloudFront (see frontend/README.md)
+```
+
+With `AF_INTAKE_MODE=lambda` and `AF_CONTEXT_MODE=lambda`, the API invokes the two deployed Lambdas instead of
+running intake and context in-process: the deployed API then needs `lambda:InvokeFunction` on `alphaforge-intake`
+and `alphaforge-context`, and neither Bedrock access for the intake nor read access to the template bucket.
+Redeploy both after changing `backend/app/intake/`, `backend/app/context/` or `backend/app/prompts/explainer.*.md`,
+from an up-to-date `main`, and run `--test-only` to confirm.
+
 ## Repository layout
 
 ```

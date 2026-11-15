@@ -41,7 +41,19 @@ Open <http://127.0.0.1:8000>. The API serves this folder at `/` (same origin, no
 `AF_INTAKE_MODE=bedrock` and the keys in `.env` loaded, questions are read by Claude Haiku on Bedrock.
 Each question runs the analysis and the Explainer in a background thread (`AF_DISPATCH=local`, the default;
 `none` keeps the plan only), so the answer appears in the analysis view (polled every 4 s for 3 min). `AF_AUTH_MODE=dev` lets the browser choose a demo user (`X-Actor-Id`); never enable it on a deployed API.
-On AWS the folder is meant for S3 + CloudFront behind the Cognito login (not deployed yet).
+## Publish it on AWS (S3 + CloudFront)
+
+```bash
+.venv/bin/python scripts/deploy_frontend.py --dry-run     # what would be published and created; changes nothing
+.venv/bin/python scripts/deploy_frontend.py               # private S3 bucket + CloudFront (HTTPS), prints the URL
+.venv/bin/python scripts/deploy_frontend.py --api-url https://<id>.execute-api.us-east-1.amazonaws.com
+```
+
+Only `index.html`, `assets/` and a generated `config.js` (the Cognito settings of `frontend/config.js`) are
+published; never the Streamlit dashboard or this README. The bucket stays private: CloudFront reads it through an
+Origin Access Control. With `--api-url`, CloudFront also sends `/v1/*` to the API Gateway, so the page calls the API
+on its own URL (no CORS) and the Cognito token is forwarded to the API's authorizer. Re-run to update; `--delete`
+removes everything. Not deployed yet: it waits for the API (box ②).
 
 ## Screens and the API calls behind them
 

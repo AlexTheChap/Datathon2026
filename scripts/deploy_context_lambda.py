@@ -177,17 +177,24 @@ def test(lam) -> None:
     profile = json.loads((ex / "profile.example.json").read_text(encoding="utf-8"))
     request = json.loads((ex / "request.example.json").read_text(encoding="utf-8"))
 
-    out = lam.invoke(FunctionName=FUNCTION, Payload=json.dumps({"profile": profile, "request": request}).encode())
-    remote = json.loads(out["Payload"].read())
-    if out.get("FunctionError"):
-        print("✗ Lambda error:", json.dumps(remote, indent=2))
-        sys.exit(1)
-    local = resolve_context(Profile.model_validate(profile), Request.model_validate(request), LocalPromptSource())
-    print(json.dumps(remote, indent=2))
-    if remote != local:
-        print("✗ The deployed result differs from the local one (stale package or prompts?)")
-        sys.exit(1)
-    print("✓ Deployed result identical to the local result (plan + prompt_ref, sha256 included).")
+    # The example reader, and a beginner who wants to learn (the ".learning" template): a stale bucket or package
+    # (e.g. redeployed from an older branch) shows up as a different prompt_ref (key, version or sha256).
+    readers = [("example", profile), ("beginner who wants to learn",
+                                       {**profile, "experience": "beginner", "wants_to_learn": True})]
+    for label, reader in readers:
+        out = lam.invoke(FunctionName=FUNCTION, Payload=json.dumps({"profile": reader, "request": request}).encode())
+        remote = json.loads(out["Payload"].read())
+        if out.get("FunctionError"):
+            print(f"✗ Lambda error ({label}):", json.dumps(remote, indent=2))
+            sys.exit(1)
+        local = resolve_context(Profile.model_validate(reader), Request.model_validate(request), LocalPromptSource())
+        if remote != local:
+            print(f"✗ {label}: the deployed result differs from the local one (stale package or prompts?)")
+            print("  deployed prompt_ref:", json.dumps(remote.get("prompt_ref")))
+            print("  local    prompt_ref:", json.dumps(local.get("prompt_ref")))
+            sys.exit(1)
+        print(f"✓ {label}: deployed result identical to the local one "
+              f"({local['prompt_ref']['key']} {local['prompt_ref']['version']}, sha256 included).")
 
     bad = lam.invoke(FunctionName=FUNCTION, Payload=json.dumps(
         {"profile": profile, "request": {**request, "task": "buy_now"}}).encode())

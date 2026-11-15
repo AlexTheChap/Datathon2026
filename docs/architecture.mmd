@@ -22,15 +22,16 @@
 %%   returns; none: runs stay QUEUED, the default with DynamoDB) · ⑤ Explainer (app/agents/
 %%   explainer.py: Claude Sonnet on Bedrock, structured sections, deterministic claim check, retry once then
 %%   remove, honest fallback; style from experience × wants_to_learn) · ③ Intake (deployed Lambda
-%%   alphaforge-intake; chat toggles saved in the profile) · ④ plan resolver + Explainer prompt loader
-%%   (deployed Lambda alphaforge-context, templates in S3).
+%%   alphaforge-intake; chat toggles saved in the profile; the API calls it with AF_INTAKE_MODE=lambda) · ④ plan
+%%   resolver + Explainer prompt loader (deployed Lambda alphaforge-context, 1.1.0 templates in S3; the API calls
+%%   it with AF_CONTEXT_MODE=lambda; deploy_context_lambda.py --test-only detects a stale bucket or package).
 %% DIVERGES from target (by design for the prototype): dispatch = agents-as-tools
 %%   (sequential), Strands graph + parallel nodes = next phase · PURE DELEGATION: the
 %%   orchestrator holds only governance_check, all quant tools live in the sub-agents ·
 %%   tools called in-process (no Gateway/MCP yet) · ledger = JSONL not DynamoDB ·
 %%   news = simulated (no KB feed yet).
 %% ① + ⑦ frontend (frontend/: HTML/CSS/JS, no build step; sign-in, ask, profile form, analysis plan, light+dark;
-%%   served by the API locally, not deployed yet; ⑦ result view: short answer, verdicts, key points,
+%%   served by the API locally; scripts/deploy_frontend.py publishes it to S3 + CloudFront, not run yet; ⑦ result view: short answer, verdicts, key points,
 %%   glossary for learners, numbered evidence chips → evidence panel, what the claim check removed).
 %% NOT BUILT: L6 dispatcher to AgentCore Runtime (Lambda) · file upload · Guardrails grounding check (L18) ·
 %%   Guardrails (wired in the Intake, needs AF_GUARDRAIL_ID) · Memory (wired, needs AF_MEMORY_ID) ·
@@ -41,6 +42,9 @@ flowchart TB
   %% AWS: S3 + CloudFront (static HTML/CSS/JS, no server) · Cognito (login → JWT) · S3 presigned URLs (uploads).
   %%      Plain web app instead of Streamlit: full control of design tokens, light/dark modes, focus and
   %%      control states (Hallmark rules, Bastien & Scapin criteria). Locally: served by the API (StaticFiles).
+  %%      On AWS: scripts/deploy_frontend.py → private S3 bucket read by CloudFront only (Origin Access Control),
+  %%      managed security headers; with --api-url, CloudFront also routes /v1/* to the API Gateway (same origin:
+  %%      no CORS, the Cognito Bearer token is forwarded). config.js = the Cognito settings from setup_cognito.py.
   UI["① Frontend — web app (HTML/CSS/JS) on S3 + CloudFront · Cognito login<br/>ask · profile form · analysis plan · file upload (presigned S3 URL, later)"]
 
   %% ===== 2. API =====
@@ -105,8 +109,13 @@ flowchart TB
   %%      Files go straight to S3 via presigned URL (never through Lambda, 6 MB limit).
   UI -->|"JWT"| API
   %% L2  API → Intake: the API Lambda (backend/app/api/, FastAPI + Mangum) runs the Intake and the context
-  %%      resolution in-process, synchronously (a few s, under API Gateway's 30 s): it answers 200 with the Intake's
+  %%      resolution synchronously (a few s, under API Gateway's 30 s): it answers 200 with the Intake's
   %%      question or "create your profile first", else saves the run QUEUED and answers 202 {run_id}.
+  %%      On AWS (AF_INTAKE_MODE=lambda, AF_CONTEXT_MODE=lambda) the API invokes the two deployed Lambdas:
+  %%      alphaforge-intake does only the model step ({"op": "extract"}: Guardrails + Haiku → IntakeDraft) and the
+  %%      API keeps the merge with the stored profile, the toggles and the storage; alphaforge-context returns the
+  %%      ExecutionPlan + PromptRef. The API Lambda then needs lambda:InvokeFunction on both, no Bedrock and no
+  %%      template bucket (least privilege). Locally and in tests both run in-process (default).
   %%      Identity = Cognito JWT `sub` (X-Actor-Id header only with AF_AUTH_MODE=dev).
   %%      The Intake calls Bedrock (Haiku) with structured outputs (JSON schema), via the anthropic
   %%      SDK (AnthropicBedrock client = InvokeModel, messages.parse, inference profile us.anthropic.claude-haiku-5-5);
@@ -122,7 +131,7 @@ flowchart TB
   %%      (backend/app/core/plan_registry.yaml, or AWS AppConfig as an option). Output: ExecutionPlan.
   PROF --> PLAN
   REQ --> PLAN
-  %% L5  Profile → Prompt loader: Lambda; picks the Explainer template from experience × wants_to_learn
+  %% L5  Profile → Prompt loader: Lambda alphaforge-context (see L2); picks the Explainer template from experience × wants_to_learn
   %%      (5 templates: beginner/intermediate get a ".learning" variant with a glossary; advanced has one).
   %%      wants_to_learn comes from the profile form or from what the user says ("I'm a student"), never from
   %%      age or other demographics. Source: Git (backend/app/prompts/explainer.<level>[.learning].md),

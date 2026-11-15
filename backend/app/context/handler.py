@@ -11,9 +11,16 @@ Rules for the dispatcher (box ②): call this Lambda when the Intake status is "
 On "needs_clarification", show the Intake's question instead (the profile is usually incomplete).
 
 No LLM call. The only possible external access: reading the template from S3 (AF_PROMPT_SOURCE=s3).
+
+Called in-process by default. With AF_CONTEXT_MODE=lambda, a caller that is not the Lambda runtime (the API:
+it passes no `context`) invokes the deployed function instead (AF_CONTEXT_FUNCTION, default
+"alphaforge-context"), so the API needs no access to the template bucket. The Lambda runtime always passes a
+`context`, so the deployed function resolves locally and never calls itself.
 """
 from __future__ import annotations
 
+import json
+import os
 from typing import Any, Optional
 
 from ..schemas import Profile, Request
@@ -52,8 +59,34 @@ def profile_required(request: Optional[Request]) -> dict[str, Any]:
     return _dump(ContextResult(status="profile_required", message=message))
 
 
+DEFAULT_CONTEXT_FUNCTION = "alphaforge-context"
+
+
+class ContextUnavailable(RuntimeError):
+    """The context Lambda could not be reached or failed."""
+
+
+def invoke_remote(event: dict[str, Any], client: Any = None, function: Optional[str] = None) -> dict[str, Any]:
+    """One synchronous invocation of the deployed context Lambda; same input and output as `handler`."""
+    function = function or os.environ.get("AF_CONTEXT_FUNCTION", DEFAULT_CONTEXT_FUNCTION)
+    if client is None:
+        import boto3
+
+        client = boto3.client("lambda", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+    try:
+        out = client.invoke(FunctionName=function, Payload=json.dumps(event, default=str).encode())
+    except Exception as e:  # network, permissions, throttling
+        raise ContextUnavailable(f"Context Lambda {function} unreachable: {type(e).__name__}: {e}") from e
+    result = json.loads(out["Payload"].read() or b"{}")
+    if out.get("FunctionError"):
+        raise ContextUnavailable(f"Context Lambda {function} failed: {result.get('errorMessage', result)}")
+    return result
+
+
 def handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]:
     """Validates the Intake JSON (Pydantic raises ValidationError if invalid), then resolves."""
+    if context is None and os.environ.get("AF_CONTEXT_MODE", "local").lower() == "lambda":
+        return invoke_remote(event)
     raw_request = event.get("request")
     if event.get("profile") is None:
         # The request, if any, is still validated: garbage is rejected, not silently ignored.

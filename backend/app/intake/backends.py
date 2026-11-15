@@ -1,10 +1,13 @@
 """Intake backends: what turns free text into an `IntakeDraft`.
 
 - `BedrockBackend`: Claude Haiku on Amazon Bedrock with structured outputs (the architecture.mmd path, link L2).
+- `LambdaBackend`: the same Bedrock extraction, run by the deployed `alphaforge-intake` Lambda (link L2). The
+  caller (the API) keeps the profile merge and storage; it only needs lambda:InvokeFunction, not Bedrock.
 - `MockBackend`: deterministic English keyword / regex rules, NO LLM. Used for tests and offline demos.
   It is deliberately simple and does not replace the model in production.
 
-Selected with the `AF_INTAKE_MODE` environment variable: `mock` (default) or `bedrock`.
+Selected with the `AF_INTAKE_MODE` environment variable: `mock` (default), `bedrock` or `lambda`
+(`AF_INTAKE_FUNCTION`, default "alphaforge-intake").
 """
 from __future__ import annotations
 
@@ -99,6 +102,53 @@ class BedrockBackend:
         if response.stop_reason == "refusal":
             raise IntakeRefused("The model refused the request.")
         return response.parsed_output
+
+
+# --------------------------------------------------------------------------------------------------
+# Lambda (the deployed alphaforge-intake function runs BedrockBackend.extract)
+# --------------------------------------------------------------------------------------------------
+DEFAULT_INTAKE_FUNCTION = "alphaforge-intake"
+
+
+class IntakeUnavailable(RuntimeError):
+    """The intake Lambda could not be reached or crashed (not a model output problem)."""
+
+
+class LambdaBackend:
+    """`extract` = one synchronous invocation of the intake Lambda with {"op": "extract", ...}.
+
+    The Lambda answers {"draft": IntakeDraft} or {"refused": reason} (model or guardrail refusal) or
+    {"invalid": message} (the model's output did not validate: raised as ValueError, so run_intake retries
+    once with that feedback, exactly as with BedrockBackend)."""
+
+    name = "lambda"
+
+    def __init__(self, function: Optional[str] = None, region: Optional[str] = None, client=None):
+        self.function = function or os.environ.get("AF_INTAKE_FUNCTION", DEFAULT_INTAKE_FUNCTION)
+        if client is None:
+            import boto3
+
+            client = boto3.client("lambda", region_name=region or os.environ.get("AWS_REGION", "us-east-1"))
+        self.client = client  # injectable for tests
+
+    def extract(self, text: str, known_profile: Optional[dict], feedback: Optional[str] = None) -> IntakeDraft:
+        event = {"op": "extract", "text": text, "known_profile": known_profile or {}, "feedback": feedback}
+        try:
+            out = self.client.invoke(FunctionName=self.function, Payload=json.dumps(event).encode())
+        except Exception as e:  # network, permissions, throttling
+            raise IntakeUnavailable(f"Intake Lambda {self.function} unreachable: {type(e).__name__}: {e}") from e
+        raw = json.loads(out["Payload"].read() or b"{}")
+        if out.get("FunctionError"):
+            raise IntakeUnavailable(f"Intake Lambda {self.function} failed: {raw.get('errorMessage', raw)}")
+        body = raw.get("body", raw)
+        body = json.loads(body) if isinstance(body, str) else body
+        if raw.get("statusCode", 200) != 200 or "error" in body:
+            raise IntakeUnavailable(f"Intake Lambda {self.function}: {body.get('error', body)}")
+        if "refused" in body:
+            raise IntakeRefused(body["refused"])
+        if "invalid" in body:
+            raise ValueError(body["invalid"])
+        return IntakeDraft.model_validate(body["draft"])
 
 
 # --------------------------------------------------------------------------------------------------
@@ -307,4 +357,6 @@ def get_backend(mode: Optional[str] = None) -> IntakeBackend:
         return BedrockBackend()
     if mode == "mock":
         return MockBackend()
-    raise ValueError(f"Unknown AF_INTAKE_MODE: {mode!r} (expected: mock or bedrock)")
+    if mode == "lambda":
+        return LambdaBackend()
+    raise ValueError(f"Unknown AF_INTAKE_MODE: {mode!r} (expected: mock, bedrock or lambda)")

@@ -23,7 +23,7 @@ from pydantic import ValidationError
 from app.schemas import Parameters, PortfolioRef, Position, Profile, Request, Toggles
 from app.store.profiles import ProfileStore
 
-from .backends import IntakeBackend, IntakeRefused, get_backend
+from .backends import IntakeBackend, IntakeRefused, IntakeUnavailable, get_backend
 from .schemas import AgentToggleChange, IntakeDraft, IntakeResult
 from .universe import load_universe, normalize_ticker
 
@@ -46,12 +46,15 @@ class IntakeError(RuntimeError):
 
 def _extract_with_retry(backend: IntakeBackend, text: str, known: dict) -> IntakeDraft:
     try:
-        return backend.extract(text, known)
-    except (ValidationError, ValueError) as first_error:
         try:
-            return backend.extract(text, known, feedback=str(first_error))
-        except (ValidationError, ValueError) as second_error:
-            raise IntakeError(f"Invalid output after 2 attempts: {second_error}") from second_error
+            return backend.extract(text, known)
+        except (ValidationError, ValueError) as first_error:
+            try:
+                return backend.extract(text, known, feedback=str(first_error))
+            except (ValidationError, ValueError) as second_error:
+                raise IntakeError(f"Invalid output after 2 attempts: {second_error}") from second_error
+    except IntakeUnavailable as e:  # the intake Lambda is down: same visible error for the caller (API 502)
+        raise IntakeError(str(e)) from e
 
 
 def _dedupe(items: list) -> list:
