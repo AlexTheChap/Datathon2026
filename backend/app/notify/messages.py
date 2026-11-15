@@ -39,7 +39,7 @@ def compose(events: list[NewsEvent], app_url: str | None = None) -> str:
     """One text for one person: up to MAX_ITEMS news items on stocks they hold."""
     if not events:
         raise ValueError("no news to send")
-    lines = [f"{e.ticker}: {e.source} on {_day(e.published_at)} ({e.headline})." for e in events[:MAX_ITEMS]]
+    lines = [f"{e.ticker}: \"{e.headline}\" ({e.source}, {_day(e.published_at)})." for e in events[:MAX_ITEMS]]
     more = len(events) - MAX_ITEMS
     head = "Fitfolio: news on stocks you hold."
     tail = ([f"+{more} more in the app."] if more > 0 else []) + ([app_url] if app_url else []) + [CLOSING]

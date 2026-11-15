@@ -112,7 +112,7 @@ def test_every_store_keeps_choices_and_the_sent_log(make, tmp_path):
 def test_a_text_is_short_factual_and_closes_with_the_disclaimer():
     text = compose([ev("NVDA", "2026-11-12", "executive departure or appointment"), ev("JNJ", "2026-10-13")])
     assert text.startswith("Fitfolio: news on stocks you hold.")
-    assert "NVDA: SEC 8-K filing on Nov 12 (executive departure or appointment)." in text
+    assert 'NVDA: "executive departure or appointment" (SEC 8-K filing, Nov 12).' in text
     assert text.endswith(CLOSING) and len(text) <= MAX_CHARS
 
 

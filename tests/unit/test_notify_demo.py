@@ -49,7 +49,7 @@ def test_holders_mode_texts_only_people_holding_the_ticker_and_records_nothing()
     assert r["mode"] == "holders" and r["texts_sent"] == 1
     assert [p for p, _ in sender.sent] == ["+15145550123"]
     text = sender.sent[0][1]
-    assert "NVDA: Reuters on Nov 20 (Nvidia unveils a new AI chip)." in text and text.endswith(CLOSING)
+    assert 'NVDA: "Nvidia unveils a new AI chip" (Reuters, Nov 20).' in text and text.endswith(CLOSING)
     assert len(text) <= MAX_CHARS
     run_demo(SPEC, contacts, profiles, sender)           # rehearsal: sent again (nothing marked as sent)
     assert len(sender.sent) == 2
