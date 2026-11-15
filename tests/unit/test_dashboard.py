@@ -11,7 +11,7 @@ import views  # noqa: E402
 
 from app.api.app import create_app  # noqa: E402
 from app.api.dispatch import InlineDispatcher  # noqa: E402
-from app.api.service import ApiService  # noqa: E402
+from app.api.service import ApiService, NoDispatcher  # noqa: E402
 from app.intake.backends import MockBackend  # noqa: E402
 from app.schemas.models import OrchestratorOutput  # noqa: E402
 from app.store.ledger import JsonlLedger  # noqa: E402
@@ -125,7 +125,7 @@ def client(tmp_path, monkeypatch):
         ledger.append(inp.run_id, {"tool": "scenarios___stress", "evidence_id": "ev-1", "agent": "risk_subagent"})
         return OrchestratorOutput(run_id=inp.run_id, summary="see ev-1", evidence_ids=["ev-1"])
 
-    svc = ApiService(intake_backend=MockBackend(), ledger=ledger)
+    svc = ApiService(intake_backend=MockBackend(), ledger=ledger, dispatcher=NoDispatcher())
     svc.dispatcher = InlineDispatcher(svc.runs, run_fn=fake_orchestrator)
     return TestClient(create_app(svc))
 

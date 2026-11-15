@@ -8,7 +8,7 @@ import json
 import pytest
 
 from app.api.intake_handler import handler as intake_lambda
-from app.api.service import ApiService, MessageIn
+from app.api.service import ApiService, MessageIn, NoDispatcher
 from app.context import handler as context_handler
 from app.context.handler import ContextUnavailable, invoke_remote
 from app.intake import IntakeError, IntakeRefused, LambdaBackend, MockBackend, get_backend, run_intake
@@ -50,7 +50,7 @@ def test_the_lambda_backend_gets_the_same_draft_as_in_process(intake_fn):
 
 def test_run_intake_through_the_lambda_keeps_merge_and_storage_on_the_caller(intake_fn):
     """The API's profile store and toggles still work: only the model step crossed the wire."""
-    svc = ApiService(intake_backend=LambdaBackend(client=intake_fn))
+    svc = ApiService(intake_backend=LambdaBackend(client=intake_fn), dispatcher=NoDispatcher())
     status, out = svc.post_message("amy", MessageIn(text="I don't care about the news. Is my portfolio too risky?",
                                                     profile_form=FORM))
     assert status == 202 and out.kind == "run"

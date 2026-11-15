@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from app.api import auth
 from app.api.app import create_app
 from app.api.auth import AuthError, CognitoVerifier, Identity, identify
-from app.api.service import ApiService
+from app.api.service import ApiService, NoDispatcher
 from app.intake import MockBackend
 
 REGION, POOL, CLIENT = "us-east-1", "us-east-1_TestPool", "test-client-id"
@@ -102,7 +102,7 @@ def test_demo_persona_only_for_the_demo_domain():
 def client(monkeypatch, verifier):
     monkeypatch.setenv("AF_AUTH_MODE", "cognito")
     monkeypatch.setattr(auth, "verifier_from_env", lambda: verifier)
-    return TestClient(create_app(ApiService(intake_backend=MockBackend())))
+    return TestClient(create_app(ApiService(intake_backend=MockBackend(), dispatcher=NoDispatcher())))
 
 
 def bearer(**kw):
@@ -162,7 +162,7 @@ def site(tmp_path, monkeypatch):
 @pytest.mark.parametrize("mode, served", [("cognito", True), ("dev", False), ("jwt", False)])
 def test_config_js_is_served_only_when_the_api_verifies_cognito_tokens(site, monkeypatch, mode, served):
     monkeypatch.setenv("AF_AUTH_MODE", mode)
-    r = TestClient(create_app(ApiService(intake_backend=MockBackend()))).get("/config.js")
+    r = TestClient(create_app(ApiService(intake_backend=MockBackend(), dispatcher=NoDispatcher()))).get("/config.js")
     assert r.status_code == 200 and r.headers["content-type"].startswith("application/javascript")
     assert ("AF_CONFIG" in r.text) is served
     assert r.headers["cache-control"] == "no-store"

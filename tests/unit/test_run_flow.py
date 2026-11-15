@@ -45,7 +45,7 @@ def explainer_with(client):
 
 
 def test_dispatcher_stores_a_checked_answer():
-    svc = ApiService(intake_backend=MockBackend())
+    svc = ApiService(intake_backend=MockBackend(), dispatcher=NoDispatcher())
     run = queued_run(svc)
     statuses = []
     orig = svc.runs.put
@@ -61,7 +61,7 @@ def test_dispatcher_stores_a_checked_answer():
 
 
 def test_explainer_crash_never_loses_the_run():
-    svc = ApiService(intake_backend=MockBackend())
+    svc = ApiService(intake_backend=MockBackend(), dispatcher=NoDispatcher())
     run = queued_run(svc)
 
     def boom(*a):
@@ -73,7 +73,7 @@ def test_explainer_crash_never_loses_the_run():
 
 
 def test_failed_orchestrator_still_gets_an_honest_answer():
-    svc = ApiService(intake_backend=MockBackend())
+    svc = ApiService(intake_backend=MockBackend(), dispatcher=NoDispatcher())
     run = queued_run(svc)
 
     def boom(inp):
@@ -108,7 +108,7 @@ def test_every_dispatch_mode_gets_the_explainer():
 
 def test_evidence_catalog_endpoint_is_owner_only(monkeypatch):
     monkeypatch.setenv("AF_AUTH_MODE", "dev")
-    svc = ApiService(intake_backend=MockBackend(), runs=InMemoryRunStore(), ledger=FakeLedger())
+    svc = ApiService(intake_backend=MockBackend(), runs=InMemoryRunStore(), ledger=FakeLedger(), dispatcher=NoDispatcher())
     client = TestClient(create_app(svc))
     run_id = client.post("/v1/runs", json={"text": "Is my portfolio too risky?", "profile_form": FORM},
                          headers={"X-Actor-Id": "robert"}).json()["run_id"]

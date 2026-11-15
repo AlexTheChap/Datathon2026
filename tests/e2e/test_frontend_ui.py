@@ -13,11 +13,11 @@ playwright_api = pytest.importorskip("playwright.sync_api")
 uvicorn = pytest.importorskip("uvicorn")
 
 from app.api.app import create_app  # noqa: E402
-from app.api.service import ApiService  # noqa: E402
+from app.api.service import ApiService, NoDispatcher  # noqa: E402
 from app.intake import MockBackend  # noqa: E402
 
 
-SERVICE = ApiService(intake_backend=MockBackend())  # the server's service: tests can attach answers to its runs
+SERVICE = ApiService(intake_backend=MockBackend(), dispatcher=NoDispatcher())  # plan only (no Bedrock in tests); tests attach answers to its runs
 
 
 def NO_CONFIG(route):
