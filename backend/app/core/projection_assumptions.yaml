@@ -1,0 +1,39 @@
+# Projection assumptions (app.quant.projection, app.quant.garch). Read by backend/app/quant/assumptions.py.
+# Expected returns come ONLY from here: never estimated from past prices.
+# Every change here changes every projection: keep the source fields in sync with the published guidelines.
+source: "FP Canada Standards Council & Institute of Financial Planning, Projection Assumption Guidelines 2026 (in effect April 30, 2026), before fees"
+source_url: "https://institutpf.org/en/projection-assumption-guidelines"
+horizon_note: "Guidelines are intended for long-term (10+ years) projections."
+inflation: 0.021
+rates:                     # nominal, compound annual, before fees
+  short_term: 0.024
+  fixed_income: 0.032
+  canadian_equities: 0.063
+  us_equities: 0.064
+  intl_developed_equities: 0.066
+  emerging_equities: 0.075
+team_assumptions:          # NOT from the PAG: labelled as team assumptions everywhere they are used
+  gold: 0.021              # = inflation (no PAG category)
+  crypto: 0.021            # = inflation (no PAG category); volatility still from data
+mapping:                   # how tickers are assigned; explicit list beats rules
+  by_ticker:
+    ZST.TO: short_term
+    AGG: fixed_income
+    TLT: fixed_income
+    XBB.TO: fixed_income
+    GLD: gold
+    BTC-USD: crypto
+    ETH-USD: crypto
+  # Fallback for equities and equity ETFs: key = "equity_<market>", with <market> exactly as in the `market`
+  # column of data/curated/assets_universe.csv. asset_class "equity" and "etf_equity" both use it.
+  by_asset_class_and_market:
+    equity_TSX: canadian_equities
+    equity_NASDAQ: us_equities
+    equity_NYSE: us_equities
+    equity_NYSE Arca: us_equities
+    equity_Cboe BZX: us_equities
+ewma_lambda: 0.94          # EWMA (RiskMetrics) decay, used when a GARCH fit is rejected
+max_forecast_age_days: 7   # vol_forecast.csv older than this (vs the requested as_of) -> historical volatility
+risk_trend:
+  rising_ratio: 1.15      # forecast_vol / hist_vol_63d above this → "rising"
+  easing_ratio: 0.85      # below this → "easing"
