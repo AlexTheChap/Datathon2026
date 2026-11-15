@@ -31,6 +31,7 @@ const TASKS = {
   esg_screen: "ESG screen",
   fundamentals_review: "fundamentals review",
   news_review: "news review",
+  projection: "projection of possible outcomes",
   out_of_scope: "request outside the simulation",
 };
 

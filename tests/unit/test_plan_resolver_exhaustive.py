@@ -4,7 +4,7 @@ written here, independently of core/plan_registry.yaml and plan_resolver.py.
 If someone changes the registry or the code and the behaviour changes, this test fails: update the
 oracle ON PURPOSE (and the diagram if a flow changes).
 
-Space covered: 7 tasks × 64 profile toggle combinations × include_rag × 4 profile types = 1,792 plans.
+Space covered: 8 tasks × 64 profile toggle combinations × include_rag × 4 profile types = 4,096 plans.
 """
 import itertools
 import json
@@ -22,6 +22,7 @@ REQUIRED = {
     "esg_screen": {"esg"},
     "fundamentals_review": {"fundamentals"},
     "news_review": {"news"},
+    "projection": {"risk"},
     "out_of_scope": set(),
 }
 
