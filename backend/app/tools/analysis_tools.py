@@ -12,6 +12,7 @@ import pandas as pd
 from strands import tool
 
 from app.core.config import get_settings
+from app.tools.context import effective_as_of
 from app.tools.risk_tools import _eid
 
 _LABELS = {
@@ -44,13 +45,13 @@ def macro_snapshot(as_of: str | None = None) -> dict:
     unemployment — Canada and US. Release-aware table; no data after as_of.
 
     Args:
-        as_of: Optional "YYYY-MM-DD" reference date.
+        as_of: Optional earlier "YYYY-MM-DD" date (the run's reference date is the upper bound).
     """
+    as_of = effective_as_of(as_of)          # never later than the run's reference date
     df = pd.read_csv(_curated() / "macro_daily_asof.csv", parse_dates=["date"])
-    if as_of:
-        df = df[df["date"] <= pd.Timestamp(as_of)]
-        if df.empty:
-            raise ValueError(f"No macro data on or before {as_of}.")
+    df = df[df["date"] <= pd.Timestamp(as_of)]
+    if df.empty:
+        raise ValueError(f"No macro data on or before {as_of}.")
     row = df.sort_values("date").iloc[-1]
     out = {"date": str(row["date"].date())}
     skipped = []
@@ -100,7 +101,7 @@ def rate_sensitivity(tickers: list[str]) -> dict:
 
 
 @tool
-def esg_screen(tickers: list[str]) -> dict:
+def esg_screen(tickers: list[str], as_of: str | None = None) -> dict:
     """ESG-index membership and documented controversies for the given tickers.
     Membership: is the stock inside the reference ESG index (preference signal,
     never a ban). Controversies: extracted from filings/NBIM with severity and
@@ -108,7 +109,10 @@ def esg_screen(tickers: list[str]) -> dict:
 
     Args:
         tickers: Assets from the universe (e.g. ["XOM", "CNQ.TO"]).
+        as_of: Optional earlier "YYYY-MM-DD" date; controversies published after the run's reference
+            date are never returned (point-in-time).
     """
+    as_of = effective_as_of(as_of)
     tset = set(tickers)
 
     screen = pd.read_csv(_curated() / "esg_index_screen.csv")
@@ -121,7 +125,7 @@ def esg_screen(tickers: list[str]) -> dict:
     }
 
     cont = pd.read_csv(_curated() / "controversies.csv", dtype=str).fillna("")
-    cont = cont[cont["ticker"].isin(tset)]
+    cont = cont[cont["ticker"].isin(tset) & (cont["publication_date"] <= as_of)]
     controversies = [
         {"ticker": r.ticker, "severity": r.severity, "status": r.status,
          "category": r.category, "description": r.description[:220],
@@ -136,8 +140,9 @@ def esg_screen(tickers: list[str]) -> dict:
     say = (f"Outside reference ESG index: {', '.join(excluded) if excluded else 'none'}. "
            f"Controversy lines: {len(controversies)}"
            + (f" (unverified-only for: {', '.join(unverified)})" if unverified else "") + ".")
-    return _envelope("esg_screen", {"tickers": tickers}, out, say,
-                     ["Index membership does not explain WHY a stock is excluded "
+    return _envelope("esg_screen", {"tickers": tickers, "as_of": as_of}, out, say,
+                     [f"Controversies are limited to those published on or before {as_of} (point-in-time).",
+                      "Index membership does not explain WHY a stock is excluded "
                       "(reason not published); it is a discussion signal, not a verdict.",
                       "Controversy rows with status != 'verified' are unreviewed "
                       "extracts: absence of evidence is not evidence of absence."],

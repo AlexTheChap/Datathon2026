@@ -25,7 +25,6 @@ Used by the Allocation sub-agent. The LLM never computes: it cites this evidence
 """
 from __future__ import annotations
 
-import copy
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -70,28 +69,24 @@ STATUS_INFEASIBLE = "infeasible"
 # ---------------------------------------------------------------- helpers
 
 def _load_check() -> Callable:
-    """governance_check lives in agents/governance (no package yet): import it through sys.path."""
+    """The governance check. Imported lazily: the optimizer works without it until it has to verify."""
     try:
-        from governance_check import check
+        from app.agents.governance.governance_check import (
+            check,  # backend/ on sys.path (the app package)
+        )
     except ModuleNotFoundError:
-        if str(GOVERNANCE_DIR) not in sys.path:
-            sys.path.append(str(GOVERNANCE_DIR))
-        from governance_check import check
+        try:
+            from governance_check import check  # agents/governance on sys.path (tests)
+        except ModuleNotFoundError:
+            if str(GOVERNANCE_DIR) not in sys.path:
+                sys.path.append(str(GOVERNANCE_DIR))
+            from governance_check import check
     return check
 
 
 def _pit_view(rt: RiskTools, as_of: str | None) -> RiskTools:
-    """Point-in-time view of the risk tools: no return or price after `as_of`.
-    `rt.stress` and `governance_check.check` take no `as_of`, so they are given this view."""
-    if not as_of:
-        return rt
-    cut = pd.Timestamp(as_of)
-    view = copy.copy(rt)
-    view.rets = rt.rets.loc[:cut]
-    view.prices = rt.prices.loc[:cut]
-    if view.rets.empty:
-        raise ValueError(f"No data on or before as_of={as_of}.")
-    return view
+    """Point-in-time view of the risk tools (see `RiskTools.at`)."""
+    return rt.at(as_of)
 
 
 class _Rows:

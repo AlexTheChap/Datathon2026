@@ -23,7 +23,7 @@ from app.intake.schemas import AgentToggleChange
 from app.schemas import PortfolioRef, Profile
 from app.schemas.profile import AgentToggles
 from app.store.profiles import InMemoryProfileStore, ProfileStore
-from app.store.runs import InMemoryRunStore, RunRecord, RunStore, new_run_id
+from app.store.runs import InMemoryRunStore, RunRecord, RunStore, new_run_id, new_session_id
 
 MAX_TEXT_CHARS = 4000
 
@@ -51,6 +51,8 @@ class MessageIn(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_TEXT_CHARS)
     profile_form: Optional[dict[str, Any]] = None
     portfolio_ref: Optional[PortfolioRef] = None
+    # Conversation id returned by the previous answer: keeps the session (short-term memory) across turns.
+    session_id: Optional[str] = Field(default=None, min_length=1, max_length=100, pattern=r"^[A-Za-z0-9][A-Za-z0-9_\-]*$")
 
 
 class MessageOut(BaseModel):
@@ -62,6 +64,7 @@ class MessageOut(BaseModel):
     missing_fields: list[str] = Field(default_factory=list)
     message: Optional[str] = None
     run_id: Optional[str] = None
+    session_id: Optional[str] = None
     run_status: Optional[str] = None
     enabled_agents: list[str] = Field(default_factory=list)
     toggle_changes: list[AgentToggleChange] = Field(default_factory=list)
@@ -107,12 +110,14 @@ class ApiService:
         if ctx["status"] == "profile_required":
             return 200, MessageOut(kind="message", message=ctx["message"], **common)
 
-        run = RunRecord(run_id=new_run_id(), actor_id=actor_id, profile=res.profile, request=res.request,
+        session_id = body.session_id or new_session_id()
+        run = RunRecord(run_id=new_run_id(), actor_id=actor_id, session_id=session_id,
+                        profile=res.profile, request=res.request,
                         execution_plan=ctx["execution_plan"], prompt_ref=ctx["prompt_ref"],
                         note=getattr(self.dispatcher, "note", None))
         self.runs.put(run)
         self.dispatcher.dispatch(run)
-        return 202, MessageOut(kind="run", run_id=run.run_id, run_status=run.status,
+        return 202, MessageOut(kind="run", run_id=run.run_id, session_id=session_id, run_status=run.status,
                                enabled_agents=run.execution_plan.enabled_names, **common)
 
     # ----- GET /v1/runs/{run_id} -----
@@ -152,11 +157,18 @@ class ApiService:
 
 
 def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
-    """AF_STORE=memory (default, local) | dynamodb (AF_TABLE, default "alphaforge")."""
+    """AF_STORE=memory (default, local) | dynamodb (AF_TABLE, default "alphaforge").
+    AF_DISPATCH=local (default with the memory store: the orchestrator runs in a background thread) | none
+    (default with DynamoDB: the run stays QUEUED until the AgentCore dispatcher is deployed)."""
     env = os.environ if env is None else env
     kind = env.get("AF_STORE", "memory").lower()
+    dispatch = env.get("AF_DISPATCH", "local" if kind == "memory" else "none").lower()
+    if dispatch not in ("local", "none"):
+        raise ValueError(f"Unknown AF_DISPATCH: {dispatch!r} (expected: local or none)")
     if kind == "memory":
-        return ApiService()
+        runs = InMemoryRunStore()
+        from .dispatcher import LocalDispatcher
+        return ApiService(runs=runs, dispatcher=LocalDispatcher(runs) if dispatch == "local" else NoDispatcher())
     if kind == "dynamodb":
         import boto3
 
@@ -164,5 +176,8 @@ def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
         from app.store.runs import DynamoDBRunStore
 
         table = boto3.resource("dynamodb").Table(env.get("AF_TABLE", "alphaforge"))
-        return ApiService(profiles=DynamoDBProfileStore(table), runs=DynamoDBRunStore(table))
+        runs = DynamoDBRunStore(table)
+        from .dispatcher import LocalDispatcher
+        return ApiService(profiles=DynamoDBProfileStore(table), runs=runs,
+                          dispatcher=LocalDispatcher(runs) if dispatch == "local" else NoDispatcher())
     raise ValueError(f"Unknown AF_STORE: {kind!r} (expected: memory or dynamodb)")

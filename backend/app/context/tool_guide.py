@@ -20,9 +20,9 @@ _DELEGATION_LINES: dict[str, str] = {
     "risk": "- Portfolio risk (stress, concentration, risk contribution, position sizing) → **`risk_subagent`**",
     "macro_scenarios": "- Macro environment / crisis scenarios → **`macro_subagent`**",
     "esg": "- ESG index membership & controversies → **`esg_subagent`**",
-    "fundamentals": "- Documented filing facts (10-K/NBIM extracts) → **`fundamentals_subagent`**",
-    "allocation": "- Building a hypothetical allocation → **`allocation_subagent`** (self-verifies via governance)",
-    "news": "- News backdrop → **`news_subagent`** — SIMULATED content: always label it as fictional",
+    "fundamentals": "- Documented filing facts (SEC 8-K events, 10-K/NBIM extracts) → **`fundamentals_subagent`**",
+    "allocation": "- Building a hypothetical allocation → **`allocation_subagent`** (weights come from the optimizer tool, verified)",
+    "news": "- Dated news (SEC 8-K, rate decisions, press headlines; point-in-time) → **`news_subagent`** — the corpus is incomplete: say so when it finds nothing",
 }
 _DELEGATION_FOOTER = """Give each sub-agent a precise `subject` (+ `weights` / `tickers` when relevant); calibration
 questions belong in the subject (e.g. "...and the maximum NVDA weight respecting a -15% loss
@@ -42,8 +42,8 @@ _STRATEGIES: dict[str, str] = {
    alternative, do not endorse the request as-is.""",
     "allocation_proposal": """### Strategy for "allocation_proposal"
 1. Delegate construction: **`allocation_subagent`** with the goal in the subject (risk band,
-   horizon and exclusions are attached automatically) — it returns weights already
-   self-verified to PASS.
+   horizon and exclusions are attached automatically) — its weights come from the
+   optimizer tool and are already verified; if it returns none, no allocation satisfies the rules: say which.
 2. Verify the returned weights yourself with **`governance_check`**.
 3. Add **`risk_subagent`** / **`macro_subagent`** on the retained weights for the crisis
    context when useful.

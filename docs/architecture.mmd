@@ -149,15 +149,19 @@ flowchart TB
   %%      macro_daily_asof, rate_sensitivity, esg_index_screen, controversies…).
   GW --> S3
   %% L15 Tools → Evidence ledger: a Strands hook (AfterToolCallEvent) fires after every tool
-  %%      call. TARGET sink: DynamoDB (RUN#id / EVID#E-001). CURRENT: local JSONL ledger
+  %%      call. TARGET sink: DynamoDB (RUN#id / EVID#ev-<hash>). CURRENT: local JSONL ledger
   %%      data/runs/<run_id>.jsonl behind the same EvidenceLedger interface — every call is
   %%      one record (seq, caller agent tag, tool, inputs, envelope), incl. nested sub-agent
   %%      calls and failures. Viewer: scripts/show_run.py.
   GW -->|"each call = 1 evidence"| DDB
   %% L16 DynamoDB → Explainer: reads (Query) the evidence ledger via the get_evidence tool.
   DDB -.->|"evidence ledger"| EXP
-  %% L17 Orchestrator ↔ Memory: AgentCore Memory (short term: session; long term: preferences
-  %%      per actorId) via the Strands session manager.
+  %% L17 Orchestrator ↔ Memory: AgentCore Memory, on the main agent only (sub-agents stay stateless).
+  %%      Short term: the conversation, stored per (actorId, sessionId) by the Strands session manager and restored
+  %%      on the next turn (the API returns session_id). Long term: userPreferenceMemoryStrategy extracts SOFT
+  %%      preferences into /preferences/{actorId}/; code loads them at each run into the system prompt.
+  %%      They guide tone and emphasis, never override profile or governance, and are not evidence.
+  %%      Setup: scripts/agentcore_memory.py create --write-env (AF_MEMORY_ID). Without it the run goes on, memory off.
   ORCH <-.-> MEM
   %% L18 Explainer → DynamoDB: RunResult written (S3 if > 400 KB); Guardrails grounding check
   %%      on the short answer.

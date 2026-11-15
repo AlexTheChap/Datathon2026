@@ -28,7 +28,7 @@ def test_ledger_seq_and_unique_ids(tmp_path: Path):
     led.append("run-1", {"tool": "stress", "evidence_id": "ev-bbb"})
     led.append("run-1", {"tool": "metrics", "evidence_id": "ev-aaa"})  # identical re-call
     recs = led.records("run-1")
-    assert [r["seq"] for r in recs] == ["E-001", "E-002", "E-003"]  # every call = 1 evidence
+    assert [r["seq"] for r in recs] == [1, 2, 3]  # every call = 1 record, numbered in call order
     assert led.evidence_ids("run-1") == ["ev-aaa", "ev-bbb"]        # deduplicated citations
     assert led.records("unknown-run") == []
 
@@ -42,7 +42,7 @@ def test_hook_records_risk_tools_evidence(tmp_path: Path):
     hook._on_tool_call(_FakeAfterToolCallEvent("stress", evidence))
 
     (r,) = led.records("run-2")
-    assert r["seq"] == "E-001" and r["evidence_id"] == "ev-xyz"
+    assert r["seq"] == 1 and r["evidence_id"] == "ev-xyz"
     assert r["tool"] == "stress" and r["payload"]["output"]["portfolio"]["max_drawdown"] == -0.21
 
 

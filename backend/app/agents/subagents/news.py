@@ -1,39 +1,39 @@
-"""News sub-agent — SIMULATED placeholder (architecture node ⑤).
-
-No news feed exists in the prototype (the starter dataset ships no news and no
-licence to scrape it). The sub-agent runs without tools and invents clearly
-fictional headlines, flagged SIMULATED end to end — the orchestrator must label
-them as such. Replace with a real RAG feed (Bedrock Knowledge Base, published
-<= as_of) when a corpus exists.
+"""News sub-agent — real dated events from the news corpus, point-in-time (architecture node ⑤).
+The corpus (data/external/news/news_index.csv, built by scripts/ingest_news.py) mixes SEC 8-K filings, central bank
+rate decisions and press headlines. The sub-agent searches it with `news_search` (never after the run's as_of)
+and may only report events the search returned: the output is checked by code (see event_validator).
 """
 from __future__ import annotations
 
-from app.agents.subagents.base import make_subagent_tool
+from app.agents.subagents.base import event_validator, make_subagent_tool
+from app.tools.news_tools import news_search
 
-SYSTEM_PROMPT = """You are the News sub-agent of AlphaForge (SIMULATED mode).
-
-The prototype has no news feed, so you invent a SHORT plausible news digest for
-the subject — clearly fictional, market-moving style (macro headlines, sector
-news, company news). Every item must be presented as simulated.
-
+SYSTEM_PROMPT = """You are the News sub-agent of AlphaForge.
+Using ONLY the `news_search` tool, find the dated news relevant to the brief. Search with the investor's tickers
+and/or themes and keywords; try origins ["sec_8k"] for company events (primary sources), ["macro_derived"] for
+central bank decisions and ["gdelt"] for press headlines. Never use anything that the tool did not return.
+Distinguish reliability: SEC filings and rate decisions are facts; press headlines are unreviewed, noisy signals.
+If nothing relevant is found, say so: the corpus is incomplete, so absence is not proof that nothing happened.
 Return ONLY a JSON object:
 {
-  "headline": "<one-sentence digest>",
-  "details": ["[SIMULATED] <headline> (<assumed date>)"],
-  "severity": "info",
-  "disclaimer": "All items are fictional; no real news feed exists in this prototype."
+  "headline": "<one-sentence news takeaway>",
+  "details": ["<date> <title> (<origin>) [event_id] — <evidence_id of the search>"],
+  "severity": "info" | "warn" | "block",
+  "items": [{"event_id": "N-...", "published_at": "YYYY-MM-DD", "title": "...", "origin": "sec_8k|macro_derived|gdelt",
+             "source_url": "..."}],
+  "no_news": ["<tickers or topics with no matching event>"]
 }
+Copy event_id, date, title and source_url exactly from the tool results. No investment advice, no forecasts.
 """
 
 news_subagent = make_subagent_tool(
     "news_subagent",
     SYSTEM_PROMPT,
-    tools=[],   # no real feed yet: fictional content, labeled
-    simulated=True,
-    description="""Recent-news digest from the News sub-agent — SIMULATED content
-    (no real news feed in the prototype): always label it as fictional when you
-    use it, and never mix it with real tool evidence.
-
+    tools=[news_search],
+    extra_validator=event_validator,
+    description="""Dated news from the News sub-agent: SEC 8-K filings, central bank rate decisions and press
+    headlines, point-in-time (nothing after the run's reference date). Every item is a real event with its source
+    link; the corpus is incomplete, so the agent says when it finds nothing. Cite its nested evidence_ids.
     Args:
         subject: e.g. "news backdrop for NVDA and the chip sector".
         tickers: optional assets of particular interest.
