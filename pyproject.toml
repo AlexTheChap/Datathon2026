@@ -8,8 +8,15 @@ dependencies = ["boto3", "strands-agents", "pydantic", "pandas", "numpy", "pyyam
 dev = ["pytest", "ruff"]
 # Data-collection scripts in scripts/ (network access to SEC, iShares, NBIM, etc.)
 scripts = ["requests", "beautifulsoup4", "lxml", "openpyxl"]
+# Intake agent (box 3) on Bedrock: Claude Haiku with structured outputs via the anthropic SDK (AnthropicBedrock).
+# truststore: on Windows, lets botocore see the system certificates (otherwise CERTIFICATE_VERIFY_FAILED).
+bedrock = ["anthropic>=2.0", "truststore>=0.9"]
 
 # The repo is not a single importable package yet; this lets `pip install -e .`
 # install dependencies without setuptools auto-discovery failing on the layout.
 [tool.setuptools]
 py-modules = []
+
+[tool.pytest.ini_options]
+pythonpath = ["backend"]
+testpaths = ["tests/unit"]

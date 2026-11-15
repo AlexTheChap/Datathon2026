@@ -20,3 +20,6 @@ venv/
 # Infra
 cdk.out/
 .bedrock_agentcore.yaml
+
+# Build artifacts (scripts/deploy_intake_lambda.py)
+build/
