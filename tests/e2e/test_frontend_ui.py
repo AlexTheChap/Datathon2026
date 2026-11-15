@@ -539,18 +539,32 @@ def test_profile_page_is_drawn_once_when_the_user_navigates_during_its_load(page
     assert page.errors == []
 
 
-def test_switching_an_analysis_off_hides_it_without_rebuilding(page, base_url):
-    run = _portfolio_for(page)
-    page.goto(page.url.split("#")[0] + "#/portfolio")
-    page.wait_for_selector("#esg-title")                                           # ESG shown while it is on
+def test_esg_screening_and_controversies_are_one_hard_limit(page, base_url):
+    run = _portfolio_for(page)                                                     # Mateo: no major controversies
     page.goto(page.url.split("#")[0] + "#/profile/form")
-    page.wait_for_selector("#toggle-esg")
-    page.uncheck("#toggle-esg")
+    page.wait_for_selector("input[name=limit-esg]")
+    page.wait_for_timeout(300)
+    assert page.is_checked("input[name=limit-esg]")
+    assert page.locator("input[name=limit-fossil], #toggle-esg").count() == 0      # no fossil limit, no ESG switch
+    assert page.locator("main label:has-text('ESG')").count() == 1                 # ESG is named once, in the limits
+    page.uncheck("input[name=limit-esg]")
+    page.click("button:has-text('Save profile')")
+    for _ in range(50):
+        saved = SERVICE.profiles.get(run.actor_id)
+        if not saved.exclusions:
+            break
+        page.wait_for_timeout(100)
+    assert saved.exclusions == [] and saved.agent_toggles.esg is False       # the one setting turns both off
+    assert page.errors == []
+
+
+def test_switching_an_analysis_off_does_not_rebuild(page, base_url):
+    run = _portfolio_for(page)
+    page.goto(page.url.split("#")[0] + "#/profile/form")
+    page.wait_for_selector("#toggle-news")
+    page.uncheck("#toggle-news")
     page.click("button:has-text('Save profile')")
     page.wait_for_selector("text=Your portfolio stays the same")                  # explained, no rebuild
-    page.click("a.nav__link:has-text('My portfolio')")
-    page.wait_for_selector(".hero-card")
-    assert page.locator("#esg-title").count() == 0
     assert [r.request.user_message for r in SERVICE.runs.list_for_actor(run.actor_id, 20)].count(
         "Build a simulated portfolio that fits my profile.") == 1                  # no new build
     assert page.errors == []

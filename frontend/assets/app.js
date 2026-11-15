@@ -17,7 +17,7 @@ const POLL_MAX = 45; // ~3 minutes: a real analysis (agents + Explainer) takes a
 const AGENTS = {
   risk: { name: "Portfolio risk", desc: "Volatility, worst drop and concentration of your holdings." },
   macro_scenarios: { name: "Macro and rates", desc: "Interest rates, inflation, and how sensitive your holdings are to rate changes." },
-  esg: { name: "ESG and controversies", desc: "Environmental, social and governance screens, and known controversies." },
+  esg: { name: "ESG screening", desc: "Environmental, social and governance checks on the companies in your answers." },
   fundamentals: { name: "Company fundamentals", desc: "Facts from company filings, such as annual reports." },
   news: { name: "News", desc: "What the news says about the assets you mention." },
   allocation: { name: "Allocation proposal", desc: "A suggested split of your money that fits your profile." },
@@ -45,14 +45,16 @@ const EXPERIENCE = [
   { value: "intermediate", title: "Intermediate", desc: "You know stocks, bonds and ETFs." },
   { value: "advanced", title: "Advanced", desc: "You follow the markets. Answers include the technical figures." },
 ];
+// Hard limits. "esg" is one setting for two things: the ESG screening (agent toggle `esg`) and the exclusion of
+// companies with a major controversy, which only that screening can check (box ④ forces it while the exclusion is set).
 const LIMITS = [
   { key: "crypto", exclusion: { type: "asset_class", value: "crypto" }, title: "No crypto-assets",
     desc: "Bitcoin, Ether and similar are never part of an answer." },
-  { key: "controversy", exclusion: { type: "controversy", min_severity: "major" }, title: "Avoid major controversies",
-    desc: "Companies with serious environmental or social controversies are flagged." },
-  { key: "fossil", exclusion: { type: "esg_activity", value: "fossil_fuels" }, title: "No fossil-fuel companies",
-    desc: "Companies earning a large share of revenue from oil, gas or coal are flagged." },
+  { key: "esg", exclusion: { type: "controversy", min_severity: "major" }, toggle: "esg", title: "ESG screening, no major controversies",
+    desc: "Companies are checked on environmental, social and governance criteria; those with a serious controversy are flagged." },
 ];
+// The analyses a person switches on or off. ESG is not one of them: it is the hard limit above.
+const ANALYSES = AGENT_ORDER.filter((a) => a !== "esg");
 const EXAMPLE_QUESTIONS = [
   "Is my portfolio too risky compared to SPY?",
   "How exposed is my portfolio to a rate hike?",
@@ -430,7 +432,7 @@ const HOME = "#/portfolio";
 
 /** What the profile conversation (onboarding.js) needs from the app. */
 function onboardingContext() {
-  return { h, icon, api, upload, band, alertBox, announce, money, horizonText, RISK, EXPERIENCE, LIMITS, AGENTS, AGENT_ORDER,
+  return { h, icon, api, upload, band, alertBox, announce, money, horizonText, RISK, EXPERIENCE, LIMITS, AGENTS, AGENT_ORDER, ANALYSES,
     loadProfile: async (force) => loadProfile(force),
     onSaved: (before, fresh) => { state.profile = fresh; onProfileSaved(dashboardContext(), before, fresh); } };
 }
@@ -791,7 +793,7 @@ function renderAsk(main) {
 }
 
 function profileSummary(p) {
-  const off = AGENT_ORDER.filter((a) => p.agent_toggles && p.agent_toggles[a] === false).map((a) => AGENTS[a].name);
+  const off = ANALYSES.filter((a) => p.agent_toggles && p.agent_toggles[a] === false).map((a) => AGENTS[a].name);
   const limits = LIMITS.filter((l) => (p.exclusions || []).some((e) => e.type === l.exclusion.type)).map((l) => l.title);
   return h("section", { class: "panel stack-sm", "aria-labelledby": "summary-title" },
     h("h2", { id: "summary-title", class: "section-title" }, "Your profile"),
@@ -888,7 +890,7 @@ function profileForm(saved, initialStatus = null) {
       onclick: () => { fill(p.profile_form); markDirty(); status.textContent = `Filled with ${p.name}'s profile. Review it, then save.`; announce(status.textContent); } },
       `${p.name}: ${p.summary}`)))) : null;
 
-  const toggleRows = AGENT_ORDER.map((a) => {
+  const toggleRows = ANALYSES.map((a) => {
     const quote = saved && saved.agent_toggle_reasons ? saved.agent_toggle_reasons[a] : null;
     return h("div", { class: "switch-row" },
       h("div", { class: "switch-row__text" },
@@ -922,7 +924,7 @@ function profileForm(saved, initialStatus = null) {
     h("div", { class: "field" },
       h("label", { class: "field__label", for: "preferences" }, "Interests ", h("span", { class: "optional" }, "(optional)")),
       h("textarea", { class: "textarea", id: "preferences", name: "preferences", rows: "3", "aria-describedby": "preferences-help" }),
-      h("p", { class: "field__help", id: "preferences-help" }, "One per line. Mentioning ESG turns on the ESG check for every question.")),
+      h("p", { class: "field__help", id: "preferences-help" }, "One per line, in your own words.")),
     h("fieldset", null,
       h("legend", null, "Hard limits ", h("span", { class: "optional" }, "(optional)")),
       h("p", { class: "legend-help" }, "Rules AlphaForge always checks, whatever the question."),
@@ -973,7 +975,7 @@ function profileForm(saved, initialStatus = null) {
     set("objective", p.objective || "");
     set("preferences", (p.preferences || []).join("\n"));
     for (const l of LIMITS) form.elements.namedItem(`limit-${l.key}`).checked = (p.exclusions || []).some((e) => e.type === l.exclusion.type);
-    for (const a of AGENT_ORDER) form.elements.namedItem(`toggle-${a}`).checked = !p.agent_toggles || p.agent_toggles[a] !== false;
+    for (const a of ANALYSES) form.elements.namedItem(`toggle-${a}`).checked = !p.agent_toggles || p.agent_toggles[a] !== false;
     form.elements.namedItem("wants_to_learn").checked = !!p.wants_to_learn;
     form._otherExclusions = (p.exclusions || []).filter((e) => !LIMITS.some((l) => l.exclusion.type === e.type));
     clearErrors();
@@ -990,7 +992,8 @@ function profileForm(saved, initialStatus = null) {
       objective: form.elements.namedItem("objective").value.trim() || null,
       preferences: form.elements.namedItem("preferences").value.split("\n").map((s) => s.trim()).filter(Boolean),
       exclusions: [...LIMITS.filter((l) => form.elements.namedItem(`limit-${l.key}`).checked).map((l) => l.exclusion), ...(form._otherExclusions || [])],
-      agent_toggles: Object.fromEntries(AGENT_ORDER.map((a) => [a, form.elements.namedItem(`toggle-${a}`).checked])),
+      agent_toggles: Object.fromEntries([...ANALYSES.map((a) => [a, form.elements.namedItem(`toggle-${a}`).checked]),
+        ...LIMITS.filter((l) => l.toggle).map((l) => [l.toggle, form.elements.namedItem(`limit-${l.key}`).checked])]),
       wants_to_learn: form.elements.namedItem("wants_to_learn").checked,
     };
     return out;
