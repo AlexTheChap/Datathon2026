@@ -141,10 +141,37 @@ def _merge_profile(stored: Optional[Profile], draft: IntakeDraft, form: Optional
 _OWN_PORTFOLIO = re.compile(r"\bmy\s+(?:current\s+|whole\s+|own\s+)?(?:portfolio|holdings|investments|mix|allocation)\b", re.I)
 
 
-def _about_own_portfolio(text: str, task: str) -> bool:
-    """The question is about the user's own portfolio: it says so, or it is a risk / scenario question naming no asset.
+_POSSESSIVES = {"my", "our", "mon", "ma", "mes", "notre", "nos"}
+_FILLERS = {"current", "whole", "own", "entire", "actuel", "actuelle", "actuels", "propre", "propres"}
+_OWN_NOUNS = ["portfolio", "holdings", "investments", "allocation", "portefeuille", "placements",
+              "investissements", "positions"]
+
+
+def _says_my_portfolio(text: str) -> bool:
+    """"my portfolio" in English or French, typos tolerated ("my portofolio", "mon portefeuile"): a possessive,
+    at most one filler word ("current", "actuel"), then a word close to one of _OWN_NOUNS (difflib ratio >= 0.8)."""
+    if _OWN_PORTFOLIO.search(text):
+        return True
+    from difflib import get_close_matches
+
+    words = re.findall(r"[a-zà-ÿ]+", _normalize(text))
+    for i, w in enumerate(words):
+        if w not in _POSSESSIVES:
+            continue
+        nxt = words[i + 1:i + 3]
+        if nxt and nxt[0] in _FILLERS:
+            nxt = nxt[1:]
+        if nxt and len(nxt[0]) >= 6 and get_close_matches(nxt[0], _OWN_NOUNS, n=1, cutoff=0.8):
+            return True
+    return False
+
+
+def _about_own_portfolio(text: str, task: str, model_says: bool = False) -> bool:
+    """The question is about the user's own portfolio: the model read it so (any wording, language, typo), the text
+    says so (safety net when the model misses it), or it is a risk / scenario question naming no asset.
     Building a new portfolio ("a portfolio that fits my profile") is not: it starts from the profile, not the old mix."""
-    return task != "out_of_scope" and (bool(_OWN_PORTFOLIO.search(text)) or task in ("risk_review", "scenario_analysis"))
+    return task != "out_of_scope" and (model_says or _says_my_portfolio(text)
+                                       or task in ("risk_review", "scenario_analysis"))
 
 
 def _clean_positions(positions: list[Position], warnings: list[str]) -> list[Position]:
@@ -210,7 +237,7 @@ def run_intake(
     r = draft.request
     positions = _clean_positions(r.positions, warnings)
     used_saved = False
-    if not positions and profile is not None and profile.portfolio and _about_own_portfolio(text, r.task):
+    if not positions and profile is not None and profile.portfolio and _about_own_portfolio(text, r.task, r.about_own_portfolio):
         used_saved = True
         # "How exposed is my portfolio to a rate hike?": the analysis runs on the portfolio saved in the profile.
         positions = [Position(ticker=t, weight=w) for t, w in sorted(profile.portfolio.items(), key=lambda kv: -kv[1])]

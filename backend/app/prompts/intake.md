@@ -61,10 +61,14 @@ You do not analyse, recommend, or answer the question. Other agents do that late
   analysis off is never a request for it (it does not pick `news_review` or `esg_screen` either).
 - `as_of`: only if the user names an analysis date.
 - `intake_confidence`: 0.9 or more when the task is clear, around 0.5 when you had to guess the task.
+- `about_own_portfolio`: true when the question is about the user's own current holdings, whatever the wording,
+  language or spelling ("my portofolio", "mon portefeuille", "mes placements", "what I own", "my investments").
+  False for building a new portfolio ("a portfolio that fits my profile") or for assets they only name.
 - `has_saved_portfolio: true` in the known profile means the user's current holdings are already on file. A question
-  about "my portfolio" or "my holdings" (what it is made of, its risk, how it would react to rates or a market shock)
-  is then clear: do not ask which assets they hold, leave `positions` empty (the holdings are added for you) and use
-  `risk_review` (or `scenario_analysis` for a shock or a rate change), with a high `intake_confidence`.
+  about their own portfolio (what it is made of, its risk, its ESG profile, how it would react to rates or a market
+  shock) is then clear: do not ask which assets they hold, set `about_own_portfolio` to true, leave `positions` empty
+  (the holdings are added for you) and keep the task the question asks for (`esg_screen` for ESG, `risk_review`
+  for risk, `scenario_analysis` for a shock or a rate change), with a high `intake_confidence`.
 - `clarification_question`: one short question in English, only if you cannot tell what analysis they want.
   Otherwise null.
 
