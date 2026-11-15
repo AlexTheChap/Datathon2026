@@ -284,7 +284,7 @@ def test_answer_with_checks_evidence_and_glossary(page, base_url):
 
     page.goto(f"{base_url}/#/runs/{run.run_id}")
     page.wait_for_selector("text=Profile checks")
-    assert page.locator(".verdict--block").first.inner_text().strip() == "Blocked"
+    assert page.locator(".verdict--block").first.inner_text().strip() == "Goes against your profile"
     assert page.locator("text=Words used in this answer").count() == 1       # a learner gets the glossary
     assert page.locator("text=All 5 statements were checked against the evidence").count() == 1
     page.wait_for_selector(".evidence-item")

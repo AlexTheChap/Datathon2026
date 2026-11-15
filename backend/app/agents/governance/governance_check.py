@@ -144,6 +144,50 @@ def _band(profile: dict, rules: dict) -> dict:
     return rules["risk_bands"][profile["risk_band"]]
 
 
+# ---------- the verdict in the reader's words (tool `say`, optimizer messages) ----------
+
+def _plain_pct(x) -> str:
+    return f"{x:.0%}" if isinstance(x, (int, float)) else "the set limit"
+
+
+def plain_check(c: dict) -> str:
+    """One governance check in the reader's words: what the rule protects, never its id or status code."""
+    cid, value, limit = c["id"], c.get("value"), c.get("limit")
+    if c["status"] == "UNVERIFIED":
+        return "one of your exclusions could not be checked (the data is missing)"
+    if cid == "SINGLE_POSITION":
+        return f"one company is {_plain_pct(value)} of the money, above your {_plain_pct(limit)} limit for a single company"
+    if cid == "SECTOR":
+        return f"one part of the economy is {_plain_pct(value)} of the money, above your {_plain_pct(limit)} limit"
+    if cid == "CRYPTO":
+        return f"crypto is {_plain_pct(value)} of the money, above your {_plain_pct(limit)} limit"
+    if cid == "SHORT_HORIZON_VOLATILITY":
+        return (f"you need the money within a few years, and very volatile holdings are {_plain_pct(value)} of it, "
+                f"above the {_plain_pct(limit)} cap")
+    if cid == "SHORT_HORIZON_DEFENSIVE":
+        return (f"you need the money within a few years, and only {_plain_pct(value)} is in bond funds, "
+                f"below the {_plain_pct(limit)} that steadies a short horizon")
+    if cid == "ESG_INDEX_PREFERENCE":
+        return "some holdings are left out of a reference ESG index, which matters for your ESG preference"
+    if cid.startswith("EXCLUSION"):
+        return "it holds something your profile excludes"
+    return "one of your profile's limits is not met"
+
+
+def plain_verdict(result: dict) -> str:
+    """The overall verdict as a sentence a non-expert reads (the codes stay in `verdict` and `checks`)."""
+    by = {s: [plain_check(c) for c in result["checks"] if c["status"] == s] for s in ("BLOCK", "WARN", "UNVERIFIED")}
+    watch = f" Worth keeping an eye on: {'; '.join(by['WARN'])}." if by["WARN"] else ""
+    unknown = f" Not confirmed: {'; '.join(by['UNVERIFIED'])}." if by["UNVERIFIED"] else ""
+    if by["BLOCK"]:
+        return f"This mix goes against your profile: {'; '.join(by['BLOCK'])}.{watch}{unknown}"
+    if by["UNVERIFIED"]:
+        return f"This mix could not be fully checked against your profile, so it is not confirmed.{watch}{unknown}"
+    if by["WARN"]:
+        return f"This mix stays within your profile's firm limits.{watch}"
+    return "This mix fits every limit of your profile."
+
+
 def check(weights: dict, profile: dict, rules_path: str | Path, rt, data_dir: str | Path = "data") -> dict:
     rules = yaml.safe_load(Path(rules_path).read_text(encoding="utf-8"))
     band = _band(profile, rules)

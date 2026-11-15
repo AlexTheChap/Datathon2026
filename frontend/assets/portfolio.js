@@ -552,14 +552,15 @@ function projectionSection(view) {
     const geo = PD.fanGeometry(series);
     const rows = series.years.map((y, i) => [y === 0 ? "Now" : String(y), ...["p10", "p25", "p50", "p75", "p90"].map((k) => ctx.money(series[k][i]))]);
     const short = (v) => (Math.abs(v) >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : `$${Math.round(v / 1e3)}k`);
-    out.replaceChildren(
+    out.replaceChildren(...[ // parts that don't apply are null: dropped (native replaceChildren prints "null")
       h("p", { class: "proj-summary" }, PD.summarySentence(d, state.mode, ctx.money)),
       fanChart({ id: "projection", title: state.mode === "real" ? "Simulated value, in today's dollars" : "Simulated value, in future dollars",
         note: `${d.assumptions.n_paths.toLocaleString("en-CA")} simulated scenarios, monthly steps, rebalanced monthly`,
         geo, format: short, rows, startLabel: `Today's value (${ctx.money(d.start_value)})` }),
       d.warnings.length ? h("ul", { class: "warning-list" }, d.warnings.map((w) => h("li", null, w))) : null,
       assumptionsBlock(view, d),
-      learnNote(view, "each scenario is one possible path for markets. The band shows where 8 in 10 of them ended, so your result could be anywhere in it, or outside it."));
+      learnNote(view, "each scenario is one possible path for markets. The band shows where 8 in 10 of them ended, so your result could be anywhere in it, or outside it."),
+    ].filter(Boolean));
   }
 
   load();
@@ -576,7 +577,7 @@ function ratesSection(view) {
     try {
       const { data } = await ctx.api("POST", "/v1/rate-exposure", { weights: p.weights });
       const facts = D.rateFacts(data);
-      out.replaceChildren(
+      out.replaceChildren(...[ // parts that don't apply are null: dropped (native replaceChildren prints "null")
         h("p", null, D.rateSentence(data)),
         facts.length ? h("dl", { class: "facts" }, facts.map(([k, v]) => [h("dt", null, k), h("dd", null, v)])) : null,
         level === "simple" ? null : h("div", { class: "table-wrap" }, h("table", { class: "data-table" },
@@ -585,7 +586,8 @@ function ratesSection(view) {
           h("tbody", null, D.rateRows(data).map((r) => h("tr", null, h("th", { scope: "row" }, r.ticker),
             h("td", { class: "num" }, r.weight), h("td", { class: "num" }, r.duration), h("td", { class: "num" }, r.impact)))))),
         h("p", { class: "small muted" }, `Rates as of ${data.rates_date || data.as_of}. Only bond funds have a measured sensitivity; stocks and equity funds are not measured. `
-          + "It uses the average of 2021–2026 and changes over time."));
+          + "It uses the average of 2021–2026 and changes over time."),
+      ].filter(Boolean));
     } catch (err) {
       out.replaceChildren(h("p", { class: "muted" }, "The rate sensitivity isn't available right now."));
     }

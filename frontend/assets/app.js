@@ -885,8 +885,8 @@ const TOOL_NAMES = {
   fundamentals_subagent: "Company facts summary", news_subagent: "News summary", allocation_subagent: "Allocation summary",
 };
 const VERDICTS = {
-  BLOCK: { word: "Blocked", cls: "block", icon: "alert" }, PASS: { word: "Passes", cls: "pass", icon: "check" },
-  WARN: { word: "Warning", cls: "warn", icon: "alert" }, UNVERIFIED: { word: "Not verified", cls: "unverified", icon: "alert" },
+  BLOCK: { word: "Goes against your profile", cls: "block", icon: "alert" }, PASS: { word: "Fits your profile", cls: "pass", icon: "check" },
+  WARN: { word: "Worth a look", cls: "warn", icon: "alert" }, UNVERIFIED: { word: "Not confirmed", cls: "unverified", icon: "alert" },
 };
 const toolName = (t) => TOOL_NAMES[t] || (String(t || "").endsWith(" detail") ? "Profile rules check, detail" : t);
 

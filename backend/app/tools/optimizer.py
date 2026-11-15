@@ -320,11 +320,13 @@ def optimize(rt: RiskTools, w0: dict, profile: dict, rules_path: str | Path = DE
         wv = _clean(x)
         cand_w = {c: float(v) for c, v in zip(cands, wv) if v > 0}
         gov = check_fn(cand_w, profile, rules_path, view, data_dir)
-        blockers = [c["id"] for c in gov["checks"] if c["status"] == "BLOCK"]
+        blockers = [c for c in gov["checks"] if c["status"] == "BLOCK"]
         if blockers:
             failure = "governance_block"
-            message = ("A solution was found but the governance check still BLOCKs: "
-                       + ", ".join(blockers) + ". These rules are not modelled by the optimizer.")
+            plain = getattr(sys.modules.get(check_fn.__module__), "plain_check",   # same words as the tool's `say`
+                            lambda c: "one of the profile's limits is not met")
+            message = ("A mix was found, but it still goes against the profile: "
+                       + "; ".join(plain(c) for c in blockers) + ". The search does not model these rules.")
         else:
             weights, last_x = cand_w, x
     attempts = 1

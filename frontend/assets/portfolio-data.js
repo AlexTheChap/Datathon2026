@@ -226,24 +226,21 @@ export function checkValue(c) {
   return "";
 }
 
-/**
- * The fit score (POST /v1/fit-score: out of 100, measured on the server from the profile and the exact weights) as
- * lines for the level. Simple: only the parts that lost points, in plain words. Standard: every part with its points.
- * Detailed: every part, and each rule with its status. Each line: { title, points, max, reasons: [text] }.
- */
-export function fitLines(fit, level = "standard") {
-  if (!fit || !Array.isArray(fit.parts)) return [];
-  const round = (x) => Math.round(x * 10) / 10;
-  return fit.parts.map((part) => {
-    const lost = part.items.filter((i) => i.lost > 0.05);
-    const reasons = part.key === "rules"
-      ? (level === "detailed" ? part.items.map((i) => `${checkName(i.id, true)}: ${i.why}`)
-        : lost.map((i) => `${checkName(i.id)}: ${i.why}`))
-      : (level === "simple" ? lost : part.items).map((i) => i.why);
-    return { key: part.key, title: part.title, points: round(part.points), max: part.max, lost: round(part.max - part.points), reasons };
-  }).filter((l) => level !== "simple" || l.lost > 0.05);
+/** Fit with the profile's own rules, out of 10: every point lost has a reason (a rule that warns or blocks). */
+export function fitScore(governance, contribution) {
+  let score = 10; const why = [];
+  for (const c of (governance && governance.checks) || []) {
+    if (c.status === "BLOCK") { score -= 2; why.push({ reason: `${checkName(c.id)}: not met`, points: -2 }); }
+    else if (c.status === "WARN") { score -= 1; why.push({ reason: `${checkName(c.id)}: worth a look`, points: -1 }); }
+  }
+  if (contribution && contribution.risk) {
+    const [top, share] = Object.entries(contribution.risk).sort((a, b) => b[1] - a[1])[0] || [];
+    if (share > 0.5) { score -= 1; why.push({ reason: `${top} carries ${Math.round(share * 100)}% of the ups and downs`, points: -1 }); }
+  }
+  score = Math.max(0, Math.min(10, Math.round(score * 2) / 2));
+  const band = score < 3.5 ? "Poor fit" : score < 6.5 ? "Risky fit" : score < 8.5 ? "Acceptable fit" : "Good fit";
+  return { score, band, why };
 }
-export const fitTone = (score) => (score >= 85 ? "good" : score >= 70 ? "ok" : "bad");
 
 /* ---------- The summary at the top, in the words of each level ---------- */
 
@@ -283,18 +280,21 @@ export function heroSummary({ level, learn = false, weights, universe = {}, gove
       + `${risk ? `, for a ${risk} risk level` : ""}${years ? ` over ${years} year${years === 1 ? "" : "s"}` : ""}.`);
     if (t0) out.push(`The largest is ${t0} (${plain(t0)}), at ${pctText(w0, 1)}.`);
     if (vol) out.push(`Volatility: about ${pctText(vol, 1)} a year, measured on the last 5 years.`);
-    out.push({ PASS: "It passes every check of your profile.",
-      WARN: `It passes, with a warning on: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
-      BLOCK: `It is blocked by: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
-    }[verdict] || `Not every check could be run: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`);
+    out.push({ PASS: "It fits every limit of your profile.",
+      WARN: `It fits your profile, with a point worth a look: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
+      BLOCK: `It goes against your profile on: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
+    }[verdict] || `Some limits could not be checked, so it is not confirmed: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`);
   } else {
     out.push(`Weights: ${holdings.map(([t, w]) => `${t} ${pctText(w, 1)}`).join(", ")}.`);
     out.push(`Asset classes: ${pctText(stocks, 1)} equity, ${pctText(bonds, 1)} fixed income`
       + `${risk ? `; risk band ${risk}` : ""}${years ? `, horizon ${years} y` : ""}.`);
     if (vol) out.push(`Annualised volatility ${pctText(vol, 1)} (5 years of daily returns, CAD).`);
     const n = ((governance && governance.checks) || []).length;
-    out.push(`Governance verdict: ${verdict}${n ? ` on ${n} check${n === 1 ? "" : "s"}` : ""}`
-      + `${flagged.length ? ` (${flagged.map((c) => `${checkName(c.id, true)}: ${c.status}`).join("; ")})` : ""}.`);
+    const overall = { PASS: "fits every limit", WARN: "fits, with points worth a look", BLOCK: "goes against the profile" }[verdict]
+      || "not confirmed (some limits could not be checked)";
+    const status = { WARN: "worth a look", BLOCK: "not met", UNVERIFIED: "not confirmed" };
+    out.push(`Profile check: ${overall}${n ? `, ${n} limit${n === 1 ? "" : "s"} checked` : ""}`
+      + `${flagged.length ? ` (${flagged.map((c) => `${checkName(c.id, true)}: ${status[c.status] || "not confirmed"}`).join("; ")})` : ""}.`);
   }
   out.push("This is a simulation, not advice.");
 

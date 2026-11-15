@@ -280,3 +280,47 @@ def test_the_explainer_sees_the_holdings_analysed(make_profile):
     run_explain(make_run(make_profile), client)
     reader = json.loads(client.calls[0]["messages"][0]["content"][0]["text"])["reader"]   # a cached content block
     assert reader["portfolio"] == [{"ticker": "NVDA", "weight": 0.2}]
+
+
+# ---------- Rule 9: the reader's words (no verdict codes, rule ids or bare tickers) ----------
+
+JARGON = "Governance returns BLOCK on it, while ADM gets a WARN; SHORT_HORIZON_DEFENSIVE was the only active constraint."
+
+
+def test_codes_and_tickers_trigger_the_retry_with_the_names_to_use(make_profile):
+    client = FakeClient(draft(key_points=[{"text": JARGON, "evidence": []}]), draft())
+    answer = run_explain(make_run(make_profile), client)
+    feedback = client.calls[1]["messages"][-1]["content"]
+    assert answer.verification.retried and len(client.calls) == 2
+    assert '"BLOCK"' in feedback and '"ADM"' in feedback and "Archer Daniels Midland" in feedback
+    assert "SHORT_HORIZON_DEFENSIVE" in feedback and "rule 9" in feedback
+
+
+def test_what_the_retry_leaves_is_put_in_plain_words(make_profile):
+    bad = draft(key_points=[{"text": JARGON, "evidence": []}],
+                checks=[{**GOOD["checks"][0], "allocation": "Your idea: NVDA at 20%"}])
+    answer = run_explain(make_run(make_profile), FakeClient(bad, bad))
+    text = " ".join([answer.short_answer, *(p.text for p in answer.key_points),
+                     *(f"{c.allocation} {c.text}" for c in answer.checks)])
+    for word in ("BLOCK", "WARN", "ADM", "SHORT_HORIZON", "overnance", "active constraint", "NVDA"):
+        assert word not in text, word
+    assert "Archer Daniels Midland" in text and "NVIDIA at 20%" in text
+    assert answer.checks[0].verdict == "BLOCK"                # the code stays in the field the app translates
+
+
+def test_the_model_gets_the_names_of_the_tickers_it_sees(make_profile):
+    client = FakeClient(draft())
+    run_explain(make_run(make_profile), client)
+    names = json.loads(client.calls[0]["messages"][0]["content"][0]["text"])["names"]
+    assert names and all(t.isupper() or "." in t or "-" in t for t in names)
+
+
+def test_plain_words_module():
+    from app.agents import plain_words as pw
+
+    names = {"ADM": "Archer Daniels Midland", "XIU.TO": "iShares S&P/TSX 60 Index ETF"}
+    assert pw.problems("Nvidia fits your profile.", names) == []
+    assert pw.plainify("Archer Daniels Midland (ADM) passes; XIU.TO too.", names) == \
+        "Archer Daniels Midland passes; iShares S&P/TSX 60 Index ETF too."
+    assert pw.plainify("The governance verdict is UNVERIFIED.", names) == "The check against your profile is not confirmed."
+    assert "ALL" not in pw.universe_names() and "A" not in pw.universe_names()   # everyday words stay words
