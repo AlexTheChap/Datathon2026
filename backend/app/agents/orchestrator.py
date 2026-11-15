@@ -18,7 +18,7 @@ from typing import Any
 
 from app.agents.hooks import EvidenceHook
 from app.agents.memory import MemoryBinding, build_memory, memory_block
-from app.agents.subagents import subagents_for_plan
+from app.agents.subagents import REGISTRY, subagents_for_plan
 from app.agents.subagents.base import run_context
 from app.context.plan_resolver import resolve_plan
 from app.context.template_loader import render_prompt
@@ -183,6 +183,36 @@ def run_orchestrator(inp: OrchestratorInput, settings: Settings | None = None) -
                 evidence_ids=[], model="none", duration_ms=elapsed(),
             )
         memory = build_memory(s, inp.actor_id, inp.session_id or inp.run_id)
+
+        if s.orchestration == "graph":
+            # L8 parallel graph: the plan's sub-agents fork concurrently, one synthesis
+            # node joins them (Sonnet keeps the deterministic governance_check only).
+            from app.agents.graph import run as run_graph
+
+            synthesis = Agent(
+                model=BedrockModel(model_id=s.model_orchestrator, region_name=s.aws_region),
+                system_prompt=render_prompt(
+                    "synthesis",
+                    persona_block=persona_block(inp.profile, inp.language),
+                    task=inp.request.task,
+                    as_of=as_of,
+                    reply_language=inp.language,
+                    memory_block=memory_block(memory),
+                ),
+                tools=[agent_tools.governance_check],
+                hooks=[EvidenceHook(led, inp.run_id, agent="synthesis")],
+            )
+            enabled = [(a.agent, REGISTRY[a.agent]) for a in plan.enabled_agents]
+            subject = inp.request.user_message or inp.request.task
+            g = run_graph(enabled, subject, inp.portfolio_weights, None,
+                          synthesis, ledger=led, run_id=inp.run_id)
+            return OrchestratorOutput(
+                run_id=inp.run_id, status="DONE", language=inp.language, summary=g["summary"], as_of=as_of,
+                memory=memory.info(), evidence_ids=led.evidence_ids(inp.run_id),
+                model=s.model_orchestrator, session_id=inp.session_id or inp.run_id if s.memory_id else None,
+                duration_ms=elapsed(),
+            )
+
         agent = build_orchestrator(inp, ledger=led, settings=s, plan=plan, as_of=as_of, memory=memory)
         summary = _final_text(agent(compose_user_message(inp, as_of)))
         return OrchestratorOutput(

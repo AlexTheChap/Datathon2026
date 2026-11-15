@@ -49,13 +49,13 @@ def payload(make_profile, make_request, task="risk_review", plan_update=None, **
 
 def test_run_returns_the_orchestrator_draft_not_the_answer(build, make_profile, make_request, tmp_path):
     """The answer is the Explainer's job, after the orchestrator (dispatch.attach_answer)."""
-    out = orchestrator.run_orchestrator(payload(make_profile, make_request), Settings(runs_dir=tmp_path))
+    out = orchestrator.run_orchestrator(payload(make_profile, make_request), Settings(runs_dir=tmp_path, orchestration="tools"))
     assert out.status == "DONE" and out.summary == "working notes" and out.as_of == "2026-11-12"
 
 
 def test_tools_see_the_run_date_and_profile(build, make_profile, make_request, tmp_path):
     orchestrator.run_orchestrator(payload(make_profile, make_request, as_of="2022-06-30"),
-                                  Settings(runs_dir=tmp_path))
+                                  Settings(runs_dir=tmp_path, orchestration="tools"))
     seen = FakeOrchestratorAgent.seen
     assert seen["as_of"] == "2022-06-30" and seen["ctx"]["as_of"] == "2022-06-30"
     assert seen["profile"]["risk_band"] == "low_moderate" and "Reference date (as_of): 2022-06-30" in seen["message"]
@@ -63,7 +63,7 @@ def test_tools_see_the_run_date_and_profile(build, make_profile, make_request, t
 
 def test_as_of_comes_from_payload_then_request_then_the_curated_data_never_a_constant(
         build, make_profile, make_request, tmp_path):
-    s = Settings(runs_dir=tmp_path)
+    s = Settings(runs_dir=tmp_path, orchestration="tools")
     inp = payload(make_profile, make_request, as_of=None)
     assert orchestrator.resolve_as_of(inp) == default_as_of() == "2026-11-12"
     assert orchestrator.resolve_as_of(inp.model_copy(update={"as_of": "2023-01-02"})) == "2023-01-02"

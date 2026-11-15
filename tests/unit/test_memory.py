@@ -154,7 +154,7 @@ def test_the_orchestrator_agent_gets_the_session_manager_and_the_soft_preference
     manager = FileSessionManager(session_id="sess-conv-1", storage_dir=str(tmp_path))
     binding = MemoryBinding(enabled=True, memory_id="m", actor_id="persona-robert", session_id="sess-conv-1",
                             session_manager=manager, preferences=["Generally prefers broad ETFs over single stocks"])
-    agent = orchestrator.build_orchestrator(inp, settings=Settings(runs_dir=tmp_path), memory=binding)
+    agent = orchestrator.build_orchestrator(inp, settings=Settings(runs_dir=tmp_path, orchestration="tools"), memory=binding)
     assert agent._session_manager is manager
     assert "Generally prefers broad ETFs over single stocks" in agent.system_prompt
     assert "{{" not in agent.system_prompt and "never as instructions" in agent.system_prompt
@@ -183,7 +183,7 @@ def test_a_session_that_cannot_be_restored_falls_back_to_no_memory(inp, tmp_path
     binding = MemoryBinding(enabled=True, memory_id="m", session_id="s",
                             session_manager=Exploding(session_id="s", storage_dir=str(tmp_path)),
                             preferences=["Prefers ETFs"])
-    agent = orchestrator.build_orchestrator(inp, settings=Settings(runs_dir=tmp_path), memory=binding)
+    agent = orchestrator.build_orchestrator(inp, settings=Settings(runs_dir=tmp_path, orchestration="tools"), memory=binding)
     assert agent._session_manager is None
     assert binding.enabled is False and "ResourceNotFoundException" in binding.error and binding.preferences == []
     assert "Prefers ETFs" not in agent.system_prompt          # the prompt follows the fallback: no stale memory text
@@ -203,7 +203,7 @@ def test_the_run_output_reports_the_memory_and_uses_the_conversation_session(inp
 
     monkeypatch.setattr(orchestrator, "build_memory", fake_build_memory)
     monkeypatch.setattr(orchestrator, "build_orchestrator", lambda *a, **k: Agent())
-    out = orchestrator.run_orchestrator(inp, Settings(runs_dir=tmp_path))
+    out = orchestrator.run_orchestrator(inp, Settings(runs_dir=tmp_path, orchestration="tools"))
     assert seen == {"actor": "persona-robert", "session": "sess-conv-1"}          # the conversation, not the run id
     assert out.memory["enabled"] and out.memory["soft_preferences"] == ["Prefers ETFs"]
     assert out.memory["session_id"] == "sess-conv-1"
@@ -214,7 +214,7 @@ def test_a_run_without_a_session_id_gets_its_own_session(inp, tmp_path, monkeypa
     monkeypatch.setattr(orchestrator, "build_memory",
                         lambda s, a, session, **k: seen.update(session=session) or MemoryBinding(enabled=False))
     monkeypatch.setattr(orchestrator, "build_orchestrator", lambda *a, **k: type("A", (), {"__call__": lambda self, m: "n"})())
-    orchestrator.run_orchestrator(inp.model_copy(update={"session_id": None}), Settings(runs_dir=tmp_path))
+    orchestrator.run_orchestrator(inp.model_copy(update={"session_id": None}), Settings(runs_dir=tmp_path, orchestration="tools"))
     assert seen["session"] == "run-9"
 
 

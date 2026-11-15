@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     # "anthropic.claude-sonnet-5-5" and the old "anthropic.claude-sonnet-4-5-v1:0" are refused.
     model_orchestrator: str = "us.anthropic.claude-sonnet-5-5"
     model_subagent: str = "us.anthropic.claude-haiku-5-5"
+
+    # How plan-enabled sub-agents run: graph (default — Strands fork/join, parallel) | tools
+    # (the orchestrator delegates to them as tools, serially).
+    orchestration: str = "graph"
     model_explainer: str = "us.anthropic.claude-sonnet-5-5"
     explainer_effort: str = "medium"   # low | medium | high (Sonnet 5.5 effort; thinking stays adaptive)
     aws_region: str = "us-east-1"
