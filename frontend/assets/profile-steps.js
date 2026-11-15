@@ -18,8 +18,11 @@ export const STEP_NOUN = {
   horizon: "Investment horizon", money: "Capital and largest loss", objective: "Goal",
   preferences: "Preferences and constraints", limits: "Hard limits", analyses: "Analyses",
 };
-export const PREFERENCES_HELP = "In your own words: what you like, what you want to avoid, anything Fitfolio should "
-  + "keep in mind. Example: I want some diversification and not only tech; little interest in very speculative investments.";
+// Two boxes: what is written in a box is read as that kind (a preference, or a constraint), never re-sorted.
+export const PREFERENCES_HELP = "What you like or want more of, in your own words. "
+  + "Example: companies with strong ESG practices; some exposure to new technologies.";
+export const CONSTRAINTS_HELP = "What to avoid or keep limited, in your own words. "
+  + "Example: not only tech; little interest in very speculative investments.";
 export const AGE_MIN = 18;
 export const AGE_MAX = 120;
 export const PREFERENCES_MAX = 2000;
@@ -41,7 +44,7 @@ export function initialAnswered(saved, record) {
     age: saved.age != null, risk_band: Boolean(saved.risk_band), experience: Boolean(saved.experience),
     wants_to_learn: saved.wants_to_learn === true, horizon: hz.min != null || hz.max != null,
     money: saved.capital != null || saved.loss_capacity != null, objective: Boolean(saved.objective),
-    preferences: Boolean(saved.preferences_text) || (saved.preferences || []).length > 0 || (saved.constraints || []).length > 0,
+    preferences: Boolean(saved.preferences_text) || Boolean(saved.constraints_text) || (saved.preferences || []).length > 0 || (saved.constraints || []).length > 0,
     limits: (saved.exclusions || []).length > 0, analyses: Object.values(saved.agent_toggles || {}).some((v) => v === false),
   };
   for (const [k, yes] of Object.entries(filled)) if (yes) out.add(k);
@@ -224,21 +227,27 @@ function makeCards(ctx, uid) {
   goal.write = (v) => { goalInput.value = v.objective || ""; };
   goal.validate = () => [];
 
-  // 8. Preferences and constraints (free text; the server derives the two lists)
+  // 8. Preferences and constraints: two boxes. The server splits each box into items; the box says which kind they are.
   const prefs = define("preferences", { legend: "Preferences and constraints", optional: true });
-  const prefsInput = h("textarea", { class: "textarea", id: `${uid}-preferences_text`, name: "preferences_text", rows: "4",
-    maxlength: String(PREFERENCES_MAX), "aria-describedby": `${uid}-preferences_text-help ${uid}-preferences_text-error` });
-  prefs.controls.preferences_text = prefsInput;
+  const box = (name, label, help) => {
+    const input = h("textarea", { class: "textarea", id: `${uid}-${name}`, name, rows: "3",
+      maxlength: String(PREFERENCES_MAX), "aria-describedby": `${uid}-${name}-help ${uid}-${name}-error` });
+    prefs.controls[name] = input;
+    return [input, h("div", { class: "field" },
+      h("label", { class: "field__label", for: `${uid}-${name}` }, label),   // the step is optional: said once, in its title
+      input,
+      h("p", { class: "field__help", id: `${uid}-${name}-help` }, help),
+      errorSlot(prefs, name))];
+  };
+  const [prefsInput, prefsField] = box("preferences_text", "Preferences", PREFERENCES_HELP);
+  const [consInput, consField] = box("constraints_text", "Constraints", CONSTRAINTS_HELP);
   const understood = h("div", { class: "understood", hidden: true });
-  prefs.body = [h("div", { class: "field" },
-    h("label", { class: "field__label", for: `${uid}-preferences_text` }, "Preferences and constraints ", h("span", { class: "optional" }, "(optional)")),
-    prefsInput,
-    h("p", { class: "field__help", id: `${uid}-preferences_text-help` }, PREFERENCES_HELP),
-    errorSlot(prefs, "preferences_text")), understood];
-  prefs.read = () => ({ preferences_text: prefsInput.value });
-  prefs.write = (v) => { prefsInput.value = v.preferences_text || ""; };
-  prefs.validate = () => (prefsInput.value.length > PREFERENCES_MAX
-    ? [["preferences_text", `Keep it under ${PREFERENCES_MAX.toLocaleString("en-CA")} characters.`]] : []);
+  prefs.body = [prefsField, consField, understood];
+  prefs.read = () => ({ preferences_text: prefsInput.value, constraints_text: consInput.value });
+  prefs.write = (v) => { prefsInput.value = v.preferences_text || ""; consInput.value = v.constraints_text || ""; };
+  prefs.validate = () => [[prefsInput, "preferences_text"], [consInput, "constraints_text"]]
+    .filter(([el]) => el.value.length > PREFERENCES_MAX)
+    .map(([, name]) => [name, `Keep it under ${PREFERENCES_MAX.toLocaleString("en-CA")} characters.`]);
   /** "Fitfolio understood — Preferences: … / Constraints: …": what the server derived, as two plain lists. */
   prefs.showUnderstood = (profile) => {
     const p = (profile && profile.preferences) || [];
@@ -354,7 +363,9 @@ export function buildProfileSteps(ctx, { saved = null, record = null } = {}) {
     const p = {};
     for (const [k, v] of Object.entries(data)) if (v !== null && v !== undefined) p[k] = v;
     if (data.horizon_years.min === null) delete p.horizon_years;
-    if (typeof p.preferences_text === "string" && !p.preferences_text.trim()) p.preferences_text = "";   // "" clears it on the server
+    for (const k of ["preferences_text", "constraints_text"]) {
+      if (typeof p[k] === "string" && !p[k].trim()) p[k] = "";   // "" clears that box (and its list) on the server
+    }
     return p;
   }
 

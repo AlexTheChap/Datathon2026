@@ -21,7 +21,7 @@ from typing import Any, Literal, Optional, Protocol
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.context import handler as context_handler
-from app.intake import IntakeError, IntakeRefused, derive_preferences, get_backend, run_intake
+from app.intake import IntakeError, IntakeRefused, derive_items, get_backend, run_intake
 from app.intake.backends import IntakeBackend
 from app.intake.schemas import AgentToggleChange
 from app.notify.contacts import (
@@ -394,6 +394,74 @@ class ApiService:
             raise ApiError(422, str(e).strip("'\"")) from e
         return {"as_of": as_of, **out}
 
+    def report_pdf(self, actor_id: str, body: FitScoreIn) -> tuple[bytes, str]:
+        """The suitability report (PDF) of these weights, default the saved portfolio: the fit and every check computed
+        now, on the same rules and data as the app (report/suitability.py). Returns (pdf, file name)."""
+        from datetime import datetime, timezone
+
+        from app.agents.governance.fit_score import fit_score
+        from app.core.config import get_settings
+        from app.report.suitability import suitability_pdf
+        from app.tools.context import default_as_of
+        from app.tools.risk_tools import RiskTools
+        profile = self.profiles.get(actor_id)
+        if profile is None:
+            raise ApiError(404, "Save your profile first.")
+        weights = body.weights or profile.portfolio
+        if not weights:
+            raise ApiError(422, "Give weights, or save a portfolio first.")
+        total = sum(v for v in weights.values() if v and v > 0)
+        weights = {k: v / total for k, v in weights.items() if v and v > 0} if total > 0 else {}
+        if not weights:
+            raise ApiError(422, "Give at least one weight above zero.")
+        saved = profile.portfolio or {}
+        is_saved = bool(saved) and set(saved) == set(weights) and all(abs(saved[k] - weights[k]) < 0.001 for k in weights)
+        run = None
+        if is_saved and profile.portfolio_run_id:
+            try:
+                run = self.runs.get(profile.portfolio_run_id)
+            except Exception:  # noqa: BLE001  a missing run only leaves out the provenance lines
+                run = None
+        settings = get_settings()
+        as_of = default_as_of()
+        prof = profile.model_dump(mode="json")
+        try:
+            rt = RiskTools(settings.abs_path(settings.curated_dir)).at(as_of)
+            fit = fit_score(weights, prof, settings.abs_path(settings.rules_path), rt,
+                            str(settings.abs_path(settings.curated_dir).parent))
+        except (KeyError, ValueError) as e:
+            raise ApiError(422, str(e).strip("'\"")) from e
+        import yaml
+
+        from app.report.suitability import chart_data
+        band_rules = yaml.safe_load(settings.abs_path(settings.rules_path).read_text(encoding="utf-8"))["risk_bands"][prof["risk_band"]]
+        charts = chart_data(weights, rt, band_rules["max_sector"])
+        now = datetime.now(timezone.utc)
+        pdf = suitability_pdf(prof, weights, fit, rt.universe, as_of, charts=charts,
+                              run=run.model_dump(mode="json") if run is not None and run.actor_id == actor_id else None,
+                              generated_at=now, label="Your portfolio" if is_saved else "A mix tried in the app")
+        return pdf, f"alphaforge-suitability-{now:%Y-%m-%d}.pdf"
+
+    def correlation(self, actor_id: str, body: FitScoreIn) -> dict[str, Any]:
+        """How the holdings move together: correlation of daily returns in CAD (deterministic, no LLM). Used by the
+        dashboard when the portfolio run's risk agent didn't measure it (the agent picks its own tools)."""
+        from app.core.config import get_settings
+        from app.tools.context import default_as_of
+        from app.tools.risk_tools import RiskTools
+        profile = self.profiles.get(actor_id)
+        weights = body.weights or (profile.portfolio if profile else None)
+        tickers = [t for t, v in (weights or {}).items() if v and v > 0]
+        if len(tickers) < 2:
+            raise ApiError(422, "Give at least two holdings.")
+        settings = get_settings()
+        as_of = default_as_of()
+        try:
+            ev = RiskTools(settings.abs_path(settings.curated_dir)).at(as_of).correlation(tickers)
+        except (KeyError, ValueError) as e:
+            raise ApiError(422, str(e).strip("'\"")) from e
+        return {"as_of": as_of, "evidence_id": ev["evidence_id"], "say": ev["say"], "period": ev["period"],
+                "method": ev["method"], "assumptions": ev["assumptions"], **ev["output"]}
+
     def improve_fit(self, actor_id: str, body: FitScoreIn) -> dict[str, Any]:
         """The mix closest to these weights that fits the saved profile better (deterministic; improve.py)."""
         from app.agents.governance.improve import improve
@@ -430,26 +498,29 @@ class ApiService:
         return {"evidence_id": ev["evidence_id"], "say": ev["say"], "as_of": ev["as_of"], **ev["output"]}
 
     def _derive_preferences(self, stored: Optional[Profile], form: dict[str, Any], data: dict[str, Any]) -> None:
-        """"Preferences and constraints" free text: when it changed, `preferences` and `constraints` are derived
-        from it with the intake backend (what the form sends for those two lists is ignored). The text itself
-        is kept unchanged. Empty text clears all three. Text over the limit is left to the Profile validation (422)."""
-        if "preferences_text" not in form:
-            return
-        text = form["preferences_text"]
-        if text is None or not isinstance(text, str):
-            return
-        if text == ((stored.preferences_text if stored else None) or ""):
-            return   # unchanged: keep what was derived before (no model call on every partial save)
-        if not text.strip():
-            data.update(preferences_text=None, preferences=[], constraints=[])
-            return
-        data["preferences_text"] = text
-        if len(text) > MAX_PREFERENCES_TEXT:
-            return
-        try:
-            data["preferences"], data["constraints"] = derive_preferences(text, self._backend())
-        except IntakeRefused as e:
-            raise ApiError(422, [{"loc": ["preferences_text"], "msg": "This text cannot be used. Please rephrase it."}]) from e
+        """The form's two boxes, in the investor's own words: `preferences_text` gives `preferences`, `constraints_text`
+        gives `constraints` (the box decides the kind; the text is only split into items, by the intake backend).
+        A box is analysed only when its text changed (no model call on every partial save); the other list is kept.
+        An empty box clears its text and its list. Text over the limit is left to the Profile validation (422)."""
+        for box, target in (("preferences_text", "preferences"), ("constraints_text", "constraints")):
+            if box not in form:
+                continue
+            text = form[box]
+            if text is None or not isinstance(text, str):
+                continue
+            if text == ((getattr(stored, box) if stored else None) or ""):
+                continue   # unchanged: keep what was derived before
+            if not text.strip():
+                data.update({box: None, target: []})
+                continue
+            data[box] = text
+            if len(text) > MAX_PREFERENCES_TEXT:
+                continue
+            try:
+                data[target] = derive_items(text, self._backend())
+            except IntakeRefused as e:
+                raise ApiError(422, [{"loc": [box], "msg": "This text cannot be used. Please rephrase it."}]) from e
+
     # ----- GET / PUT /v1/notifications/sms (news alerts by text, app.notify) -----
     def get_sms(self, actor_id: str) -> dict[str, Any]:
         c = self.contacts.get(actor_id)

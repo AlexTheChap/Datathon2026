@@ -284,7 +284,9 @@ test("the help text and label of the preferences field are the agreed words", ()
   const { steps } = setup();
   const text = card(steps, "preferences").textContent;
   assert.match(text, /Preferences and constraints/);
-  assert.match(text, /In your own words: what you like, what you want to avoid, anything Fitfolio should keep in mind\. Example: I want some diversification and not only tech; little interest in very speculative investments\./);
+  assert.match(text, /What you like or want more of, in your own words\./);
+  assert.match(text, /What to avoid or keep limited, in your own words\. Example: not only tech; little interest in very speculative investments\./);
+  assert.ok(steps.cards.preferences.controls.preferences_text && steps.cards.preferences.controls.constraints_text);
   assert.ok(!/Interests/.test(steps.el.textContent));
 });
 
@@ -383,4 +385,18 @@ test("skipping the last open question completes the profile and saves once more 
   await steps.skip("analyses");
   assert.equal(calls.save.length, 1);
   assert.equal(calls.save[0].meta.complete, true);
+});
+
+
+test("the two boxes are read and saved as two texts; an emptied box is sent as \"\" so the server clears it", async () => {
+  const { steps, calls } = setup({ profile: { ...FULL, preferences_text: "I like dividends", constraints_text: "No oil" },
+    record: { answered: STEP_ORDER, skipped: [] } });
+  assert.equal(steps.cards.preferences.controls.constraints_text.value, "No oil");
+  buttonNamed(steps, "preferences", "Change preferences and constraints").click();
+  steps.cards.preferences.controls.preferences_text.value = "I like banks";
+  steps.cards.preferences.controls.constraints_text.value = "  ";
+  await steps.save("preferences");
+  const sent = calls.save.at(-1).payload;
+  assert.equal(sent.preferences_text, "I like banks");
+  assert.equal(sent.constraints_text, "");
 });

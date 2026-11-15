@@ -26,7 +26,8 @@ from pydantic import ValidationError
 from app.schemas import Parameters, PortfolioRef, Position, Profile, Request, Toggles
 from app.store.profiles import ProfileStore
 
-from .backends import IntakeBackend, IntakeRefused, IntakeUnavailable, get_backend, split_preferences_by_rules
+from .backends import (IntakeBackend, IntakeRefused, IntakeUnavailable, get_backend, split_items_by_rules,
+                       split_preferences_by_rules)
 from .schemas import AgentToggleChange, IntakeDraft, IntakeResult
 from .universe import load_universe, normalize_ticker
 
@@ -63,6 +64,24 @@ def _extract_with_retry(backend: IntakeBackend, text: str, known: dict) -> Intak
         raise
     except Exception as e:  # the model could not be reached (expired AWS credentials, throttling, network...)
         raise IntakeError(f"The language model could not be reached: {type(e).__name__}: {str(e)[:300]}") from e
+
+
+def derive_items(text: str, backend: IntakeBackend) -> list[str]:
+    """One box of the profile form (Preferences or Constraints) -> its items. The box decides the kind, so what the
+    model would file under the other kind stays in this box. Same backend, guardrail and fallback as
+    `derive_preferences`; in mock mode (or when the model can't be reached), the box is split by rules."""
+    if not text.strip():
+        return []
+    splitter = getattr(backend, "split_items", None)
+    if splitter is not None:   # mock: rules, in the person's own order
+        return splitter(text)
+    try:
+        draft = _extract_with_retry(backend, text, {})
+    except IntakeError as e:
+        log.warning("Profile box split by rules, the intake backend failed: %s", e)
+        return split_items_by_rules(text)
+    items = _dedupe(list(draft.profile.preferences) + list(draft.profile.constraints))
+    return items or split_items_by_rules(text)
 
 
 def derive_preferences(text: str, backend: IntakeBackend) -> tuple[list[str], list[str]]:

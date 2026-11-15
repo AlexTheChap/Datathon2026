@@ -22,6 +22,8 @@
                             defaults: saved portfolio, simulated capital, profile horizon)
     POST /v1/fit-score {weights?} → how well the weights fit the caller's profile, out of 100, every point explained (no LLM)
     POST /v1/fit-score/improve {weights?} → the closest mix that fits the profile better, each change explained (no LLM)
+    POST /v1/report {weights?} → the suitability report as a PDF (profile, fit, every rule, risk, sources; no LLM)
+    POST /v1/correlation {weights?} → how the holdings move together (correlation of daily returns, no LLM)
     POST /v1/rate-exposure {weights?} → how the holdings reacted to interest rates + the current rates (no LLM)
     GET  /v1/vol-forecast?tickers=A,B → GARCH volatility forecast vs last 3 months: rising | stable | easing
     GET  /v1/me             → who is signed in (actor_id, email, demo persona)
@@ -218,6 +220,15 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
     @api.post("/v1/fit-score")
     def fit_score(body: FitScoreIn, actor_id: str = Depends(current_actor)) -> dict[str, Any]:
         return svc.fit_score(actor_id, body)
+
+    @api.post("/v1/report")
+    def report(body: FitScoreIn, actor_id: str = Depends(current_actor)) -> Response:
+        pdf, name = svc.report_pdf(actor_id, body)
+        return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+    @api.post("/v1/correlation")
+    def correlation(body: FitScoreIn, actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.correlation(actor_id, body)
 
     @api.post("/v1/fit-score/improve")
     def improve_fit(body: FitScoreIn, actor_id: str = Depends(current_actor)) -> dict[str, Any]:

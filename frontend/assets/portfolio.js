@@ -366,7 +366,7 @@ export async function renderPortfolio(main, ctx) {
       analysisOn(profile, "macro_scenarios") ? ratesSection(view) : null,
       level !== "simple" && risk.concentration ? sectorSection(view) : null,
       level === "detailed" && risk.metrics ? metricsSection(view) : null,
-      level === "detailed" && risk.correlation ? correlationSection(view) : null,
+      level === "detailed" ? correlationSection(view) : null,
       checksSection(view),
       // The analyses switched off in the profile are not shown (they don't change the mix: no rebuild needed).
       level !== "simple" && p.esg && wantsEsg(profile) && (analysisOn(profile, "esg") || esgLimit(profile)) ? esgSection(view) : null,
@@ -553,7 +553,8 @@ function heroCard(view) {
       h("h2", { id: "hero-title", class: "hero-card__title" }, title),
       h("p", { class: "hero-card__answer" }, summary.text),
       summary.learn ? learnNote(view, summary.learn) : null,
-      h("p", { class: "small muted" }, ...origin)),
+      h("p", { class: "small muted" }, ...origin),
+      reportButton(view, p.weights, "Download the suitability report (PDF)")),
     fitCard(view));
 }
 
@@ -605,6 +606,26 @@ function fitBody(view, fit) {
       h("p", null, `${fit.method} Data ${fit.period.replace("/", " to ")}.`),
       h("ul", { class: "plain-list" }, fit.assumptions.map((a) => h("li", null, a)))) : null,
   ];
+}
+
+/** Download the suitability report (POST /v1/report) of these weights: the fit and every rule, computed now. */
+function reportButton(view, weights, text) {
+  const { ctx, h } = view;
+  const note = h("span", { class: "small muted report-btn__note", role: "status" });
+  const btn = h("button", { class: "btn btn--secondary btn--sm", type: "button" }, ctx.icon ? ctx.icon("download", 16) : null, h("span", null, text));
+  btn.addEventListener("click", async () => {
+    btn.disabled = true; note.textContent = "Preparing the report…";
+    try {
+      const name = await ctx.download("/v1/report", { weights }, "alphaforge-suitability.pdf");
+      note.textContent = `Saved: ${name}`;
+      if (ctx.announce) ctx.announce("Suitability report downloaded.");
+    } catch (err) {
+      note.replaceChildren(ctx.alertBox(err, "the report", () => btn.click()));
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  return h("div", { class: "report-btn" }, btn, note);
 }
 
 /* ---------- What if: move the weights, see the fit with the profile change live (POST /v1/fit-score) ---------- */
@@ -686,7 +707,7 @@ function whatIfSection(view) {
       const [trial, base] = await Promise.all([fitFor(ctx, profile, clean), fitFor(ctx, profile, p.weights).catch(() => null)]);
       if (mine !== seq) return; // a newer move is on its way
       result.classList.remove("is-loading");
-      result.replaceChildren(...whatIfResult(view, trial, base, improve, D.sameWeights(clean, p.weights) ? null : () => adopt(clean)).filter(Boolean));
+      result.replaceChildren(...whatIfResult(view, trial, base, improve, D.sameWeights(clean, p.weights) ? null : () => adopt(clean), clean).filter(Boolean));
     } catch (err) {
       if (mine !== seq) return;
       result.classList.remove("is-loading");
@@ -776,7 +797,7 @@ function suggestionCard(view, data, { apply, dismiss, close }) {
   ];
 }
 
-function whatIfResult(view, fit, base, onImprove, onAdopt) {
+function whatIfResult(view, fit, base, onImprove, onAdopt, weights) {
   const { h, level } = view;
   const delta = base ? fit.score - base.score : null;
   const mix = (fit.parts.find((x) => x.key === "asset_mix") || { items: [{}] }).items[0].measured;
@@ -801,6 +822,7 @@ function whatIfResult(view, fit, base, onImprove, onAdopt) {
         level === "simple" ? "Find a mix that suits me better" : "Improve my score") : null,
       // Offered when the mix in the sliders fits the profile better than the portfolio.
       onAdopt && delta !== null && delta > 0 ? h("button", { class: "btn btn--primary btn--sm", type: "button", onclick: onAdopt }, "Make this my portfolio") : null),
+    weights ? reportButton(view, weights, "Download a report for this mix") : null,
   ];
 }
 
@@ -1058,14 +1080,27 @@ function metricsSection(view) {
 }
 
 function correlationSection(view) {
-  const { h, risk, p } = view;
-  const labels = Object.keys(risk.correlation).filter((t) => p.weights[t]);
-  if (labels.length < 2) return null;
-  const matrix = labels.map((a) => labels.map((b) => Number((risk.correlation[a] || {})[b] ?? 0)));
+  const { ctx, h, risk, p } = view;
+  if (Object.keys(p.weights).length < 2) return null;
+  const body = h("div", { class: "stack-sm" });
+  const draw = (corr, note) => {
+    const labels = Object.keys(corr).filter((t) => p.weights[t]);
+    if (labels.length < 2) { body.replaceChildren(h("p", { class: "muted" }, "Not enough holdings to compare.")); return; }
+    const matrix = labels.map((a) => labels.map((b) => Number((corr[a] || {})[b] ?? 0)));
+    body.replaceChildren(heatmap({ id: "corr", title: "Correlation of daily returns", note: "1 = always together, 0 = unrelated, −1 = opposite",
+      labels, matrix, format: (v) => v.toFixed(2) }), note ? h("p", { class: "small muted" }, note) : null);
+  };
+  // From the portfolio run when its risk agent measured it; otherwise measured now on the same weights (the agent
+  // picks its own tools, so the section never depends on whether it happened to).
+  if (risk.correlation) draw(risk.correlation);
+  else {
+    body.append(ctx.skeleton(3));
+    ctx.api("POST", "/v1/correlation", { weights: p.weights })
+      .then(({ data }) => draw(data.matrix, `Measured on ${data.period.replace("/", " to ")}, in CAD. Correlations often rise when markets fall.`))
+      .catch(() => body.replaceChildren(h("p", { class: "muted" }, "How the holdings move together isn't available right now.")));
+  }
   return h("section", { class: "panel stack", "aria-labelledby": "corr-title" },
-    h("h2", { id: "corr-title", class: "section-title" }, "Do the holdings move together?"),
-    heatmap({ id: "corr", title: "Correlation of daily returns", note: "1 = always together, 0 = unrelated, −1 = opposite",
-      labels, matrix, format: (v) => v.toFixed(2) }));
+    h("h2", { id: "corr-title", class: "section-title" }, "Do the holdings move together?"), body);
 }
 
 function checksSection(view) {

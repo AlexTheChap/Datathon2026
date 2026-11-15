@@ -104,37 +104,53 @@ def test_derive_passes_a_refusal_on():
 
 # ---------- PUT /v1/profile ----------
 
-def test_saving_splits_the_text_and_keeps_it_verbatim(client):
-    text = "I want some diversification and not only tech;\nlittle interest in very speculative investments."
-    r = client.put("/v1/profile", json={**FORM, "preferences_text": text}, headers=H)
+def test_each_box_gives_its_own_list_and_its_text_is_kept_verbatim(client):
+    prefs = "Companies with strong ESG practices;\nsome exposure to new technologies."
+    cons = "Not only tech. Little interest in very speculative investments."
+    r = client.put("/v1/profile", json={**FORM, "preferences_text": prefs, "constraints_text": cons}, headers=H)
     assert r.status_code == 200
     body = r.json()
-    assert body["preferences_text"] == text
-    assert body["preferences"] == ["I want some diversification"]
-    assert body["constraints"] == ["not only tech", "little interest in very speculative investments"]
-    assert client.get("/v1/profile", headers=H).json()["preferences_text"] == text
+    assert body["preferences_text"] == prefs and body["constraints_text"] == cons
+    assert body["preferences"] == ["Companies with strong ESG practices", "some exposure to new technologies"]
+    assert body["constraints"] == ["Not only tech", "Little interest in very speculative investments"]
+    assert client.get("/v1/profile", headers=H).json()["constraints_text"] == cons
+
+
+def test_the_box_decides_the_kind_whatever_the_words(client):
+    # "avoid" in the Preferences box is still a preference; "I like" in the Constraints box is still a constraint.
+    r = client.put("/v1/profile", json={**FORM, "preferences_text": "I avoid nothing in particular",
+                                        "constraints_text": "I like to keep tech under a third"}, headers=H).json()
+    assert r["preferences"] == ["I avoid nothing in particular"] and r["constraints"] == ["I like to keep tech under a third"]
+
+
+def test_one_box_changed_leaves_the_other_list_alone(client):
+    client.put("/v1/profile", json={**FORM, "preferences_text": "I like dividends", "constraints_text": "No tobacco"}, headers=H)
+    r = client.put("/v1/profile", json={"preferences_text": "I like dividends and banks"}, headers=H).json()
+    assert r["preferences"] == ["I like dividends and banks"] and r["constraints"] == ["No tobacco"]
 
 
 def test_the_lists_the_form_sends_are_ignored_when_the_text_changes(client):
     r = client.put("/v1/profile", json={**FORM, "preferences_text": "I like dividends", "preferences": ["old"],
-                                        "constraints": ["old"]}, headers=H)
-    assert r.json()["preferences"] == ["I like dividends"] and r.json()["constraints"] == []
+                                        "constraints_text": "No oil", "constraints": ["old"]}, headers=H)
+    assert r.json()["preferences"] == ["I like dividends"] and r.json()["constraints"] == ["No oil"]
 
 
 def test_a_save_that_leaves_the_text_unchanged_does_not_derive_again(svc, client):
-    client.put("/v1/profile", json={**FORM, "preferences_text": "I like dividends"}, headers=H)
+    client.put("/v1/profile", json={**FORM, "preferences_text": "I like dividends", "constraints_text": "No oil"}, headers=H)
     calls = []
-    original = svc._backend().split_preferences
-    svc._backend().split_preferences = lambda t: calls.append(t) or original(t)
-    client.put("/v1/profile", json={"capital": 1000, "preferences_text": "I like dividends"}, headers=H)
+    original = svc._backend().split_items
+    svc._backend().split_items = lambda t: calls.append(t) or original(t)
+    client.put("/v1/profile", json={"capital": 1000, "preferences_text": "I like dividends", "constraints_text": "No oil"}, headers=H)
     client.put("/v1/profile", json={"capital": 2000}, headers=H)
     assert calls == []
 
 
-def test_clearing_the_text_clears_the_derived_lists(client):
-    client.put("/v1/profile", json={**FORM, "preferences_text": "I avoid oil"}, headers=H)
-    r = client.put("/v1/profile", json={"preferences_text": "  "}, headers=H)
-    assert r.json()["preferences_text"] is None and r.json()["preferences"] == [] and r.json()["constraints"] == []
+def test_clearing_a_box_clears_its_text_and_its_list_only(client):
+    client.put("/v1/profile", json={**FORM, "preferences_text": "I like dividends", "constraints_text": "I avoid oil"}, headers=H)
+    r = client.put("/v1/profile", json={"constraints_text": "  "}, headers=H).json()
+    assert r["constraints_text"] is None and r["constraints"] == [] and r["preferences"] == ["I like dividends"]
+    r = client.put("/v1/profile", json={"preferences_text": ""}, headers=H).json()
+    assert r["preferences_text"] is None and r["preferences"] == []
 
 
 def test_too_long_text_and_bad_age_are_422(client):

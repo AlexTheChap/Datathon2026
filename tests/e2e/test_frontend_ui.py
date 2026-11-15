@@ -404,6 +404,9 @@ def test_detail_level_follows_experience_and_can_be_changed(page, base_url):
     page.wait_for_selector(".fit-lines")                                          # the fit, every part with its points
     assert page.inner_text(".hero-card__score").count("%") >= 1 and "/ 30" in page.inner_text(".fit-lines")
     assert page.inner_text(".hero-card__answer").startswith("Weights: SPY 34.8%")   # the summary follows the level
+    # The run never measured correlation (the risk agent picks its tools): the section measures it on the weights.
+    page.wait_for_selector("#corr-title")
+    page.wait_for_selector("section[aria-labelledby=corr-title] >> text=Measured on")
     page.click("a.nav__link:has-text('Ask a question')")
     page.click("a.nav__link:has-text('My portfolio')")
     page.wait_for_selector(".hero-card")
@@ -507,6 +510,24 @@ def test_values_shown_switch_slides_and_the_chart_follows(page, base_url):
     assert page.errors == []
 
 
+def test_the_suitability_report_downloads_as_a_pdf(page, base_url):
+    _portfolio_for(page)
+    page.goto(f"{base_url}/#/portfolio")
+    page.wait_for_selector(".hero-card >> text=Download the suitability report (PDF)")
+    with page.expect_download() as info:
+        page.click(".hero-card button:has-text('Download the suitability report')")
+    d = info.value
+    assert d.suggested_filename.startswith("alphaforge-suitability-") and d.suggested_filename.endswith(".pdf")
+    assert open(d.path(), "rb").read(5) == b"%PDF-"
+    page.wait_for_selector(".hero-card >> text=Saved: alphaforge-suitability-")
+    # The mix being tried has its own report.
+    page.wait_for_selector(".whatif__result >> text=Download a report for this mix")
+    with page.expect_download() as info2:
+        page.click(".whatif__result button:has-text('Download a report for this mix')")
+    assert open(info2.value.path(), "rb").read(5) == b"%PDF-"
+    assert page.errors == []
+
+
 def test_risk_comes_from_the_follow_up_on_the_exact_mix(page, base_url):
     _portfolio_for(page, risk_follow_up=True)
     page.goto(f"{base_url}/#/portfolio")
@@ -589,11 +610,12 @@ def test_profile_set_up_step_by_step(page, base_url):
     page.click("button[aria-label='Skip capital and largest loss']")
     page.fill("#q-objective", "a house")
     page.click("button[aria-label='Save goal']")
-    page.fill("#q-preferences_text", "I want some diversification and not only tech; little interest in very speculative investments.")
+    page.fill("#q-preferences_text", "I want some diversification")
+    page.fill("#q-constraints_text", "Not only tech; little interest in very speculative investments.")
     page.click("button[aria-label='Save preferences and constraints']")
     page.wait_for_selector(".understood:has-text('Fitfolio understood')")
     understood = page.locator(".understood").inner_text()
-    assert "I want some diversification" in understood and "not only tech" in understood
+    assert "I want some diversification" in understood and "Not only tech" in understood
     page.check("input[name='limit-crypto']")
     page.click("button[aria-label='Save hard limits']")
     page.click("button[aria-label='Save analyses']")
@@ -603,7 +625,7 @@ def test_profile_set_up_step_by_step(page, base_url):
     saved = SERVICE.get_profile(actor)
     assert (saved.age, saved.risk_band, saved.experience, saved.horizon_years.min) == (41, "moderate", "beginner", 12)
     assert saved.preferences == ["I want some diversification"]
-    assert saved.constraints == ["not only tech", "little interest in very speculative investments"]
+    assert saved.constraints == ["Not only tech", "little interest in very speculative investments"]   # the box decides
     assert [e.value for e in saved.exclusions] == ["crypto"]
     # Back later: every answer is locked with its Change button
     page.goto(page.url.split("#")[0] + "#/portfolio")   # (a full reload would give this test a new random user)

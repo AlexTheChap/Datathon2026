@@ -49,6 +49,7 @@ def profile_from_persona(persona: dict[str, Any]) -> Profile:
         age=persona.get("age"),
         objective=persona.get("objective"),
         preferences_text=persona.get("preferences_text"),
+        constraints_text=persona.get("constraints_text"),
         preferences=persona.get("preferences", []),
         constraints=persona.get("constraints", []),
         exclusions=persona.get("exclusions", []),

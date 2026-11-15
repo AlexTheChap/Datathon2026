@@ -61,9 +61,14 @@ class Profile(BaseModel):
     objective: Optional[str] = None
     preferences_text: Optional[str] = Field(
         default=None, max_length=2000,
-        description="The investor's own words for preferences and constraints, kept verbatim.",
+        description="The investor's preferences in their own words (the form's Preferences box), kept verbatim.",
     )
-    # Derived from `preferences_text` when the profile is saved (app.api.service.put_profile).
+    constraints_text: Optional[str] = Field(
+        default=None, max_length=2000,
+        description="The investor's constraints in their own words (the form's Constraints box), kept verbatim.",
+    )
+    # Derived when the profile is saved (app.api.service.put_profile): `preferences` from `preferences_text`,
+    # `constraints` from `constraints_text`. The box decides the kind; the text is only split into items.
     preferences: list[str] = Field(default_factory=list)
     constraints: list[str] = Field(default_factory=list)
     exclusions: list[Exclusion] = Field(default_factory=list)

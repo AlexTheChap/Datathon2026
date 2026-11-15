@@ -246,6 +246,17 @@ _AVOID_CUE = re.compile(
     r"no\s+(?:crypto|bitcoin|speculat\w*|oil|fossil)|too\s+(?:risky|speculative)|limit\w*)\b", re.I)
 MAX_DERIVED_ITEMS = 10
 MAX_DERIVED_LENGTH = 200
+def split_items_by_rules(text: str) -> list[str]:
+    """One box of the profile form (Preferences, or Constraints) -> its items, in the investor's own words and order,
+    by simple rules (no LLM): sentences, lines, semicolons and "but" separate items. The box says which kind they are."""
+    items: list[str] = []
+    for clause in _CLAUSE_SPLIT.split(text or ""):
+        item = " ".join(clause.split()).strip(" ,:-")[:MAX_DERIVED_LENGTH]
+        if len(item) >= 3 and item not in items:
+            items.append(item)
+    return items[:MAX_DERIVED_ITEMS]
+
+
 def split_preferences_by_rules(text: str) -> tuple[list[str], list[str]]:
     """(preferences, constraints) from the investor's own words, by simple English rules (no LLM)."""
     preferences: list[str] = []
@@ -362,6 +373,10 @@ class MockBackend:
                 match = None
             positions.append(Position(ticker=ticker, weight=float(pcts[match[1]].group(1)) / 100 if match else None))
         return positions
+
+    def split_items(self, text: str) -> list[str]:
+        """Profile form, one box (Preferences or Constraints): the offline rules above, the box decides the kind."""
+        return split_items_by_rules(text)
 
     def split_preferences(self, text: str) -> tuple[list[str], list[str]]:
         """Profile form, "Preferences and constraints": the offline rules above."""

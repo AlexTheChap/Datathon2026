@@ -1060,6 +1060,9 @@ summary { cursor: pointer; font-weight: var(--weight-mid); min-height: 44px; dis
 .whatif__suggest-title { margin: 0; font-size: var(--text-lg); }
 .whatif__jump { margin: 0; font-size: var(--text-2xl); font-variant-numeric: tabular-nums; }
 .whatif__suggest-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; }
+.report-btn { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm); }
+.report-btn .btn { display: inline-flex; align-items: center; gap: var(--space-2xs); }
+.report-btn__note:empty { display: none; }
 
 /* The orchestrator's working draft, shown while the explainer checks it (run status DRAFTED). */
 .answer__draft { border-left: 3px solid var(--line, #d8dee6); padding: .25rem 0 .25rem .85rem; display: grid; gap: .4rem; }

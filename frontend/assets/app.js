@@ -93,6 +93,7 @@ const ICONS = {
   check: "M5 12.5l4.5 4.5L19 7.5",
   user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7.5 8a7.5 7.5 0 0 1 15 0",
   minus: "M6 12h12",
+  download: "M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14",
   alert: "M12 8v5m0 3.5v.01M10.3 3.9 2.6 17.3A2 2 0 0 0 4.3 20.3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z",
   moon: "M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z",
   sun: "M12 4V2m0 20v-2m8-8h2M2 12h2m13.66-5.66 1.41-1.41M4.93 19.07l1.41-1.41m11.32 0 1.41 1.41M4.93 4.93l1.41 1.41M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10z",
@@ -301,6 +302,39 @@ async function api(method, path, body, retried = false) {
   return { status: res.status, data };
 }
 
+/** POST JSON and save the answer as a file (the suitability PDF): same sign-in as api(), one retry on an expired
+ * session; the file name comes from the server's Content-Disposition. */
+async function download(path, body, fallbackName = "alphaforge.pdf", retried = false) {
+  const headers = { "Content-Type": "application/json" };
+  if (COGNITO) {
+    const token = await idToken();
+    if (!token) { signOut("Your session has expired. Sign in again."); throw new ApiError(401, "Sign in to continue."); }
+    headers.Authorization = `Bearer ${token}`;
+  } else if (DEV) {
+    headers["X-Actor-Id"] = actorId();
+  } else {
+    throw new ApiError(401, "Sign-in is not set up.");
+  }
+  let res;
+  try {
+    res = await fetch(API_BASE + path, { method: "POST", headers, body: JSON.stringify(body || {}) });
+  } catch {
+    throw new ApiError(0, "network");
+  }
+  if (res.status === 401 && COGNITO && !retried && (await refreshSession())) return download(path, body, fallbackName, true);
+  if (!res.ok) {
+    let detail = null;
+    try { detail = (await res.json()).detail; } catch { /* not JSON */ }
+    throw new ApiError(res.status, detail);
+  }
+  const name = (/filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") || "") || [])[1] || fallbackName;
+  const url = URL.createObjectURL(await res.blob());
+  const a = Object.assign(document.createElement("a"), { href: url, download: name });
+  document.body.append(a); a.click(); a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  return name;
+}
+
 /** POST a file (multipart): same sign-in as api(), the browser sets the multipart boundary. */
 function errorText(err, what) {
   if (err.status === 0) return { title: "Fitfolio isn't responding", body: "The app can't reach its server. Check your connection, then try again." };
@@ -427,7 +461,7 @@ const HOME = "#/portfolio";
 
 /** What the portfolio dashboard (portfolio.js) needs from the app: same API client, components and state. */
 function dashboardContext() {
-  return { h, icon, api, band, alertBox, skeleton, announce, money, timeText, VERDICTS, actorId, store, route,
+  return { h, icon, api, download, band, alertBox, skeleton, announce, money, timeText, VERDICTS, actorId, store, route,
     loadProfile: async (force) => loadProfile(force) };
 }
 /** No sign-in settings (no config.js, or a server not started with Cognito): nothing of the app is shown. */
