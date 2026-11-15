@@ -354,6 +354,10 @@ def test_detail_level_follows_experience_and_can_be_changed(page, base_url):
     page.goto(f"{base_url}/#/portfolio")
     page.wait_for_selector(".hero-card")
     assert page.is_checked("input[name='detail-level'][value='simple']")
+    off = page.evaluate("""() => [...document.querySelectorAll('.seg-control__option')].map((l) => {
+        const c = l.getBoundingClientRect(), t = l.querySelector('span').getBoundingClientRect();
+        return Math.abs((c.left + c.right) / 2 - (t.left + t.right) / 2); })""")
+    assert max(off) < 1.5                                                         # each label centred in its cell
     assert page.locator("text=500 large US companies").count() >= 1             # plain words for a beginner
     assert page.locator("text=Each holding's history").count() == 0
     page.click("label.seg-control__option:has-text('Detailed')")
@@ -373,6 +377,7 @@ def test_risk_comes_from_the_follow_up_on_the_exact_mix(page, base_url):
     assert page.locator("text=Measured on this exact mix in a follow-up analysis").count() == 1
     page.click("#risk ~ details summary, figure:has-text('Share of the money vs share of the risk') summary")
     assert "52%" in page.locator("figure:has-text('Share of the money vs share of the risk') table").inner_text()
+    assert "null" not in page.locator("main").inner_text()                     # an absent note is not printed
     assert page.errors == []
 
 
@@ -493,4 +498,19 @@ def test_floating_ask_button(page, base_url):
     fab.click()
     page.wait_for_selector("#question")
     assert fab.is_hidden()                                                        # not on the Ask page itself
+    assert page.errors == []
+
+
+def test_my_portfolio_questions_know_the_portfolio_without_opening_the_dashboard(page, base_url):
+    """Built while the user was elsewhere: the chat saves it in the profile before sending a question."""
+    from app.api.service import MessageIn  # noqa: F401
+    run = _portfolio_for(page)
+    page.goto(page.url.split("#")[0] + "#/profile/form")                        # anywhere but the dashboard
+    page.click("a.nav__link:has-text('Ask a question')")
+    page.wait_for_selector("text=SPY 35%, XBB.TO 31%, XIU.TO 25%, QQQ 10%")      # synced into the profile panel
+    page.fill("#question", "Is my portfolio too risky compared to SPY?")
+    page.keyboard.press("Enter")
+    page.wait_for_selector("text=Analysed on your saved portfolio")
+    asked = [r for r in SERVICE.runs.list_for_actor(run.actor_id, 10) if r.request.user_message.startswith("Is my portfolio")][0]
+    assert {p.ticker: p.weight for p in asked.request.positions} == {"SPY": 0.3481, "XBB.TO": 0.3054, "XIU.TO": 0.2509, "QQQ": 0.0956}
     assert page.errors == []

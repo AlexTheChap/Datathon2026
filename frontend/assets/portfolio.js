@@ -51,11 +51,32 @@ export function startJob(ctx, kind, question) {
   if (running && !running.done) return running;
   const job = { question, done: false, run: null, error: null };
   job.promise = ask(ctx, question)
-    .then((run) => { job.run = run; })
+    .then(async (run) => {
+      job.run = run;
+      if (kind === "portfolio" && run.status === "DONE") await syncPortfolio(ctx).catch(() => {}); // usable in the chat at once
+    })
     .catch((err) => { job.error = err; })
     .finally(() => { job.done = true; listeners.forEach((fn) => fn(kind, job)); });
   jobs.set(key, job);
   return job;
+}
+
+/** Save the latest built portfolio into the profile (so "my portfolio" questions use it), once per portfolio run.
+ * Runs when a build finishes, when the dashboard shows a portfolio and before the chat sends a question. */
+export async function syncPortfolio(ctx) {
+  const profile = await ctx.loadProfile(true);
+  if (!profile) return null;
+  const runs = (await ctx.api("GET", "/v1/runs?limit=100")).data;
+  const done = D.findRun(runs, D.PORTFOLIO_PROMPT);
+  if (!done || profile.portfolio_run_id === done.run_id) return profile.portfolio || null;
+  const [run, records] = await Promise.all([
+    ctx.api("GET", `/v1/runs/${encodeURIComponent(done.run_id)}`).then((r) => r.data),
+    ctx.api("GET", `/v1/runs/${encodeURIComponent(done.run_id)}/evidence`).then((r) => r.data)]);
+  const p = D.extractPortfolio(run, records);
+  if (!p.weights) return profile.portfolio || null;
+  await ctx.api("PUT", "/v1/profile", { portfolio: p.weights, portfolio_run_id: p.runId });
+  await ctx.loadProfile(true);
+  return p.weights;
 }
 
 /** Called by the profile page after a save: rebuild when the profile changed in a way that shapes a portfolio. */
@@ -167,10 +188,7 @@ export async function renderPortfolio(main, ctx) {
       return;
     }
     // This is now the user's portfolio: saved in the profile, so a question about "my portfolio" is analysed on it.
-    if (profile.portfolio_run_id !== p.runId) {
-      ctx.api("PUT", "/v1/profile", { portfolio: p.weights, portfolio_run_id: p.runId })
-        .then(() => ctx.loadProfile(true)).catch(() => { /* retried on the next visit */ });
-    }
+    if (profile.portfolio_run_id !== p.runId) syncPortfolio(ctx).catch(() => { /* retried on the next visit or question */ });
 
     // Risk of these exact weights: from this run when it measured them, else from the follow-up question.
     let risk = p.risk; let riskRunId = run.run_id; let riskState = risk.matches ? "ready" : "missing";
@@ -408,7 +426,8 @@ function riskSection(view) {
     section.append(h("p", { class: "small muted" }, "Measured on this exact mix in a follow-up analysis. ",
       h("a", { href: `#/runs/${riskRunId}` }, "See it")));
   }
-  section.append(learnNote(view, "some holdings move much more than others. A holding can be a small part of your money and still cause a big part of the swings."));
+  const note = learnNote(view, "some holdings move much more than others. A holding can be a small part of your money and still cause a big part of the swings.");
+  if (note) section.append(note); // append(null) would print "null"
   return section;
 }
 

@@ -3,7 +3,7 @@
 // sign-in is configured (config.js from scripts/setup_cognito.py), to Amazon Cognito for the login.
 // Every piece of user or server text goes into the page as a text node (never as HTML).
 
-import { renderPortfolio, onProfileSaved } from "./portfolio.js";
+import { renderPortfolio, onProfileSaved, syncPortfolio } from "./portfolio.js";
 import { PORTFOLIO_PROMPT, RISK_PROMPT_PREFIX } from "./portfolio-data.js";
 import { renderOnboarding } from "./onboarding.js";
 import { EXPERIENCE_BANDS, RISK_BANDS, scale } from "./scale.js";
@@ -266,9 +266,12 @@ async function api(method, path, body, retried = false) {
   let data = null;
   try { data = await res.json(); } catch { /* empty body */ }
   if (res.status === 401 && COGNITO) {
+    // Several requests can be refused at once: only the first signs out, so its precise message stays on screen.
+    if (!readSession()) throw new ApiError(401, (data && data.detail) || "Sign in to continue.");
     if (!retried && (await refreshSession())) return api(method, path, body, true);
     // A token refused minutes after signing in is not an expired session: say what really happened.
     const s = readSession();
+    if (!s) throw new ApiError(401, (data && data.detail) || "Sign in to continue."); // another request signed out first
     const fresh = s && s.signedInAt && Date.now() - s.signedInAt < 120_000;
     const reason = (data && typeof data.detail === "string" && data.detail) || "unauthorized";
     signOut(fresh
@@ -490,6 +493,7 @@ const PLAN_ONLY = /stays at its plan|AF_DISPATCH=none/;
 const isFinalRun = (r) => r.status === "DONE" || r.status === "FAILED" || (r.status === "QUEUED" && PLAN_ONLY.test(r.note || ""));
 
 function renderAsk(main) {
+  const portfolioReady = syncPortfolio(dashboardContext()).then(() => { state.profile = undefined; drawSide(); }).catch(() => {});
   const log = h("div", { class: "chat__log", role: "log", "aria-label": "Conversation with AlphaForge" });
   const textarea = h("textarea", {
     class: "chat__input", id: "question", name: "question", rows: "1", maxlength: "4000",
@@ -535,6 +539,7 @@ function renderAsk(main) {
     submit.disabled = true;
     drawThread();
     try {
+      await portfolioReady; // a portfolio built since the last visit is saved first: "my portfolio" questions use it
       const body = { text };
       if (profileForm) body.profile_form = profileForm;
       if (state.sessionId) body.session_id = state.sessionId;
