@@ -53,7 +53,10 @@ def persona_form(persona: dict) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--persona", choices=list(MESSAGES), default="robert")
+    ap.add_argument("--text", help="your own question (uses --persona's profile); "
+                                   "e.g. --text \"Should I put 30%% in bitcoin?\"")
     args = ap.parse_args()
+    message = args.text or MESSAGES[args.persona]
 
     s = get_settings()
     personas = json.loads(s.abs_path(s.personas_path).read_text(encoding="utf-8"))["personas"]
@@ -61,7 +64,7 @@ def main() -> int:
     actor_id = f"persona-{persona['id']}"
 
     # ---- ③ Intake: free text -> validated Profile + Request (Bedrock Haiku) ---------------
-    intake = run_intake(MESSAGES[args.persona], actor_id, profile_form=persona_form(persona),
+    intake = run_intake(message, actor_id, profile_form=persona_form(persona),
                         backend=BedrockBackend())
     print(f"[③ Intake] status={intake.status} backend={intake.backend}")
     for w in intake.warnings:
