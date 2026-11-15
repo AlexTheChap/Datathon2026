@@ -5,7 +5,7 @@ Offline: a fake downloader stands in for Yahoo, a recording stub stands in for N
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 import numpy as np
 import pandas as pd
@@ -156,6 +156,7 @@ def test_close_without_any_price_publishes_nothing(monkeypatch):
 def test_spec_links_funds_esg_controversies_and_correlations(graph):
     s = graph.spec
     assert len(s["assets"]) >= 520 and s["as_of"] == TODAY.isoformat()
+    assert s["loaded_at"]           # the freshness stamp (checked precisely below)
     e = s["edges"]
     assert sum(1 for x in e["HOLDS"] if x["src"] == "SPY") >= 490
     assert {"low", "moderate", "high", "very_high"} >= set(s["risk_classes"])
@@ -187,13 +188,86 @@ def test_related_returns_funds_peers_and_esg(graph):
     assert len(spy["holdings"]) == 10 and spy["holdings"][0]["weight"] >= spy["holdings"][-1]["weight"]
 
 
-def test_tools_refuse_lookahead_and_bad_arguments(graph):
-    assert "look-ahead" in mg.screen_tool(graph, {"as_of": "2026-01-02"})["error"]
-    assert "look-ahead" in mg.related_tool(graph, {"ticker": "NVDA", "as_of": "2026-01-02"})["error"]
-    assert "evidence_id" in mg.screen_tool(graph, {"as_of": TODAY.isoformat()})
+def test_spec_stamps_loaded_at_from_the_manifest(graph, market_dir):
+    man = json.loads((market_dir / "manifest_close.json").read_text())
+    assert graph.spec["loaded_at"] == man["generated_at"]
+
+
+def test_fresh_graph_serves_a_run_dated_before_the_snapshot(graph):
+    """The look-ahead refusal is gone: freshness (not as_of) decides; a fresh graph always answers."""
+    out = mg.screen_tool(graph, {"limit": 3, "as_of": "2026-01-02"})
+    assert "evidence_id" in out and len(out["output"]["rows"]) <= 3
+    assert out["freshness"]["fresh"] is True and out["freshness"]["window_hours"] == 12
+    assert out["freshness"]["age_hours"] is not None and out["freshness"]["age_hours"] < 12
+
+
+def test_stale_graph_refuses(graph):
+    """Older than the reliability window = the refresh chain did not run: refuse, never serve."""
+    stale = mg.LocalGraph({**graph.spec, "loaded_at": "2026-01-01T00:00:00+00:00"})   # own spec: no fixture mutation
+    assert "stale" in mg.screen_tool(stale, {"limit": 3})["error"]
+    assert "stale" in mg.related_tool(stale, {"ticker": "NVDA"})["error"]
+    assert "stale" in mg.esg_screen_tool(stale, {"tickers": ["NVDA"]})["error"]
+
+
+def test_graph_without_market_tables_serves_with_an_unknown_age():
+    g = mg.LocalGraph.from_dirs(CURATED, None)                 # curated fallback: no load time at all
+    out = mg.screen_tool(g, {"limit": 5})
+    assert out["freshness"]["fresh"] is True and out["freshness"]["age_hours"] is None
+
+
+def test_bad_arguments_still_return_an_error(graph):
     assert "sort_by" in mg.screen_tool(graph, {"sort_by": "DROP"})["error"]
     assert "esg" in mg.screen_tool(graph, {"esg": "great"})["error"]
     assert "Unknown ticker" in mg.related_tool(graph, {"ticker": "NOPE"})["error"]
+
+
+def test_esg_screen_tool_from_the_graph(graph):
+    out = mg.esg_screen_tool(graph, {"tickers": ["xom", "CNQ.TO"], "as_of": TODAY.isoformat()})
+    assert out["tool"] == "esg_screen" and out["freshness"]["fresh"] is True
+    assert out["output"]["membership"]["XOM"]["in_esg_index"] is False
+    early = mg.esg_screen_tool(graph, {"tickers": ["CNQ.TO"], "as_of": "2000-01-01"})["output"]
+    full = mg.esg_screen_tool(graph, {"tickers": ["CNQ.TO"], "as_of": "2026-12-31"})["output"]
+    assert early["controversies"] == []                        # point-in-time filter on the graph rows
+    assert full["controversies"] and len(full["controversies"]) >= len(early["controversies"])
+    assert all(set(c) == {"ticker", "severity", "status", "category", "description", "source_doc"}
+               for c in full["controversies"])
+
+
+def test_esg_screen_tool_needs_tickers(graph):
+    assert "tickers is required" in mg.esg_screen_tool(graph, {})["error"]
+
+
+# ---------- local market cache wiring ----------
+
+def test_agent_market_tools_serve_from_the_local_cache(graph, monkeypatch):
+    """data/market populated: _market_graph serves screens in-process (no gateway, no cold start)."""
+    from app.tools import agent_tools as at
+    from app.tools import market_store
+
+    monkeypatch.setattr(market_store, "local_market_graph", lambda c, m, require_tables=False: graph)
+    monkeypatch.setattr(at, "_graph", None)
+    out = at.market_screen(sector="Utilities", sort_by="ann_vol", limit=3)
+    assert out["tool"] == "market_screen" and len(out["output"]["rows"]) <= 3
+    assert out["freshness"]["fresh"] is True
+
+
+def test_esg_screen_serves_from_the_local_cache_and_falls_back(graph, monkeypatch):
+    """Fresh local cache: the graph envelope (freshness present). Stale or absent cache: the
+    curated envelope (identical membership, no freshness key)."""
+    from app.tools import analysis_tools as at
+    from app.tools import market_store
+    from app.market import graph as _mg
+
+    monkeypatch.setattr(market_store, "local_market_graph", lambda c, m, require_tables=False: graph)
+    ev = at.esg_screen(["XOM", "CNQ.TO"], as_of=TODAY.isoformat())
+    assert ev["tool"] == "esg_screen" and ev["freshness"]["fresh"] is True
+    assert ev["output"]["membership"]["XOM"]["in_esg_index"] is False
+
+    stale = _mg.LocalGraph({**graph.spec, "loaded_at": "2026-01-01T00:00:00+00:00"})
+    monkeypatch.setattr(market_store, "local_market_graph", lambda c, m, require_tables=False: stale)
+    cur = at.esg_screen(["XOM"], as_of=TODAY.isoformat())
+    assert "freshness" not in cur and "error" not in cur      # curated fallback answered
+    assert cur["output"]["membership"]["XOM"]["in_esg_index"] is False
 
 
 def test_fallback_without_market_tables_uses_curated_metrics():
@@ -209,6 +283,15 @@ def test_gateway_exposes_the_market_target(monkeypatch, graph):
     assert out["tool"] == "market_screen" and len(out["output"]["rows"]) <= 3
     assert qg.call("market___related", {"ticker": "NVDA"})["tool"] == "market_related"
     assert [t["name"] for t in qg.TARGETS["market"]] == ["screen", "related"]
+
+
+def test_gateway_exposes_the_esg_target(monkeypatch, graph):
+    monkeypatch.setattr(qg, "_graph", graph)
+    out = qg.call("esg___esg_screen", {"tickers": ["XOM", "CNQ.TO"], "as_of": TODAY.isoformat()})
+    assert out["tool"] == "esg_screen" and "error" not in out
+    assert out["output"]["membership"]["XOM"]["in_esg_index"] is False
+    assert [t["name"] for t in qg.TARGETS["esg"]] == ["esg_screen"]
+    assert qg.call("esg___esg_screen", {"tickers": []})["error"].startswith("tickers is required")
 
 
 # ---------- Neptune (recorded queries, no network) ----------
@@ -255,6 +338,32 @@ def test_neptune_reads_map_to_the_tool_shape():
     assert out["as_of"] == "2026-11-13" and out["output"]["rows"][0]["ticker"] == "FTS.TO"
     empty = RecordingNeptune({"s.as_of": [{"as_of": "2026-11-13"}]})
     assert "Unknown ticker" in mg.related_tool(empty, {"ticker": "ZZZ"})["error"]  # no asset row
+
+
+def test_neptune_fresh_snapshot_carries_the_window(monkeypatch):
+    now = datetime.now(tz=timezone.utc)
+    n = RecordingNeptune({
+        # key order matters: the stub matches the FIRST key contained in the query
+        "s.loaded_at": [{"as_of": "2026-11-13", "loaded_at": (now - timedelta(hours=2)).isoformat(timespec="seconds"),
+                         "intraday_at": None}],
+        "MEMBER_OF|EXCLUDED_FROM": [{"ticker": "XOM", "member": False, "esg_index": "ESGV", "status": "PASS"}],
+        "HAS_CONTROVERSY": [{"ticker": "XOM", "severity": "major", "status": "verified", "category": "environment",
+                             "description": "d", "source_doc": "10-K"}],
+        "RETURN a.ticker AS ticker": [{"ticker": "FTS.TO", "ann_vol": 0.14, "sector": "Utilities"}],
+    })
+    out = mg.screen_tool(n, {"sector": "Utilities"})
+    assert out["freshness"]["fresh"] is True and out["freshness"]["age_hours"] <= 3
+    esg = mg.esg_screen_tool(n, {"tickers": ["XOM"], "as_of": "2026-11-13"})
+    assert esg["tool"] == "esg_screen" and esg["output"]["membership"]["XOM"]["in_esg_index"] is False
+    assert esg["output"]["controversies"][0]["status"] == "verified"
+
+
+def test_neptune_stale_snapshot_refuses_every_graph_tool():
+    old = (datetime.now(tz=timezone.utc) - timedelta(hours=30)).isoformat(timespec="seconds")
+    n = RecordingNeptune({"s.loaded_at": [{"as_of": "2026-11-13", "loaded_at": old, "intraday_at": None}]})
+    assert "stale" in mg.screen_tool(n, {"limit": 3})["error"]
+    assert "stale" in mg.related_tool(n, {"ticker": "NVDA"})["error"]
+    assert "stale" in mg.esg_screen_tool(n, {"tickers": ["NVDA"]})["error"]
 
 
 def test_backend_switches_to_neptune_with_the_endpoint(monkeypatch):

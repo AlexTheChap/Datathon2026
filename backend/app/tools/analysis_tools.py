@@ -89,12 +89,29 @@ def esg_screen(tickers: list[str], as_of: str | None = None) -> dict:
     never a ban). Controversies: extracted from filings/NBIM with severity and
     review status — only status='verified' lines may drive BLOCKs.
 
+    Locally, the synced market-graph cache serves this when it is fresh (identical tables to
+    Neptune's); the curated CSVs below are the fallback when the cache is stale or absent.
+
     Args:
         tickers: Assets from the universe (e.g. ["XOM", "CNQ.TO"]).
         as_of: Optional earlier "YYYY-MM-DD" date; controversies published after the run's reference
             date are never returned (point-in-time).
     """
     as_of = effective_as_of(as_of)
+    from app.tools.market_store import local_market_graph
+
+    s = get_settings()
+    g = local_market_graph(_curated(), s.abs_path(s.market_dir), require_tables=True)
+    if g is not None:
+        from app.market.graph import esg_screen_tool
+
+        env = esg_screen_tool(g, {"tickers": tickers, "as_of": as_of})
+        if "error" not in env:          # stale or unreachable cache: curated fallback below
+            return env
+    return _esg_screen_curated(tickers, as_of)
+
+
+def _esg_screen_curated(tickers: list[str], as_of: str) -> dict:
     tset = set(tickers)
 
     screen = pd.read_csv(_curated() / "esg_index_screen.csv")
