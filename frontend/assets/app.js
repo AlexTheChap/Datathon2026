@@ -964,10 +964,12 @@ function drawAnswer(run, { scope = "page", chat = false, animate = false } = {})
   const v = a.verification;
   if (v) {
     const removed = v.removed.length;
+    const grounded = v.output_guardrail === "passed" || v.output_guardrail === "flagged";
     section.append(h("div", { class: "verification" }, icon(removed ? "alert" : "check", 16), h("div", { class: "stack-sm" },
       h("p", null, removed
         ? `${v.claims_checked - removed} of ${v.claims_checked} statements were checked against the evidence. ${removed} could not be matched to it and ${removed === 1 ? "was" : "were"} removed.`
-        : `All ${v.claims_checked} statements were checked against the evidence: every figure comes from a cited source.`),
+        : `All ${v.claims_checked} statements were checked against the evidence: every figure comes from a cited source${grounded ? ", and every statement is supported by it" : ""}.`),
+      v.output_guardrail === "unavailable" ? h("p", { class: "small muted" }, "The grounding check could not run this time.") : null,
       removed ? h("details", null, h("summary", null, "What was removed"),
         h("ul", { class: "warning-list" }, v.removed.map((r) => h("li", null, `${r.text} (${r.reason})`)))) : null)));
   }

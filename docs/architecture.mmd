@@ -29,12 +29,14 @@
 %%   honest fallback) · optimizer tool (cvxpy, allocation sub-agent) · projection (Monte Carlo, planning
 %%   guidelines) and vol_forecast (GARCH, SageMaker AI Processing batch, L20) · rate exposure (POST /v1/rate-exposure)
 %%   · step-by-step profile form · profile from a PDF / Word file (API: POST /v1/profile/draft/file; no longer on the
-%%   profile page) · notification settings (SMS / email) and account deletion · AgentCore entrypoint.
+%%   profile page) · notification settings (SMS / email) and account deletion · AgentCore entrypoint ·
+%%   output guardrail on the answer (L18, app/agents/output_guardrail.py: Bedrock Guardrails grounding + relevance
+%%   per statement vs its cited evidence, output-only denied topics, contact details masked; on when
+%%   AF_GUARDRAIL_ID is set; guardrail resource from scripts/deploy_guardrail.py, written but not yet deployed).
 %% DIVERGES from target: ⑤ runs inside the API Lambda, not AgentCore Runtime (entrypoint ready, not deployed) ·
 %%   no API Gateway: Function URL + in-app JWT verification · uploads go through the API (5 MB, never stored),
 %%   not S3 presigned URLs.
-%% NOT BUILT: Guardrails grounding check on the answer (L18) · AgentCore Observability wiring · S3 offload of
-%%   large run results (DynamoDB 400 KB item limit).
+%% NOT BUILT: AgentCore Observability wiring · S3 offload of large run results (DynamoDB 400 KB item limit).
 %% =====================================================================================
 flowchart TB
   %% ===== 1. Frontend =====
@@ -265,7 +267,10 @@ flowchart TB
   %%      The top-level agent carries both: the synthesis agent in graph mode (default), the orchestrator in tools mode.
   ORCH <-.-> MEM
   %% L18 Explainer → DynamoDB: RunRecord.result["answer"] (RunAnswer: sections, citations, verification,
-  %%      model, PromptRef) via the RunStore. Target: S3 if > 400 KB; Guardrails grounding check (not built).
+  %%      model, PromptRef) via the RunStore. Target: S3 if > 400 KB. Before it is stored, the output guardrail
+  %%      (ApplyGuardrail, source=OUTPUT) checks each statement: grounded in the evidence it cites, relevant to the
+  %%      question, no denied topic. Flagged → shares the claim check's single retry, then removed (verification.removed);
+  %%      verification.output_guardrail = passed | flagged | unavailable (AWS error: nothing removed).
   EXP -->|"RunResult"| DDB
   %% L19 Explainer → Result view: in practice the frontend polls GET /v1/runs/{id} (API Gateway + Lambda
   %%      that reads DynamoDB). Option: API Gateway REST with response streaming (SSE) for progress.

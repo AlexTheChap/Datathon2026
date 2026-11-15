@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     model_explainer: str = "us.anthropic.claude-sonnet-5-5"
     explainer_effort: str = "medium"   # low | medium | high (Sonnet 5.5 effort; thinking stays adaptive)
     aws_region: str = "us-east-1"
+    # Bedrock Guardrails (scripts/deploy_guardrail.py) — empty = no guardrail. One guardrail serves both the intake
+    # input (prompt attacks, personal data) and the Explainer output (L18: contextual grounding + relevance per
+    # statement, denied topics, personal data masked). AF_OUTPUT_GUARDRAIL=false turns off only the output check.
+    guardrail_id: str | None = None
+    guardrail_version: str = "DRAFT"
+    output_guardrail: bool = True
     # Reference date of a run when neither the request nor the payload gives one. Empty = the last
     # date of the curated data (never a hard-coded date).
     default_as_of: str | None = None
