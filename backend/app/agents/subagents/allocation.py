@@ -13,9 +13,11 @@ Procedure:
    It returns the smallest change that satisfies EVERY rule of the profile, already verified with the governance
    rules.
 3. If its status is "ok": copy `output.weights` EXACTLY (do not round, add or remove a ticker). Read the changes,
-   the active constraints and the verification (governance verdict).
-   You may call `concentration` or `metrics` on those weights for the explanation.
-4. If its status is "infeasible": return NO weights (an empty object) and explain which rules conflict.
+   the active constraints and the verification: that verification IS the governance verdict — never call
+   `governance_check` again on weights `optimize` already verified.
+4. Call `concentration` or `metrics` ONLY when the answer needs a number the optimize result does not contain
+   (e.g. the HHI of the final mix). Answering from the optimize result alone is the normal case, not a shortcut.
+5. If its status is "infeasible": return NO weights (an empty object) and explain which rules conflict.
 Every number you state must come from a tool result, with its evidence_id.
 Return ONLY a JSON object:
 {
