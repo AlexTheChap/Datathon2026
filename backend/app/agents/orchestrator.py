@@ -16,6 +16,7 @@ import time
 from typing import Any
 
 from strands import Agent
+from strands.models import BedrockModel
 
 from app.agents.hooks import EvidenceHook
 from app.agents.subagents import subagents_for_plan
@@ -110,6 +111,7 @@ def build_orchestrator(inp: OrchestratorInput, ledger: JsonlLedger | None = None
     # verdict — every number comes from a sub-agent finding (no double compute).
     subagents = subagents_for_plan(plan)
     return Agent(
+        model=BedrockModel(model_id=s.model_orchestrator, region_name=s.aws_region),
         system_prompt=system_prompt,
         tools=[agent_tools.governance_check, *subagents],
         hooks=[EvidenceHook(led, inp.run_id)],
