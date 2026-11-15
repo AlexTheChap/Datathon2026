@@ -242,3 +242,20 @@ def test_an_unreachable_model_is_an_intake_error_not_a_crash():
 
     with pytest.raises(IntakeError, match="expired"):
         run_intake("Is my portfolio too risky?", "a", backend=Expired(), profile_form={"risk_band": "moderate", "experience": "beginner"})
+
+
+def test_a_composition_question_is_answered_on_the_saved_portfolio_not_asked_back(store_with_portfolio):
+    """"What is my portfolio made of?" must run on the saved holdings, even if the model was unsure of the task."""
+    class Unsure:
+        name = "bedrock"
+
+        def extract(self, text, known, feedback=None):
+            assert known.get("has_saved_portfolio") is True and "portfolio" not in known   # told it exists, not what
+            return IntakeDraft.model_validate({
+                "profile": {"learning": "unsaid"},
+                "request": {"task": "risk_review", "intake_confidence": 0.4},
+                "clarification_question": "Which stocks and bonds do you currently hold?"})
+
+    res = run_intake("what is my portfolio made of? what stocks and bonds?", "mateo", backend=Unsure(), store=store_with_portfolio)
+    assert res.status == "ready" and res.clarification_question is None
+    assert {p.ticker: p.weight for p in res.request.positions} == SAVED

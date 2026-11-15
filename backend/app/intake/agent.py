@@ -75,6 +75,8 @@ def _known_profile(stored: Optional[Profile], form: Optional[dict]) -> dict[str,
     the model extracts only what the message says; code adds the portfolio for "my portfolio" questions."""
     known: dict[str, Any] = stored.model_dump(mode="json", exclude={"actor_id", "schema_version", "portfolio",
                                                                    "portfolio_run_id"}) if stored else {}
+    if stored is not None and stored.portfolio:
+        known["has_saved_portfolio"] = True  # the model knows "my portfolio" is clear, not what is in it
     known.update({k: v for k, v in (form or {}).items() if v is not None})
     return known
 
@@ -207,7 +209,9 @@ def run_intake(
     # --- Request --------------------------------------------------------------------------------
     r = draft.request
     positions = _clean_positions(r.positions, warnings)
+    used_saved = False
     if not positions and profile is not None and profile.portfolio and _about_own_portfolio(text, r.task):
+        used_saved = True
         # "How exposed is my portfolio to a rate hike?": the analysis runs on the portfolio saved in the profile.
         positions = [Position(ticker=t, weight=w) for t, w in sorted(profile.portfolio.items(), key=lambda kv: -kv[1])]
         warnings.append("Analysed on your saved portfolio: "
@@ -240,7 +244,8 @@ def run_intake(
     elif missing:
         status = "needs_clarification"
         question = QUESTIONS.get(missing[0]) or draft.clarification_question
-    elif request.intake_confidence < MIN_CONFIDENCE:
+    elif request.intake_confidence < MIN_CONFIDENCE and not used_saved:
+        # (with the saved portfolio, "which holdings?" is already answered: never ask it back)
         status = "needs_clarification"
         question = draft.clarification_question or QUESTIONS["task"]
     else:

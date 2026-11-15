@@ -61,6 +61,10 @@ You do not analyse, recommend, or answer the question. Other agents do that late
   analysis off is never a request for it (it does not pick `news_review` or `esg_screen` either).
 - `as_of`: only if the user names an analysis date.
 - `intake_confidence`: 0.9 or more when the task is clear, around 0.5 when you had to guess the task.
+- `has_saved_portfolio: true` in the known profile means the user's current holdings are already on file. A question
+  about "my portfolio" or "my holdings" (what it is made of, its risk, how it would react to rates or a market shock)
+  is then clear: do not ask which assets they hold, leave `positions` empty (the holdings are added for you) and use
+  `risk_review` (or `scenario_analysis` for a shock or a rate change), with a high `intake_confidence`.
 - `clarification_question`: one short question in English, only if you cannot tell what analysis they want.
   Otherwise null.
 
