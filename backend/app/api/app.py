@@ -4,7 +4,9 @@
     GET  /v1/runs/{run_id}  → the run (status, plan, result once box ⑤ writes it)
     GET  /v1/profile        → the stored profile
     PUT  /v1/profile        → save the profile form
+    GET  /v1/personas       → the brief's three example profiles (Amira, Mateo, Robert) as profile forms
     GET  /health
+    /                       → the frontend (box ①, frontend/), served locally when that folder exists
 
 Identity (actor_id): the `sub` claim of the Cognito JWT, already verified by the API Gateway JWT authorizer.
 Local development only (AF_AUTH_MODE=dev): the X-Actor-Id header. Never trust an actor_id from a body.
@@ -14,15 +16,19 @@ Lambda: `handler` (Mangum adapter). Local: `uvicorn app.api.app:app --app-dir ba
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.schemas import Profile
 from app.store.runs import RunRecord
 
-from .service import ApiError, ApiService, MessageIn, MessageOut, service_from_env
+from .service import ApiError, ApiService, MessageIn, MessageOut, example_personas, service_from_env
+
+FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
 
 
 def actor_id_from(request: Request) -> str:
@@ -64,6 +70,16 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
     @api.put("/v1/profile", response_model=Profile)
     def put_profile(form: dict[str, Any] = Body(...), actor_id: str = Depends(actor_id_from)) -> Profile:
         return svc.put_profile(actor_id, form)
+
+    @api.get("/v1/personas")
+    def personas() -> list[dict[str, Any]]:
+        return example_personas()
+
+    # Box ① served by the same process for local use (one command, same origin, no CORS). Mounted last so
+    # the API routes above win. On AWS the frontend is static files in S3 + CloudFront instead.
+    frontend = Path(os.environ.get("AF_FRONTEND_DIR", FRONTEND_DIR))
+    if os.environ.get("AF_SERVE_FRONTEND", "1") != "0" and (frontend / "index.html").is_file():
+        api.mount("/", StaticFiles(directory=frontend, html=True), name="frontend")
 
     return api
 

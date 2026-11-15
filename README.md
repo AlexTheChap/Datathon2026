@@ -37,6 +37,17 @@ to observable data and execution steps.
 Before writing or reviewing any code, read it. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Run the app locally (boxes ① + ② + ③ + ④)
+
+```bash
+.venv/bin/pip install -e ".[dev,api]"
+cd backend && AF_AUTH_MODE=dev AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app --port 8000
+# open http://127.0.0.1:8000  (AF_INTAKE_MODE=bedrock + your .env keys for the real Claude Haiku intake)
+```
+
+`AF_AUTH_MODE=dev` lets the browser pick a demo user; it is for local use only. Details, design rules and the
+ergonomic checklist: [`frontend/README.md`](frontend/README.md).
+
 ## Run the orchestrator (node ⑤)
 
 ```bash
@@ -68,7 +79,7 @@ backend/app/
   tools/                  # ⑥ quant tools: metrics, risk, scenarios, optimizer, evidence
   store/                  # ⑥ runs + evidence ledger (DynamoDB analogue)
   core/, schemas/         # config/logging · Pydantic models (Profile, Request, Evidence…)
-frontend/                 # ①/⑦ Streamlit UI: chat, profile form, results + evidence
+frontend/                 # ①/⑦ web app (HTML/CSS/JS, no build): ask, profile form, analysis plan — see frontend/README.md
 data/{raw,curated,external}/
 scripts/                  # e.g. build curated point-in-time datasets
 tests/{unit,e2e}/
