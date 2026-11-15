@@ -20,7 +20,7 @@ TOKEN = re.compile(r"\bev-[0-9a-f]{4,10}\b")
 BRACKET = re.compile(r"\[([^\[\]\n]*\bev-[0-9a-f]{4,10}\b[^\[\]\n]*)\]")
 NUM = r"[+\-−–]?(?:\d{1,3}(?:[,\u202f\u00a0]\d{3})+|\d+)(?:\.\d+)?"       # 12.4  -1,234.5  84,232
 PERCENT = re.compile(rf"({NUM})\s?%")
-MONEY = re.compile(rf"\$\s?({NUM})\s?([kKmM]\b)?")
+MONEY = re.compile(rf"\$\s?({NUM})\s?(billion|million|thousand|bn|[kKmMbB])?(?![A-Za-z])")
 SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
 NOISE = re.compile(r"\b(?:ev|N)-[0-9a-f]{4,12}\b|\b\d{4}-\d{2}-\d{2}\b")   # ids and ISO dates are not figures
 
@@ -69,7 +69,8 @@ def _parse(raw: str, suffix: str | None = None) -> float | None:
         x = float(s)
     except ValueError:
         return None
-    return x * {"k": 1e3, "m": 1e6}.get((suffix or "").lower(), 1.0)
+    return x * {"k": 1e3, "thousand": 1e3, "m": 1e6, "million": 1e6,
+                "b": 1e9, "bn": 1e9, "billion": 1e9}.get((suffix or "").lower(), 1.0)
 
 
 def _matches(x: float, kind: str, pool: list[float]) -> bool:

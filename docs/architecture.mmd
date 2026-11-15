@@ -146,8 +146,8 @@ flowchart TB
   %% L12 Sub-agents → Tools: TARGET: AgentCore Gateway (MCP, SigV4/OAuth auth, optional Cedar
   %%      Policy) → quant tool Lambdas. CURRENT: direct in-process calls — sub-agents own their
   %%      domain toolsets (risk: metrics/stress/concentration/correlation/risk_contribution/
-  %%      max_position · macro: macro_snapshot/rate_sensitivity/stress · esg+fundamentals:
-  %%      esg_screen · allocation: metrics/max_position/stress/concentration/governance_check).
+  %%      max_position · macro: macro_snapshot/rate_sensitivity/stress · esg: esg_screen ·
+  %%      fundamentals: company_fundamentals (SEC XBRL, point-in-time) + news_search(8-K) + esg_screen · allocation: metrics/max_position/stress/concentration/governance_check).
   SUB -->|"tool calls (in-process)"| GW
   %% L13 News → KB: TARGET: Bedrock Knowledge Bases (Retrieve API + metadata filter published
   %%      ≤ as_of), S3 Vectors index. CURRENT: news_subagent is a SIMULATED placeholder (no
