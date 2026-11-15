@@ -347,3 +347,28 @@ export function rateFacts(d) {
     "US fed funds (%)": "US Fed funds rate", "US 10y yield (%)": "US 10-year yield", "CA CPI y/y (%)": "Canadian inflation (year over year)" };
   return Object.entries(names).filter(([k]) => (d.rates || {})[k] != null).map(([k, label]) => [label, `${Number(d.rates[k]).toFixed(2).replace(/\.?0+$/, "")}%`]);
 }
+
+/* ---------- "What if" weights: the total always stays 100% ---------- */
+
+/** Set one holding's share; the others make room (or take the rest) in proportion to their current shares. */
+export function rebalance(weights, ticker, share) {
+  const x = Math.max(0, Math.min(1, share));
+  const others = Object.keys(weights).filter((t) => t !== ticker);
+  if (!others.length) return { [ticker]: 1 };
+  const rest = others.reduce((s, t) => s + weights[t], 0);
+  const out = {};
+  for (const t of Object.keys(weights)) {
+    out[t] = t === ticker ? x : rest > 1e-12 ? (weights[t] / rest) * (1 - x) : (1 - x) / others.length;
+  }
+  return out;
+}
+/** Add a holding at `share` (5% by default), the others scaled down; an existing one is just set to `share`. */
+export const addHolding = (weights, ticker, share = 0.05) => rebalance({ ...weights, [ticker]: weights[ticker] || 0 }, ticker, share);
+/** Remove a holding: its share goes to the others, in proportion. The last one can't be removed. */
+export function removeHolding(weights, ticker) {
+  const rest = Object.fromEntries(Object.entries(weights).filter(([t]) => t !== ticker));
+  const total = Object.values(rest).reduce((s, v) => s + v, 0);
+  if (!Object.keys(rest).length) return weights;
+  return Object.fromEntries(Object.entries(rest).map(([t, v]) => [t, total > 1e-12 ? v / total : 1 / Object.keys(rest).length]));
+}
+export const sameWeights = (a, b) => weightsMatch(a || {}, b || {}, 0.0005) && Object.keys(cleanWeights(a)).length === Object.keys(cleanWeights(b)).length;
