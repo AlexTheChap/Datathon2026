@@ -51,11 +51,32 @@ export function startJob(ctx, kind, question) {
   if (running && !running.done) return running;
   const job = { question, done: false, run: null, error: null };
   job.promise = ask(ctx, question)
-    .then((run) => { job.run = run; })
+    .then(async (run) => {
+      job.run = run;
+      if (kind === "portfolio" && run.status === "DONE") await syncPortfolio(ctx).catch(() => {}); // usable in the chat at once
+    })
     .catch((err) => { job.error = err; })
     .finally(() => { job.done = true; listeners.forEach((fn) => fn(kind, job)); });
   jobs.set(key, job);
   return job;
+}
+
+/** Save the latest built portfolio into the profile (so "my portfolio" questions use it), once per portfolio run.
+ * Runs when a build finishes, when the dashboard shows a portfolio and before the chat sends a question. */
+export async function syncPortfolio(ctx) {
+  const profile = await ctx.loadProfile(true);
+  if (!profile) return null;
+  const runs = (await ctx.api("GET", "/v1/runs?limit=100")).data;
+  const done = D.findRun(runs, D.PORTFOLIO_PROMPT);
+  if (!done || profile.portfolio_run_id === done.run_id) return profile.portfolio || null;
+  const [run, records] = await Promise.all([
+    ctx.api("GET", `/v1/runs/${encodeURIComponent(done.run_id)}`).then((r) => r.data),
+    ctx.api("GET", `/v1/runs/${encodeURIComponent(done.run_id)}/evidence`).then((r) => r.data)]);
+  const p = D.extractPortfolio(run, records);
+  if (!p.weights) return profile.portfolio || null;
+  await ctx.api("PUT", "/v1/profile", { portfolio: p.weights, portfolio_run_id: p.runId });
+  await ctx.loadProfile(true);
+  return p.weights;
 }
 
 /** Called by the profile page after a save: rebuild when the profile changed in a way that shapes a portfolio. */
@@ -78,6 +99,20 @@ function autoOnce(ctx, kind) { // auto-start a question at most once per browser
 }
 
 const pct = (v, digits = 0) => `${(v * 100).toFixed(digits)}%`;
+
+/** A figure that counts up to its value when it appears (shown at once with reduced motion). */
+function countUp(el, value, ms = 900) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return el;
+  const t0 = performance.now();
+  const tick = (t) => {
+    const k = Math.min(1, (t - t0) / ms);
+    const eased = 1 - (1 - k) ** 3;
+    el.textContent = k < 1 ? String(Math.round(value * eased * 2) / 2) : String(value);
+    if (k < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  return el;
+}
 const pct1 = (v) => `${(v * 100).toFixed(1).replace(/\.0$/, "")}%`;
 
 export async function renderPortfolio(main, ctx) {
@@ -113,7 +148,16 @@ export async function renderPortfolio(main, ctx) {
       return;
     }
     const level = D.levelFor(profile, ctx.store.get(DETAIL_KEY(ctx)));
-    detailSlot.replaceChildren(detailControl(ctx, profile, level, draw));
+    if (!detailSlot.firstChild) {
+      detailSlot.append(detailControl(ctx, level, (l) => {
+        ctx.store.set(DETAIL_KEY(ctx), l === D.levelFor(profile) ? null : l);
+        ctx.announce(`${D.LEVEL_LABELS[l]} view.`);
+        body.classList.add("is-switching"); // fades the old view out while the new one is drawn
+        window.setTimeout(draw, 160);
+      }));
+    } else {
+      detailSlot.firstChild.update(level);
+    }
 
     const job = jobFor(ctx, "portfolio");
     const done = D.findRun(runs, D.PORTFOLIO_PROMPT);
@@ -143,6 +187,8 @@ export async function renderPortfolio(main, ctx) {
       body.replaceChildren(noWeights(ctx, p, run), history(ctx, runs));
       return;
     }
+    // This is now the user's portfolio: saved in the profile, so a question about "my portfolio" is analysed on it.
+    if (profile.portfolio_run_id !== p.runId) syncPortfolio(ctx).catch(() => { /* retried on the next visit or question */ });
 
     // Risk of these exact weights: from this run when it measured them, else from the follow-up question.
     let risk = p.risk; let riskRunId = run.run_id; let riskState = risk.matches ? "ready" : "missing";
@@ -166,6 +212,7 @@ export async function renderPortfolio(main, ctx) {
     }
 
     const view = { ctx, h, profile, p, risk, riskState, riskRunId, level, learn: Boolean(profile.wants_to_learn) && level !== "detailed", uni };
+    body.classList.remove("is-switching");
     body.replaceChildren(...[ // sections that don't apply are null: dropped, never rendered as text
       ...banners(view, building),
       heroCard(view),
@@ -251,17 +298,27 @@ function banners(view, building) {
   return out;
 }
 
-function detailControl(ctx, profile, level, redraw) {
+/** The Simple / Standard / Detailed switch: a capsule whose thumb slides to the chosen option. It is created once
+ * per page and updated in place, so the slide animates and focus stays on the option. */
+export function detailControl(ctx, level, onChange) {
   const { h } = ctx;
-  const auto = D.levelFor(profile);
-  const name = "detail-level";
-  return h("fieldset", { class: "seg-control" },
-    h("legend", null, "How much detail"),
-    h("div", { class: "seg-control__options" }, D.LEVELS.map((l) => h("label", { class: "seg-control__option" },
-      h("input", { type: "radio", name, value: l, checked: l === level,
-        onchange: () => { ctx.store.set(DETAIL_KEY(ctx), l === auto ? null : l); redraw(); ctx.announce(`${D.LEVEL_LABELS[l]} view.`); } }),
-      h("span", null, D.LEVEL_LABELS[l])))),
-    h("p", { class: "seg-control__hint" }, `${D.LEVEL_LABELS[auto]} matches your experience.`));
+  const thumb = h("span", { class: "seg-control__thumb", "aria-hidden": "true" });
+  const options = h("div", { class: "seg-control__options" }, thumb, D.LEVELS.map((l) => h("label", { class: "seg-control__option" },
+    h("input", { type: "radio", name: "detail-level", value: l, checked: l === level, onchange: () => { place(); onChange(l); } }),
+    h("span", null, D.LEVEL_LABELS[l]))));
+  const el = h("fieldset", { class: "seg-control" }, h("legend", null, "How much detail"), options);
+  function place() {
+    const on = options.querySelector("input:checked");
+    if (!on) return;
+    const label = on.closest("label");
+    thumb.style.width = `${label.offsetWidth}px`;
+    thumb.style.transform = `translateX(${label.offsetLeft - 2}px)`;
+  }
+  el.update = (l) => { const input = options.querySelector(`input[value="${l}"]`); if (input) input.checked = true; place(); };
+  // First placement without a slide (the thumb appears under the current level), then slides on every change.
+  requestAnimationFrame(() => { place(); requestAnimationFrame(() => options.classList.add("is-ready")); });
+  window.addEventListener("resize", place);
+  return el;
 }
 
 /* ---------- Sections ---------- */
@@ -279,11 +336,11 @@ function heroCard(view) {
       h("span", { class: `verdict verdict--${vs.cls}` }, ctx.icon(vs.icon, 14), verdictWord(v)),
       h("h2", { id: "hero-title", class: "hero-card__title" }, level === "simple" ? "A mix chosen for you" : "Your simulated portfolio"),
       short ? h("p", { class: "hero-card__answer" }, short) : null,
-      h("p", { class: "small muted" }, `Built from your profile on ${ctx.timeText(p.builtAt)}. `,
+      h("p", { class: "small muted" }, `Built from your profile on ${ctx.timeText(p.builtAt)} \u00B7 `,
         h("a", { href: `#/runs/${p.runId}` }, "See how it was built and its sources"))),
     h("div", { class: "hero-card__score" },
       h("p", { class: "kpi__label" }, "Fit with your rules"),
-      h("p", { class: "hero-card__figure" }, `${fit.score}`, h("span", { class: "hero-card__of" }, " / 10")),
+      h("p", { class: "hero-card__figure" }, countUp(h("span", null, `${fit.score}`), fit.score), h("span", { class: "hero-card__of" }, " / 10")),
       meter({ value: fit.score, max: 10, label: "Fit with your rules", display: `${fit.score} out of 10`, tone: fit.score >= 8.5 ? "good" : fit.score >= 6.5 ? "ok" : "bad" }),
       h("p", { class: "small" }, fit.band),
       level !== "simple" && fit.why.length ? h("ul", { class: "small plain-list" }, fit.why.map((w) => h("li", null, `${w.reason} (${w.points})`))) : null,
@@ -369,7 +426,8 @@ function riskSection(view) {
     section.append(h("p", { class: "small muted" }, "Measured on this exact mix in a follow-up analysis. ",
       h("a", { href: `#/runs/${riskRunId}` }, "See it")));
   }
-  section.append(learnNote(view, "some holdings move much more than others. A holding can be a small part of your money and still cause a big part of the swings."));
+  const note = learnNote(view, "some holdings move much more than others. A holding can be a small part of your money and still cause a big part of the swings.");
+  if (note) section.append(note); // append(null) would print "null"
   return section;
 }
 

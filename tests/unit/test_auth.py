@@ -178,3 +178,9 @@ def test_startup_log_names_the_sign_in_mode(monkeypatch, caplog):
         with caplog.at_level(logging.INFO, logger="uvicorn.error"):
             log_auth_mode()
         assert words in caplog.text, mode
+
+
+def test_web_app_files_are_revalidated_on_every_load():
+    """A changed app.js or module must never be mixed with an old cached copy."""
+    r = TestClient(create_app(ApiService(intake_backend=MockBackend(), dispatcher=NoDispatcher()))).get("/assets/app.js")
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-cache" and r.headers.get("etag")

@@ -2,9 +2,9 @@
 
   quant_toolset()  -> Risk sub-agent (L12)
       AF_GATEWAY_URL set : [MCPClient] on the AgentCore Gateway; the agent discovers the 4 quant tools
-                           (metrics___metrics, optimizer___metrics…) and calls them
+                           (metrics___metrics, market___screen…) and calls them
                            over MCP (SigV4). The Lambda runs the same RiskTools code.
-      unset              : the same 6 functions in-process (app.tools.agent_tools).
+      unset              : the same functions in-process (app.tools.agent_tools).
   news_mode() / news_toolset() -> News sub-agent (L13)
       AF_KB_ID set       : "kb"        search_news on the Bedrock Knowledge Base (S3 Vectors), published <= as_of.
       news_index.csv     : "local"     news_search on the same dated corpus in-process (app.tools.news_tools).
@@ -48,7 +48,8 @@ def local_quant_tools() -> list:
     from app.tools import agent_tools
 
     return [agent_tools.metrics, agent_tools.concentration,
-            agent_tools.correlation, agent_tools.risk_contribution]
+            agent_tools.correlation, agent_tools.risk_contribution,
+            agent_tools.market_screen, agent_tools.market_related]
 
 
 def quant_toolset() -> list:

@@ -80,6 +80,9 @@ class Settings(BaseSettings):
 
     # Data and rules (node ⑥) — repo-root-relative by default.
     curated_dir: Path = REPO_ROOT / "data" / "curated"
+    # Market tables of the graph (app.market.refresh, git-ignored); Neptune replaces them when
+    # AF_NEPTUNE_ENDPOINT is set (inside the graph VPC only).
+    market_dir: Path = REPO_ROOT / "data" / "market"
     rules_path: Path = REPO_ROOT / "backend" / "app" / "core" / "rules.yaml"
     personas_path: Path = REPO_ROOT / "backend" / "app" / "core" / "personas.json"
     prompts_dir: Path = REPO_ROOT / "backend" / "app" / "prompts"

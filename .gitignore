@@ -34,3 +34,6 @@ data/external/news/gdelt_cache.jsonl
 
 # Sign-in config with the demo password (scripts/setup_cognito.py)
 frontend/config.js
+
+# Market graph tables (python -m app.market.refresh): regenerated twice a day, published to S3 in AWS
+data/market/

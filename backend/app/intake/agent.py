@@ -14,6 +14,7 @@ The Intake analyses nothing and blocks nothing: governance (box 5) decides. It o
 """
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import date
 from typing import Any, Optional
@@ -55,6 +56,10 @@ def _extract_with_retry(backend: IntakeBackend, text: str, known: dict) -> Intak
                 raise IntakeError(f"Invalid output after 2 attempts: {second_error}") from second_error
     except IntakeUnavailable as e:  # the intake Lambda is down: same visible error for the caller (API 502)
         raise IntakeError(str(e)) from e
+    except (IntakeRefused, IntakeError):
+        raise
+    except Exception as e:  # the model could not be reached (expired AWS credentials, throttling, network...)
+        raise IntakeError(f"The language model could not be reached: {type(e).__name__}: {str(e)[:300]}") from e
 
 
 def _dedupe(items: list) -> list:
@@ -66,8 +71,12 @@ def _dedupe(items: list) -> list:
 
 
 def _known_profile(stored: Optional[Profile], form: Optional[dict]) -> dict[str, Any]:
-    """What we already know before reading the text (sent to the model as context)."""
-    known: dict[str, Any] = stored.model_dump(mode="json", exclude={"actor_id", "schema_version"}) if stored else {}
+    """What we already know before reading the text (sent to the model as context). The saved portfolio is left out:
+    the model extracts only what the message says; code adds the portfolio for "my portfolio" questions."""
+    known: dict[str, Any] = stored.model_dump(mode="json", exclude={"actor_id", "schema_version", "portfolio",
+                                                                   "portfolio_run_id"}) if stored else {}
+    if stored is not None and stored.portfolio:
+        known["has_saved_portfolio"] = True  # the model knows "my portfolio" is clear, not what is in it
     known.update({k: v for k, v in (form or {}).items() if v is not None})
     return known
 
@@ -127,6 +136,15 @@ def _merge_profile(stored: Optional[Profile], draft: IntakeDraft, form: Optional
         merged["agent_toggles"] = toggles
     merged["agent_toggle_reasons"] = reasons
     return merged
+
+
+_OWN_PORTFOLIO = re.compile(r"\bmy\s+(?:current\s+|whole\s+|own\s+)?(?:portfolio|holdings|investments|mix|allocation)\b", re.I)
+
+
+def _about_own_portfolio(text: str, task: str) -> bool:
+    """The question is about the user's own portfolio: it says so, or it is a risk / scenario question naming no asset.
+    Building a new portfolio ("a portfolio that fits my profile") is not: it starts from the profile, not the old mix."""
+    return task != "out_of_scope" and (bool(_OWN_PORTFOLIO.search(text)) or task in ("risk_review", "scenario_analysis"))
 
 
 def _clean_positions(positions: list[Position], warnings: list[str]) -> list[Position]:
@@ -191,6 +209,13 @@ def run_intake(
     # --- Request --------------------------------------------------------------------------------
     r = draft.request
     positions = _clean_positions(r.positions, warnings)
+    used_saved = False
+    if not positions and profile is not None and profile.portfolio and _about_own_portfolio(text, r.task):
+        used_saved = True
+        # "How exposed is my portfolio to a rate hike?": the analysis runs on the portfolio saved in the profile.
+        positions = [Position(ticker=t, weight=w) for t, w in sorted(profile.portfolio.items(), key=lambda kv: -kv[1])]
+        warnings.append("Analysed on your saved portfolio: "
+                        + ", ".join(f"{p.ticker} {p.weight:.0%}" for p in positions) + ".")
     _conflicts(profile, positions, warnings)
 
     analysis_date = as_of or r.as_of or DATA_END
@@ -219,7 +244,8 @@ def run_intake(
     elif missing:
         status = "needs_clarification"
         question = QUESTIONS.get(missing[0]) or draft.clarification_question
-    elif request.intake_confidence < MIN_CONFIDENCE:
+    elif request.intake_confidence < MIN_CONFIDENCE and not used_saved:
+        # (with the saved portfolio, "which holdings?" is already answered: never ask it back)
         status = "needs_clarification"
         question = draft.clarification_question or QUESTIONS["task"]
     else:

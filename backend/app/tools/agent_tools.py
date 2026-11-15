@@ -81,7 +81,7 @@ def correlation(tickers: list[str], start: str | None = None, end: str | None = 
     """Correlation matrix of daily returns in CAD between assets.
     Args:
         tickers: At least two assets from the universe.
-        start/end: Optional window (comparing with 2022 is instructive).
+        start/end: Optional "YYYY-MM-DD" window.
         as_of: Optional earlier date; the run's reference date is the upper bound.
     """
     return _guard(_tools().correlation, tickers, start=start, end=end, as_of=effective_as_of(as_of))
@@ -153,5 +153,59 @@ def governance_check(weights: dict[str, float]) -> dict:
             "data_sources": ["backend/app/core/rules.yaml", "data/curated (prices, holdings, ESG screens)"]}
 
 
+_graph = None
+
+
+def _market_graph():
+    global _graph
+    if _graph is None:
+        from app.market.graph import backend
+
+        s = get_settings()
+        _graph = backend(s.abs_path(s.curated_dir), s.abs_path(s.market_dir))
+    return _graph
+
+
+@tool
+def market_screen(sector: str | None = None, country: str | None = None, risk_class: str | None = None,
+                  asset_class: str | None = None, in_sp500: bool | None = None, esg: str | None = None,
+                  exclude_controversies: bool = False, min_vol: float | None = None,
+                  max_vol: float | None = None, max_drawdown_limit: float | None = None,
+                  sort_by: str = "ann_vol", descending: bool = False, limit: int = 20) -> dict:
+    """Screen the market graph (S&P 500 + the curated universe) by sector, listing country, risk class,
+    volatility, drawdown, ESG index status and controversies, sorted by a risk metric. Live snapshot:
+    refused (error) when the run is dated before the snapshot.
+    Args:
+        sector: GICS sector, e.g. "Utilities".
+        country: Listing country: "US", "CA" or "Global (crypto)".
+        risk_class: low (<15% vol), moderate, high or very_high (>=40%).
+        asset_class: equity, etf_equity, etf_bond, etf_commodity or crypto.
+        in_sp500: Only S&P 500 constituents (true) or only the others (false).
+        esg: in_index, excluded, not_screened or any.
+        exclude_controversies: Drop assets with a controversy line.
+        min_vol / max_vol: Annualized volatility bounds, e.g. 0.20.
+        max_drawdown_limit: Worst trailing-year drawdown allowed, e.g. 0.25 for -25%.
+        sort_by: ann_vol, max_drawdown, var95_daily, beta_spy, total_return, sp500_weight or last_price.
+        descending: Sort descending.
+        limit: Rows returned (1-100).
+    """
+    from app.market.graph import screen_tool
+
+    args = {k: v for k, v in locals().items() if v is not None and k != "screen_tool"}
+    return screen_tool(_market_graph(), {**args, "as_of": run_as_of()})
+
+
+@tool
+def market_related(ticker: str) -> dict:
+    """Relationships of one asset in the market graph: funds holding it, its holdings (ETF), strongly
+    correlated assets, lower-volatility sector peers, ESG index status and controversies.
+    Args:
+        ticker: e.g. "XOM" or "RY.TO".
+    """
+    from app.market.graph import related_tool
+
+    return related_tool(_market_graph(), {"ticker": ticker, "as_of": run_as_of()})
+
+
 ALL_TOOLS = [metrics, concentration, correlation, risk_contribution, optimize,
-             governance_check]
+             governance_check, market_screen, market_related]

@@ -103,6 +103,20 @@ class BedrockBackend:
             raise IntakeRefused("The model refused the request.")
         return response.parsed_output
 
+    def extract_profile(self, text: str):
+        """Onboarding (intake/onboarding.py): the profile part only, from a document or the person's answers."""
+        from .onboarding import OnboardingDraft, onboarding_prompt
+
+        self._check_guardrail(text[:20_000])
+        response = self.client.messages.parse(
+            model=self.model, max_tokens=4096, system=onboarding_prompt(self.system_prompt),
+            messages=[{"role": "user", "content": f"<document>\n{text}\n</document>"}],
+            output_format=OnboardingDraft,
+        )
+        if response.stop_reason == "refusal":
+            raise IntakeRefused("The model refused to read this document.")
+        return response.parsed_output
+
 
 # --------------------------------------------------------------------------------------------------
 # Lambda (the deployed alphaforge-intake function runs BedrockBackend.extract)
@@ -318,6 +332,12 @@ class MockBackend:
                 match = None
             positions.append(Position(ticker=ticker, weight=float(pcts[match[1]].group(1)) / 100 if match else None))
         return positions
+
+    def extract_profile(self, text: str):
+        """Offline onboarding: the profile part of `extract`; nothing is flagged as irrelevant."""
+        from .onboarding import OnboardingDraft
+
+        return OnboardingDraft(profile=self.extract(text, {}).profile, summary="", irrelevant=[])
 
     def extract(self, text: str, known_profile: Optional[dict], feedback: Optional[str] = None) -> IntakeDraft:
         kp = known_profile or {}

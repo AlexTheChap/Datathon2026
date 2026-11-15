@@ -203,6 +203,26 @@ class ApiService:
 
         return [item.for_user() for item in build_catalog(self._ledger().records(run_id)).values()]
 
+    # ----- POST /v1/profile/draft[/file]: onboarding, profile fields from text or a document (nothing saved) -----
+    def draft_profile(self, actor_id: str, text: str) -> dict[str, Any]:
+        from app.intake.onboarding import draft_profile
+
+        try:
+            return draft_profile(text, self._backend()).model_dump(mode="json")
+        except ValueError as e:
+            raise ApiError(422, str(e)) from e
+        except IntakeError as e:
+            raise ApiError(502, f"Profile reading failed: {e}") from e
+
+    def draft_profile_file(self, actor_id: str, filename: str, data: bytes) -> dict[str, Any]:
+        from app.intake.onboarding import document_text
+
+        try:
+            text = document_text(filename, data)
+        except ValueError as e:
+            raise ApiError(422, str(e)) from e
+        return {**self.draft_profile(actor_id, text), "filename": filename}
+
     # ----- GET / PUT /v1/profile -----
     def get_profile(self, actor_id: str) -> Profile:
         profile = self.profiles.get(actor_id)

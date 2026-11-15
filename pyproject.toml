@@ -20,11 +20,14 @@ dependencies = [
 dev = ["pytest", "ruff", "requests", "httpx"]
 # Data-collection scripts in scripts/ (network access to SEC, iShares, NBIM, etc.)
 scripts = ["requests", "beautifulsoup4", "lxml", "openpyxl"]
+# Market refresh (app.market.refresh): Yahoo Finance daily bars for the S&P 500 graph (bundled in the Lambda zip)
+market = ["yfinance>=1.0"]
 # Intake agent (box 3) on Bedrock: Claude Haiku with structured outputs via the anthropic SDK (AnthropicBedrock).
 # truststore: on Windows, lets botocore see the system certificates (otherwise CERTIFICATE_VERIFY_FAILED).
 bedrock = ["anthropic>=2.0", "truststore>=0.9"]
 # API (box 2): FastAPI app, run on Lambda behind API Gateway through the Mangum adapter (architecture.mmd L1).
-api = ["fastapi>=0.110", "mangum>=0.17", "pyjwt[crypto]>=2.8"]   # pyjwt: verifies Cognito ID tokens (api/auth.py)
+api = ["fastapi>=0.110", "mangum>=0.17", "pyjwt[crypto]>=2.8",   # pyjwt: verifies Cognito ID tokens (api/auth.py)
+       "python-multipart>=0.0.9", "pypdf>=4,<6"]                 # profile from a document: upload + PDF text (.docx needs nothing)
 # Browser tests of the frontend (tests/e2e/test_frontend_ui.py, skipped without it);
 # then run: python -m playwright install chromium
 ui = ["playwright>=1.45", "uvicorn>=0.30"]

@@ -114,8 +114,11 @@ def build_input(run: Any, orchestrator: dict, catalog: dict[str, EvidenceItem]) 
     return {
         "question": request.get("user_message"),
         "task": plan.get("task"),
-        "reader": {k: profile.get(k) for k in ("risk_band", "horizon_years", "experience", "wants_to_learn",
-                                                "capital", "loss_capacity", "objective", "exclusions")},
+        "reader": {**{k: profile.get(k) for k in ("risk_band", "horizon_years", "experience", "wants_to_learn",
+                                                  "capital", "loss_capacity", "objective", "exclusions")},
+                   # The holdings this question is about (the saved portfolio for "my portfolio", or the assets named),
+                   # so the answer can say what the portfolio is made of.
+                   "portfolio": [{"ticker": p.get("ticker"), "weight": p.get("weight")} for p in request.get("positions") or []]},
         "needs_clarification": plan.get("needs_clarification", False),
         "plan": {"looked_at": [{"agent": a["agent"], "reason": a["reason"], "parameters": a.get("parameters")}
                                for a in plan.get("enabled_agents") or []],
