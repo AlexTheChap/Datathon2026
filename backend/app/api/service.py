@@ -10,8 +10,10 @@ The analysis itself (box ⑤) runs asynchronously; the frontend polls GET /v1/ru
 """
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Literal, Optional, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -21,11 +23,13 @@ from app.intake import IntakeError, get_backend, run_intake
 from app.intake.backends import IntakeBackend
 from app.intake.schemas import AgentToggleChange
 from app.schemas import PortfolioRef, Profile
+from app.schemas.models import profile_from_persona
 from app.schemas.profile import AgentToggles
 from app.store.profiles import InMemoryProfileStore, ProfileStore
-from app.store.runs import InMemoryRunStore, RunRecord, RunStore, new_run_id
+from app.store.runs import InMemoryRunStore, RunRecord, RunStore, new_run_id, new_session_id
 
 MAX_TEXT_CHARS = 4000
+PERSONAS_PATH = Path(__file__).resolve().parents[1] / "core" / "personas.json"
 
 
 class Dispatcher(Protocol):
@@ -37,7 +41,7 @@ class Dispatcher(Protocol):
 class NoDispatcher:
     """Box ⑤ not connected yet: the run stays QUEUED, with its plan, ready to be picked up."""
 
-    note = "Queued: the analysis agents (box 5) are not connected to the API yet."
+    note = "Waiting: the analysis agents are not connected to the app yet, so this run stops at its plan."
 
     def dispatch(self, run: RunRecord) -> None:
         return None
@@ -51,6 +55,8 @@ class MessageIn(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_TEXT_CHARS)
     profile_form: Optional[dict[str, Any]] = None
     portfolio_ref: Optional[PortfolioRef] = None
+    # Conversation id returned by the previous answer: keeps the session (short-term memory) across turns.
+    session_id: Optional[str] = Field(default=None, min_length=1, max_length=100, pattern=r"^[A-Za-z0-9][A-Za-z0-9_\-]*$")
 
 
 class RunSummary(BaseModel):
@@ -82,6 +88,7 @@ class MessageOut(BaseModel):
     missing_fields: list[str] = Field(default_factory=list)
     message: Optional[str] = None
     run_id: Optional[str] = None
+    session_id: Optional[str] = None
     run_status: Optional[str] = None
     enabled_agents: list[str] = Field(default_factory=list)
     toggle_changes: list[AgentToggleChange] = Field(default_factory=list)
@@ -136,13 +143,25 @@ class ApiService:
         if ctx["status"] == "profile_required":
             return 200, MessageOut(kind="message", message=ctx["message"], **common)
 
-        run = RunRecord(run_id=new_run_id(), actor_id=actor_id, profile=res.profile, request=res.request,
+        session_id = body.session_id or new_session_id()
+        run = RunRecord(run_id=new_run_id(), actor_id=actor_id, session_id=session_id,
+                        profile=res.profile, request=res.request,
                         execution_plan=ctx["execution_plan"], prompt_ref=ctx["prompt_ref"],
                         note=getattr(self.dispatcher, "note", None))
         self.runs.put(run)
         self.dispatcher.dispatch(run)
-        return 202, MessageOut(kind="run", run_id=run.run_id, run_status=run.status,
+        return 202, MessageOut(kind="run", run_id=run.run_id, session_id=session_id, run_status=run.status,
                                enabled_agents=run.execution_plan.enabled_names, **common)
+
+    # ----- Demo accounts -----
+    def ensure_demo_profile(self, actor_id: str, persona: Optional[str]) -> None:
+        """A demo account (amira/mateo/robert) starts with its persona's profile from core/personas.json.
+        Only when it has none yet: changes the user makes afterwards are kept."""
+        if not persona or self.profiles.get(actor_id) is not None:
+            return
+        form = next((p["profile_form"] for p in example_personas() if p["id"] == persona), None)
+        if form is not None:
+            self.profiles.put(Profile(actor_id=actor_id, **form))
 
     # ----- GET /v1/runs/{run_id} -----
     def get_run(self, actor_id: str, run_id: str) -> RunRecord:
@@ -198,14 +217,51 @@ class ApiService:
         return profile
 
 
+def example_personas(path: Path = PERSONAS_PATH) -> list[dict[str, Any]]:
+    """The brief's three personas as ready-to-save profile forms (the frontend's "start from an example").
+    Fictional profiles; the form never carries an actor_id (the login decides who saves it)."""
+    out = []
+    for p in json.loads(path.read_text(encoding="utf-8"))["personas"]:
+        form = profile_from_persona(p).model_dump(mode="json", exclude={"actor_id", "schema_version",
+                                                                         "agent_toggle_reasons"})
+        out.append({
+            "id": p["id"],
+            "name": p["id"].capitalize(),
+            "summary": f"{p['profile_type']} investor, {p['age']}, {p['occupation'].lower()}.",
+            "tests": p.get("test_case"),
+            "example_question": (p.get("demo_request") or {}).get("text"),
+            "profile_form": form,
+        })
+    return out
+
+
+def _dispatcher(runs: RunStore, dispatch: str) -> Dispatcher:
+    if dispatch == "local":
+        from .dispatcher import LocalDispatcher
+
+        return LocalDispatcher(runs)
+    if dispatch == "inline":
+        from .dispatch import InlineDispatcher
+
+        return InlineDispatcher(runs)
+    return NoDispatcher()
+
+
 def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
     """AF_STORE=memory (default, local) | dynamodb (AF_TABLE, default "alphaforge").
-    AF_DISPATCH=inline runs box ⑤ in-process right after the run is queued (app.api.dispatch); default: none."""
+    AF_DISPATCH=local (default with the memory store: the orchestrator runs in a background thread) | none
+    (default with DynamoDB: the run stays QUEUED until the AgentCore dispatcher is deployed) | inline (the
+    orchestrator runs before POST /v1/runs returns: app.api.dispatch.InlineDispatcher, used by the Streamlit
+    dashboard so the run is DONE when the page shows it)."""
     env = os.environ if env is None else env
     kind = env.get("AF_STORE", "memory").lower()
+    dispatch = env.get("AF_DISPATCH", "local" if kind == "memory" else "none").lower()
+    if dispatch not in ("local", "none", "inline"):
+        raise ValueError(f"Unknown AF_DISPATCH: {dispatch!r} (expected: local, none or inline)")
     if kind == "memory":
-        svc = ApiService()
-    elif kind == "dynamodb":
+        runs = InMemoryRunStore()
+        return ApiService(runs=runs, dispatcher=_dispatcher(runs, dispatch))
+    if kind == "dynamodb":
         import boto3
 
         from app.store.profiles import DynamoDBProfileStore
@@ -213,11 +269,6 @@ def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
 
         table = boto3.resource("dynamodb", region_name=env.get("AWS_REGION", "us-east-1")).Table(
             env.get("AF_TABLE", "alphaforge"))
-        svc = ApiService(profiles=DynamoDBProfileStore(table), runs=DynamoDBRunStore(table))
-    else:
-        raise ValueError(f"Unknown AF_STORE: {kind!r} (expected: memory or dynamodb)")
-    if env.get("AF_DISPATCH", "none").lower() == "inline":
-        from app.api.dispatch import InlineDispatcher
-
-        svc.dispatcher = InlineDispatcher(svc.runs)
-    return svc
+        runs = DynamoDBRunStore(table)
+        return ApiService(profiles=DynamoDBProfileStore(table), runs=runs, dispatcher=_dispatcher(runs, dispatch))
+    raise ValueError(f"Unknown AF_STORE: {kind!r} (expected: memory or dynamodb)")

@@ -5,9 +5,10 @@
                            (metrics___metrics, scenarios___stress, optimizer___max_position…) and calls them
                            over MCP (SigV4). The Lambda runs the same RiskTools code.
       unset              : the same 6 functions in-process (app.tools.agent_tools).
-  news_kb_enabled() -> News sub-agent (L13)
-      AF_KB_ID set       : search_news on the Bedrock Knowledge Base (S3 Vectors), published <= as_of.
-      unset              : SIMULATED placeholder (labeled fictional end to end).
+  news_mode() / news_toolset() -> News sub-agent (L13)
+      AF_KB_ID set       : "kb"        search_news on the Bedrock Knowledge Base (S3 Vectors), published <= as_of.
+      news_index.csv     : "local"     news_search on the same dated corpus in-process (app.tools.news_tools).
+      neither            : "simulated" SIMULATED placeholder (labeled fictional end to end).
 
 Both are called at sub-agent RUN time (not import time), so tests and offline runs never connect to AWS.
 Either way the tools return the same evidence envelope, so the EvidenceHook (L15) records identical evidence.
@@ -29,6 +30,20 @@ def news_kb_enabled() -> bool:
     return bool(get_settings().kb_id)
 
 
+def local_news_available() -> bool:
+    """The dated corpus built by scripts/ingest_news.py is present (settings without news_dir: no)."""
+    s = get_settings()
+    news_dir = getattr(s, "news_dir", None)
+    return bool(news_dir) and (s.abs_path(news_dir) / "news_index.csv").is_file()
+
+
+def news_mode() -> str:
+    """"kb" (Knowledge Base), "local" (news_index.csv in-process) or "simulated" (no corpus)."""
+    if news_kb_enabled():
+        return "kb"
+    return "local" if local_news_available() else "simulated"
+
+
 def local_quant_tools() -> list:
     from app.tools import agent_tools
 
@@ -48,9 +63,13 @@ def quant_toolset() -> list:
 
 
 def news_toolset() -> list:
-    """News sub-agent toolset: search_news on the Knowledge Base, or nothing (SIMULATED mode)."""
-    if not news_kb_enabled():
-        return []
-    from app.tools.news_kb import as_strands_tool
-
-    return [as_strands_tool(get_settings().kb_id)]
+    """News sub-agent toolset: search_news on the Knowledge Base, news_search on the local corpus, or nothing
+    (SIMULATED mode)."""
+    mode = news_mode()
+    if mode == "kb":
+        from app.tools.news_kb import as_strands_tool
+        return [as_strands_tool(get_settings().kb_id)]
+    if mode == "local":
+        from app.tools.news_tools import news_search
+        return [news_search]
+    return []

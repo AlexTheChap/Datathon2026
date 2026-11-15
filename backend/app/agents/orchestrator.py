@@ -12,13 +12,13 @@ Planned extension: the plan's sub-agents as Strands graph nodes (GraphBuilder / 
 """
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
-from strands import Agent
-from strands.models import BedrockModel
-
+from app.agents.explainer import explain
 from app.agents.hooks import EvidenceHook
+from app.agents.memory import MemoryBinding, build_memory, memory_block
 from app.agents.subagents import subagents_for_plan
 from app.agents.subagents.base import run_context
 from app.context.plan_resolver import resolve_plan
@@ -29,6 +29,12 @@ from app.schemas.execution_plan import ExecutionPlan
 from app.schemas.models import OrchestratorInput, OrchestratorOutput, Profile
 from app.store.ledger import EvidenceLedger, make_ledger
 from app.tools import agent_tools
+from app.tools.context import current_as_of, current_profile, default_as_of
+from strands import Agent
+from strands.models import BedrockModel
+
+
+log = logging.getLogger(__name__)
 
 
 def persona_block(profile: Profile, language: str) -> str:
@@ -53,7 +59,16 @@ def persona_block(profile: Profile, language: str) -> str:
     return "\n".join(lines)
 
 
-def compose_user_message(inp: OrchestratorInput) -> str:
+def resolve_as_of(inp: OrchestratorInput, plan: ExecutionPlan | None = None) -> str:
+    """Reference date of the run: payload, then plan, then request, then the last date of the curated data
+    (never a hard-coded date)."""
+    for value in (inp.as_of, getattr(plan, "as_of", None), inp.request.as_of):
+        if value:
+            return str(value)
+    return default_as_of()
+
+
+def compose_user_message(inp: OrchestratorInput, as_of: str | None = None) -> str:
     """User message: request + current portfolio + as_of reminder."""
     parts = [inp.request.user_message or inp.request.task]
     if inp.portfolio_weights:
@@ -61,8 +76,9 @@ def compose_user_message(inp: OrchestratorInput) -> str:
         parts.append(f"Current (fictional) portfolio: {w}.")
     else:
         parts.append("No portfolio provided: analyze according to the request.")
-    if inp.as_of:
-        parts.append(f"Reference date (as_of): {inp.as_of}.")
+    as_of = as_of or inp.as_of
+    if as_of:
+        parts.append(f"Reference date (as_of): {as_of}.")
     return "\n\n".join(p for p in parts if p)
 
 
@@ -77,46 +93,49 @@ def plan_for(inp: OrchestratorInput) -> ExecutionPlan:
 
 
 def build_orchestrator(inp: OrchestratorInput, ledger: EvidenceLedger | None = None,
-                       settings: Settings | None = None, plan: ExecutionPlan | None = None) -> Agent:
+                       settings: Settings | None = None, plan: ExecutionPlan | None = None,
+                       as_of: str | None = None, memory: MemoryBinding | None = None) -> Agent:
     """Strands Agent for one run (never reused across runs)."""
     s = settings or get_settings()
     plan = plan or plan_for(inp)
-    system_prompt = render_prompt(
-        "orchestrator",
-        persona_block=persona_block(inp.profile, inp.language),
-        task=inp.request.task,
-        as_of=inp.as_of or "2026-11-12",
-        reply_language=inp.language,                # reply language follows the investor
-        tools_block=tools_block(inp.request.task, plan),
-    )
+    # L17: AgentCore Memory (short term: the session; long term: the actor's soft preferences) on THIS agent only.
+    memory = memory or build_memory(s, inp.actor_id, inp.session_id or inp.run_id)
 
-    session_manager = None
-    if s.memory_id:
-        from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig
-        from bedrock_agentcore.memory.integrations.strands.session_manager import (
-            AgentCoreMemorySessionManager,
+    def system_prompt() -> str:
+        return render_prompt(
+            "orchestrator",
+            persona_block=persona_block(inp.profile, inp.language),
+            task=inp.request.task,
+            as_of=as_of or resolve_as_of(inp, plan),
+            reply_language=inp.language,            # reply language follows the investor
+            tools_block=tools_block(inp.request.task, plan),
+            memory_block=memory_block(memory),      # soft preferences (long-term memory), empty when memory is off
         )
-        session_manager = AgentCoreMemorySessionManager(
-            agentcore_memory_config=AgentCoreMemoryConfig(
-                memory_id=s.memory_id,
-                session_id=inp.session_id or inp.run_id,   # one isolated session per analysis
-                actor_id=inp.actor_id,
-            ),
-            region_name=s.aws_region,
-        )
+
 
     led = ledger or make_ledger(s)   # JSONL locally, DynamoDB when AF_STORE=dynamodb (L15)
     # Sub-agents enabled by the box 4 ExecutionPlan (task rules + profile toggles, L6).
     # Pure delegation: the orchestrator keeps ONLY the deterministic governance
     # verdict — every number comes from a sub-agent finding (no double compute).
     subagents = subagents_for_plan(plan)
-    return Agent(
-        model=BedrockModel(model_id=s.model_orchestrator, region_name=s.aws_region),
-        system_prompt=system_prompt,
-        tools=[agent_tools.governance_check, *subagents],
-        hooks=[EvidenceHook(led, inp.run_id)],
-        session_manager=session_manager,
-    )
+
+    def make(session_manager) -> Agent:
+        return Agent(
+            model=BedrockModel(model_id=s.model_orchestrator, region_name=s.aws_region),
+            system_prompt=system_prompt(),
+            tools=[agent_tools.governance_check, *subagents],
+            hooks=[EvidenceHook(led, inp.run_id)],
+            session_manager=session_manager,
+        )
+
+    try:
+        return make(memory.session_manager)
+    except Exception as e:  # noqa: BLE001  restoring the session failed: memory is auxiliary, go on without it
+        if memory.session_manager is None:
+            raise
+        log.warning("AgentCore Memory disabled for run %s: %s", inp.run_id, e)
+        memory.disable(f"{type(e).__name__}: {e}")
+        return make(None)
 
 
 def _final_text(result: Any) -> str:
@@ -139,34 +158,52 @@ def _final_text(result: Any) -> str:
     return str(result)
 
 
-def run_orchestrator(inp: OrchestratorInput, settings: Settings | None = None) -> OrchestratorOutput:
-    """Runs the end-to-end analysis for one validated payload."""
+def run_orchestrator(inp: OrchestratorInput, settings: Settings | None = None,
+                     explain_fn=explain) -> OrchestratorOutput:
+    """Runs the end-to-end analysis for one validated payload: orchestrator (plan, sub-agents, governance),
+    then the Explainer writes the answer from the run's evidence and the claim verifier checks it."""
     s = settings or get_settings()
     led = make_ledger(s)   # JSONL locally, DynamoDB when AF_STORE=dynamodb (L15)
-    agent_tools.current_profile.set(inp.profile.model_dump())
-    # Sub-agents write their nested tool calls into the SAME run ledger (L15);
-    # as_of feeds the deterministic brief preamble.
-    run_context.set({"ledger": led, "run_id": inp.run_id,
-                     "as_of": inp.as_of or "2026-11-12"})
-
     start = time.perf_counter()
     try:
         plan = plan_for(inp)
+        as_of = resolve_as_of(inp, plan)
+        current_profile.set(inp.profile.model_dump())
+        current_as_of.set(as_of)                   # every tool is cut at this date (point-in-time)
+        # Sub-agents write their nested tool calls into the SAME run ledger (L15);
+        # as_of feeds the deterministic brief preamble.
+        run_context.set({"ledger": led, "run_id": inp.run_id, "as_of": as_of})
+
+        def elapsed() -> int:
+            return int((time.perf_counter() - start) * 1000)
+
         if not plan.enabled_agents:  # out_of_scope: nothing to analyse, the Explainer declines
             return OrchestratorOutput(
-                run_id=inp.run_id, status="DONE", language=inp.language,
+                run_id=inp.run_id, status="DONE", language=inp.language, as_of=as_of,
                 summary=f"No analysis run: the execution plan enables no sub-agent (task {plan.task}).",
-                evidence_ids=[], model="none",
-                duration_ms=int((time.perf_counter() - start) * 1000),
+                evidence_ids=[], model="none", duration_ms=elapsed(),
             )
-        agent = build_orchestrator(inp, ledger=led, settings=s, plan=plan)
-        result = agent(compose_user_message(inp))
+        memory = build_memory(s, inp.actor_id, inp.session_id or inp.run_id)
+        agent = build_orchestrator(inp, ledger=led, settings=s, plan=plan, as_of=as_of, memory=memory)
+        analysis = _final_text(agent(compose_user_message(inp, as_of)))
+        summary, verification, explainer = analysis, None, None
+        if plan.run_explainer:
+            try:
+                res = explain_fn(inp, plan, as_of, led, analysis, settings=s)
+            except Exception as e:  # visible failure: the unverified notes are never shown as the answer
+                return OrchestratorOutput(
+                    run_id=inp.run_id, status="FAILED", language=inp.language, analysis=analysis, as_of=as_of,
+                    memory=memory.info(),
+                    evidence_ids=led.evidence_ids(inp.run_id), model=s.model_orchestrator, duration_ms=elapsed(),
+                    error=f"Explainer failed: {type(e).__name__}: {e}")
+            summary, verification = res.text, res.verification
+            explainer = {"model": res.model, "attempts": res.attempts, "template": res.template}
         return OrchestratorOutput(
-            run_id=inp.run_id, status="DONE", language=inp.language,
-            summary=_final_text(result), evidence_ids=led.evidence_ids(inp.run_id),
-            model=s.model_orchestrator,
-            session_id=inp.session_id or inp.run_id if s.memory_id else None,
-            duration_ms=int((time.perf_counter() - start) * 1000),
+            run_id=inp.run_id, status="DONE", language=inp.language, summary=summary, analysis=analysis,
+            verification=verification, explainer=explainer, as_of=as_of, memory=memory.info(),
+            evidence_ids=led.evidence_ids(inp.run_id),
+            model=s.model_orchestrator, session_id=inp.session_id or inp.run_id if s.memory_id else None,
+            duration_ms=elapsed(),
         )
     except Exception as e:  # visible failure, never silent
         return OrchestratorOutput(

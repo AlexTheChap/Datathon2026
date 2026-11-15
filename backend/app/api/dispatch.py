@@ -25,9 +25,11 @@ def orchestrator_input(run: RunRecord, portfolio_weights: Optional[dict[str, flo
         named = {p.ticker: p.weight for p in req.positions if p.weight is not None}
         weights = named or None
     return OrchestratorInput(
-        run_id=run.run_id, actor_id=run.actor_id, language=run.profile.language,
+        run_id=run.run_id, actor_id=run.actor_id, session_id=run.session_id,   # conversation: AgentCore Memory (L17)
+        language=run.profile.language,
         as_of=req.as_of.isoformat() if req.as_of else None,
         profile=run.profile, request=req, execution_plan=run.execution_plan, portfolio_weights=weights,
+        prompt_ref=run.prompt_ref,                                              # box 4 template for the Explainer
     )
 
 

@@ -25,18 +25,22 @@
 %%   orchestrator holds only governance_check, all quant tools live in the sub-agents ·
 %%   tools called in-process (no Gateway/MCP yet) · ledger = JSONL not DynamoDB ·
 %%   news = simulated (no KB feed yet).
-%% NOT BUILT: ① frontend · L6 dispatcher (API → AgentCore Runtime) · Explainer agent ·
+%% ① + ⑦ frontend (frontend/: HTML/CSS/JS, no build step; sign-in, ask, profile form, analysis plan, light+dark;
+%%   served by the API locally, not deployed yet; result view shows the answer once ⑤ writes it).
+%% NOT BUILT: L6 dispatcher (API → AgentCore Runtime) · Explainer agent · file upload ·
 %%   Guardrails (wired in the Intake, needs AF_GUARDRAIL_ID) · Memory (wired, needs AF_MEMORY_ID) ·
 %%   optimizer tool.
 %% =====================================================================================
 flowchart TB
   %% ===== 1. Frontend =====
-  %% AWS: ECS on Fargate (recommended: ECS Express Mode) · ALB · Cognito · S3 (presigned URLs)
-  UI["① Frontend — Streamlit on ECS Fargate · Cognito login<br/>chat · profile form · file upload (presigned S3 URL)"]
+  %% AWS: S3 + CloudFront (static HTML/CSS/JS, no server) · Cognito (login → JWT) · S3 presigned URLs (uploads).
+  %%      Plain web app instead of Streamlit: full control of design tokens, light/dark modes, focus and
+  %%      control states (Hallmark rules, Bastien & Scapin criteria). Locally: served by the API (StaticFiles).
+  UI["① Frontend — web app (HTML/CSS/JS) on S3 + CloudFront · Cognito login<br/>ask · profile form · analysis plan · file upload (presigned S3 URL, later)"]
 
   %% ===== 2. API =====
   %% AWS: API Gateway (HTTP API + Cognito JWT authorizer) · Lambda (FastAPI + Mangum)
-  API["② API Gateway HTTP + Lambda (FastAPI)<br/>POST /v1/runs → 202 run_id (or 200 question) · GET /v1/runs/id · GET/PUT /v1/profile"]
+  API["② API Gateway HTTP + Lambda (FastAPI)<br/>POST /v1/runs → 202 run_id (or 200 question) · GET /v1/runs/id · GET/PUT /v1/profile · GET /v1/personas · GET /v1/me"]
 
   %% ===== 3. Intake =====
   %% AWS: Bedrock (Claude Haiku, Converse API + structured outputs JSON Schema) · Guardrails (input)
@@ -79,7 +83,7 @@ flowchart TB
     DDB[("DynamoDB<br/>profiles · runs · evidence ledger")]
   end
 
-  %% AWS: same frontend service (ECS); reads the result via API Gateway + Lambda
+  %% AWS: same static frontend (S3 + CloudFront); reads the result via API Gateway + Lambda
   OUT["⑦ Frontend result view<br/>short answer · clickable evidence · checks · trace"]
 
   %% ===== Cross-cutting =====
@@ -88,6 +92,11 @@ flowchart TB
 
   %% ===== Flow =====
   %% L1  UI → API: Cognito issues the JWT; the API Gateway JWT authorizer validates it before the Lambda.
+  %%      BUILT: user pool alphaforge-users + public web client alphaforge-web (scripts/setup_cognito.py): email +
+  %%      password, sign-up with an emailed code, forgot password, 3 demo accounts (amira/mateo/robert.demo@
+  %%      alphaforge.example) whose profile is seeded from personas.json on first sign-in. The browser calls Cognito
+  %%      directly (USER_PASSWORD_AUTH, refresh); the API sends the ID token as Bearer. Locally (no API Gateway),
+  %%      AF_AUTH_MODE=cognito makes the API verify it itself (backend/app/api/auth.py: JWKS, RS256, iss, aud, exp).
   %%      Files go straight to S3 via presigned URL (never through Lambda, 6 MB limit).
   UI -->|"JWT"| API
   %% L2  API → Intake: the API Lambda (backend/app/api/, FastAPI + Mangum) runs the Intake and the context
@@ -137,8 +146,8 @@ flowchart TB
   %% L12 Sub-agents → Tools: TARGET: AgentCore Gateway (MCP, SigV4/OAuth auth, optional Cedar
   %%      Policy) → quant tool Lambdas. CURRENT: direct in-process calls — sub-agents own their
   %%      domain toolsets (risk: metrics/stress/concentration/correlation/risk_contribution/
-  %%      max_position · macro: macro_snapshot/rate_sensitivity/stress · esg+fundamentals:
-  %%      esg_screen · allocation: metrics/max_position/stress/concentration/governance_check).
+  %%      max_position · macro: macro_snapshot/rate_sensitivity/stress · esg: esg_screen ·
+  %%      fundamentals: company_fundamentals (SEC XBRL, point-in-time) + news_search(8-K) + esg_screen · allocation: metrics/max_position/stress/concentration/governance_check).
   SUB -->|"tool calls (in-process)"| GW
   %% L13 News → KB: TARGET: Bedrock Knowledge Bases (Retrieve API + metadata filter published
   %%      ≤ as_of), S3 Vectors index. CURRENT: news_subagent is a SIMULATED placeholder (no
@@ -149,15 +158,19 @@ flowchart TB
   %%      macro_daily_asof, rate_sensitivity, esg_index_screen, controversies…).
   GW --> S3
   %% L15 Tools → Evidence ledger: a Strands hook (AfterToolCallEvent) fires after every tool
-  %%      call. TARGET sink: DynamoDB (RUN#id / EVID#E-001). CURRENT: local JSONL ledger
+  %%      call. TARGET sink: DynamoDB (RUN#id / EVID#ev-<hash>). CURRENT: local JSONL ledger
   %%      data/runs/<run_id>.jsonl behind the same EvidenceLedger interface — every call is
   %%      one record (seq, caller agent tag, tool, inputs, envelope), incl. nested sub-agent
   %%      calls and failures. Viewer: scripts/show_run.py.
   GW -->|"each call = 1 evidence"| DDB
   %% L16 DynamoDB → Explainer: reads (Query) the evidence ledger via the get_evidence tool.
   DDB -.->|"evidence ledger"| EXP
-  %% L17 Orchestrator ↔ Memory: AgentCore Memory (short term: session; long term: preferences
-  %%      per actorId) via the Strands session manager.
+  %% L17 Orchestrator ↔ Memory: AgentCore Memory, on the main agent only (sub-agents stay stateless).
+  %%      Short term: the conversation, stored per (actorId, sessionId) by the Strands session manager and restored
+  %%      on the next turn (the API returns session_id). Long term: userPreferenceMemoryStrategy extracts SOFT
+  %%      preferences into /preferences/{actorId}/; code loads them at each run into the system prompt.
+  %%      They guide tone and emphasis, never override profile or governance, and are not evidence.
+  %%      Setup: scripts/agentcore_memory.py create --write-env (AF_MEMORY_ID). Without it the run goes on, memory off.
   ORCH <-.-> MEM
   %% L18 Explainer → DynamoDB: RunResult written (S3 if > 400 KB); Guardrails grounding check
   %%      on the short answer.
@@ -180,9 +193,8 @@ flowchart TB
 %% =====================================================================================
 %% GLOSSARY OF AWS TOOLS (summary; details, regions and alternatives: docs/AWS.md)
 %% -------------------------------------------------------------------------------------
-%% Amazon ECS on Fargate: runs containers without managing servers. Hosts Streamlit.
-%%   ECS Express Mode creates the Fargate service, the ALB, the HTTPS URL and autoscaling in one call.
-%% Application Load Balancer (ALB): spreads HTTPS traffic to the Streamlit container.
+%% Amazon CloudFront: CDN in front of the S3 bucket holding the frontend's static files (HTTPS, caching).
+%% (ECS on Fargate + ALB were planned for a Streamlit frontend; not needed for a static web app.)
 %% Amazon Cognito: user directory; issues the JWT tokens (pseudonymous identity = actor_id).
 %% Amazon S3: object storage. Uploaded files (presigned URLs), curated Parquet, prompt templates.
 %% Amazon API Gateway (HTTP API): managed HTTPS entry point; validates the JWT; times out at 30 s

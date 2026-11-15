@@ -7,6 +7,7 @@ In-memory stand-in for tests and local runs.
 from __future__ import annotations
 
 import json
+import threading
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal, Optional, Protocol
@@ -28,6 +29,10 @@ def new_run_id() -> str:
     return f"run-{uuid.uuid4().hex[:12]}"
 
 
+def new_session_id() -> str:
+    return f"sess-{uuid.uuid4().hex[:16]}"
+
+
 class RunRecord(BaseModel):
     """Everything box ⑤ needs to run the analysis (L6), plus its outcome once written back (L18)."""
 
@@ -36,6 +41,7 @@ class RunRecord(BaseModel):
     schema_version: str = "1.0"
     run_id: str
     actor_id: str
+    session_id: Optional[str] = None    # conversation (AgentCore Memory short term): the client sends it back on the next turn
     status: RunStatus = "QUEUED"
     created_at: str = Field(default_factory=_now)
     updated_at: str = Field(default_factory=_now)
@@ -68,12 +74,15 @@ def actor_run_key(actor_id: str, run: RunRecord) -> dict[str, str]:
 class InMemoryRunStore:
     def __init__(self) -> None:
         self._items: dict[str, str] = {}
+        self._lock = threading.Lock()          # a background run writes while the API reads
 
     def put(self, run: RunRecord) -> None:
-        self._items[run.run_id] = run.model_dump_json()
+        with self._lock:
+            self._items[run.run_id] = run.model_dump_json()
 
     def get(self, run_id: str) -> Optional[RunRecord]:
-        raw = self._items.get(run_id)
+        with self._lock:
+            raw = self._items.get(run_id)
         return RunRecord.model_validate_json(raw) if raw else None
 
     def list_for_actor(self, actor_id: str, limit: int = 50) -> list[RunRecord]:

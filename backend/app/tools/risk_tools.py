@@ -24,6 +24,7 @@ Minimal usage:
 """
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 from pathlib import Path
@@ -108,6 +109,20 @@ class RiskTools:
                                      sector=("sector", "first"), asset_class=("asset_class", "first"),
                                      currency=("currency", "first"))
                   .sort_values("weight", ascending=False))
+
+    def at(self, as_of: str | None) -> "RiskTools":
+        """Point-in-time view: the same tools, with no return or price after `as_of`.
+        `stress`, `max_position` and `governance_check.check` take no `as_of` argument: give them this view
+        so that a window which ends after `as_of` is cut at `as_of`."""
+        if not as_of:
+            return self
+        cut = pd.Timestamp(as_of)
+        view = copy.copy(self)
+        view.rets = self.rets.loc[:cut]
+        view.prices = self.prices.loc[:cut]
+        if view.rets.empty:
+            raise ValueError(f"No data on or before as_of={as_of}.")
+        return view
 
     # ---------- helpers ----------
     def _window(self, start=None, end=None, as_of=None) -> pd.DataFrame:
