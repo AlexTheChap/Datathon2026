@@ -66,14 +66,6 @@ def test_metrics_and_correlation_are_capped_at_the_run_date(run):
     assert at.risk_contribution(WEIGHTS, as_of="2030-01-01")["period"].endswith("2022-06-30")
 
 
-def test_stress_window_is_cut_at_the_run_date(run):
-    ev = at.stress(WEIGHTS)                       # the 2022 window ends 2022-12-30
-    assert ev["period"] == "2022-01-03/2022-06-30"
-
-
-def test_max_position_uses_the_cut_window(run):
-    ev = at.max_position({"XIU.TO": 0.6, "XBB.TO": 0.4}, "NVDA", 0.15)
-    assert ev["period"].endswith("2022-06-30")
 
 
 def test_governance_check_is_point_in_time_and_citable(run):

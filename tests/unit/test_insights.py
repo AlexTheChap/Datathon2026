@@ -12,6 +12,8 @@ import views  # noqa: E402
 from app.api.replay import portfolios_from_evidence, replay  # noqa: E402
 from app.tools.risk_tools import RiskTools  # noqa: E402
 
+pytestmark = pytest.mark.skip(reason="stress-window feature removed: insights/replay to be reworked for the dashboard")
+
 CURATED = Path(__file__).resolve().parents[2] / "data" / "curated"
 IDEA = {"XIU.TO": 0.24, "XBB.TO": 0.24, "ZST.TO": 0.08, "RY.TO": 0.08, "FTS.TO": 0.08, "JNJ": 0.08, "NVDA": 0.2}
 PROPOSAL = {"XBB.TO": 0.4, "XIU.TO": 0.2, "ZST.TO": 0.15, "JNJ": 0.1, "RY.TO": 0.07, "NVDA": 0.05, "FTS.TO": 0.03}

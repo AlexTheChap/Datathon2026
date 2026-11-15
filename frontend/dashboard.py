@@ -219,7 +219,7 @@ with tab_dash:
     with col_l.container(border=True):
         st.markdown("**You could lose, in a bad year**")
         if idea and rp:
-            lost = rp["capital"] * abs(idea["max_drawdown"])   # peak to trough, as the stress tool measures it
+            lost = rp["capital"] * abs(idea["max_drawdown"])   # peak to trough, as the replay measures it
             st.markdown(f"## ${lost:,.0f}")
             st.caption(f"{abs(idea['max_drawdown']):.0%} of ${rp['capital']:,.0f} at the worst moment of 2022"
                        + (f" · the most you accept: {abs(limit):.0%}" if limit is not None else ""))
@@ -240,7 +240,7 @@ with tab_dash:
             st.plotly_chart(charts.replay(rp, limit, mode, detailed=not simple), width="stretch", theme=None)
             st.caption("What your money would have done if 2022, a year when stocks and bonds fell together, "
                        "happened again with these portfolios. A past scenario, not a forecast."
-                       + ("" if simple else " Daily rebalancing, same code as the stress tool."))
+                       + ("" if simple else " Daily rebalancing."))
 
     # ===== 4. Venn diagrams
     venns = [("Your idea and what your profile allows", insights.venn_idea_vs_allowed(prof, curve, rp))]

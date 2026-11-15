@@ -1,7 +1,7 @@
 """Allowed values for the Request JSON (the Intake model must choose from these lists).
 Sources:
 - TASKS: one task per sub-agent in architecture.mmd, plus `out_of_scope`.
-- SCENARIOS: keys of `tools/risk_tools.py::STRESS_WINDOWS` (the dataset covers 2021-11-12 to 2026-11-12,
+- (the dataset covers 2021-11-12 to 2026-11-12,
   so there is no 2008 crash).
 - BENCHMARKS: broad-index ETFs from `data/curated/assets_universe.csv`.
 """

@@ -1,17 +1,14 @@
-"""Crisis replay for the dashboard: "what your money would do, day by day, if a year like 2022 happened again".
+"""Historical replay for the dashboard: "what your money would do, day by day, over a chosen period".
 
-GET /v1/runs/{id}/replay. Deterministic, no LLM: it replays the SAME portfolios the run's tools tested, with the
-same code as the `stress` tool (RiskTools.portfolio_returns over the stress window, daily rebalancing):
-  - "idea":     the portfolio of the stress test that included the user's tested asset at its highest weight
-                (e.g. 20% NVDA), else the run's worst stress test;
-  - "proposal": the weights proposed by the allocation sub-agent, when the run has one.
+GET /v1/runs/{id}/replay. Deterministic, no LLM: it replays the portfolios found in the run's evidence
+with RiskTools.portfolio_returns (daily rebalancing) over the requested start/end dates:
+  - "proposal": the weights proposed by the allocation sub-agent, when the run has one;
+  - "idea":     portfolios previously tested by stress-style tools, when such records exist.
 It is a historical scenario, not a forecast: the response says so, and carries the weights it replayed.
 """
 from __future__ import annotations
 
 from typing import Any, Optional
-
-from app.tools.risk_tools import STRESS_WINDOWS
 
 
 def _body(record: dict) -> Any:
@@ -53,9 +50,8 @@ def portfolios_from_evidence(records: list[dict]) -> dict[str, dict[str, float]]
     return out
 
 
-def replay(records: list[dict], capital: Optional[float], rt, window: str = "2022") -> dict:
-    """Daily portfolio value over the crisis window for each portfolio found in the evidence."""
-    start, end, label = STRESS_WINDOWS[window]
+def replay(records: list[dict], capital: Optional[float], rt, start: str, end: str) -> dict:
+    """Daily portfolio value over [start, end] for each portfolio found in the evidence."""
     cap = float(capital or 100_000)
     series = {}
     for name, w in portfolios_from_evidence(records).items():
@@ -74,6 +70,6 @@ def replay(records: list[dict], capital: Optional[float], rt, window: str = "202
             "trough_date": dd.idxmin().strftime("%Y-%m-%d"),
             "trough_value": round(float(value.loc[dd.idxmin()]), 2),
         }
-    return {"window": window, "label": label, "capital": cap, "series": series,
-            "method": "Historical replay with daily rebalancing (same code as the stress tool).",
-            "note": "A past crisis replayed on today's portfolio: a scenario, not a forecast."}
+    return {"start": start, "end": end, "capital": cap, "series": series,
+            "method": "Historical replay with daily rebalancing.",
+            "note": "A past period replayed on today's portfolio: a scenario, not a forecast."}

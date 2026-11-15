@@ -106,7 +106,7 @@ class RiskTools:
 
     def at(self, as_of: str | None) -> "RiskTools":
         """Point-in-time view: the same tools, with no return or price after `as_of`.
-        `stress`, `max_position` and `governance_check.check` take no `as_of` argument: give them this view
+        `governance_check.check` takes no `as_of` argument: give it this view
         so that a window which ends after `as_of` is cut at `as_of`."""
         if not as_of:
             return self

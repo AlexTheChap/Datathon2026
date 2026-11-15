@@ -6,7 +6,7 @@ the LLM never computes, it cites evidence. The investor profile and the run's re
 
 Point-in-time: every tool works on `RiskTools.at(as_of)`, where `as_of` is the run's reference date.
 The model can ask for an EARLIER date but never a later one, and tools without an `as_of` argument
-(stress, max_position, governance_check, optimize) are cut at the run's date as well.
+(governance_check, optimize) are cut at the run's date as well.
 """
 from __future__ import annotations
 
@@ -153,5 +153,5 @@ def governance_check(weights: dict[str, float]) -> dict:
             "data_sources": ["backend/app/core/rules.yaml", "data/curated (prices, holdings, ESG screens)"]}
 
 
-ALL_TOOLS = [metrics, stress, concentration, correlation, risk_contribution, max_position, optimize,
+ALL_TOOLS = [metrics, concentration, correlation, risk_contribution, optimize,
              governance_check]

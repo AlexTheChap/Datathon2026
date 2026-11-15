@@ -205,12 +205,12 @@ def check(weights: dict, profile: dict, rules_path: str | Path, rt, data_dir: st
             if "max_weight_high_vol_assets" in hr:
                 hv = sum(v for k, v in w.items() if met[k]["ann_vol"] > hr["high_vol_threshold"])
                 add(hr["id"], "PASS" if hv <= hr["max_weight_high_vol_assets"] else hr["severity"],
-                    round(hv, 4), hr["max_weight_high_vol_assets"], "max_drawdown_stress",
+                    round(hv, 4), hr["max_weight_high_vol_assets"], "horizon_rules",
                     detail=hr["justification"])
             if "min_defensive_weight" in hr:
                 d = sum(v for k, v in w.items() if uni.loc[k, "asset_class"] == "etf_bond")
                 add(hr["id"], "PASS" if d >= hr["min_defensive_weight"] else hr["severity"],
-                    round(d, 4), hr["min_defensive_weight"], "max_drawdown_stress", detail=hr["justification"])
+                    round(d, 4), hr["min_defensive_weight"], "horizon_rules", detail=hr["justification"])
 
     # 6. User exclusions
     for ex in profile.get("exclusions", []):

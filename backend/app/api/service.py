@@ -181,7 +181,8 @@ class ApiService:
         from app.tools.quant_gateway import tools
 
         capital = run.request.capital or run.profile.capital
-        return replay(self._ledger().records(run_id), capital, tools())
+        return replay(self._ledger().records(run_id), capital, tools(),
+                      start="2022-01-03", end="2022-12-30")
 
     # ----- GET /v1/runs/{run_id}/evidence (ledger L15/L16: what the dashboard charts) -----
     def get_evidence(self, actor_id: str, run_id: str) -> list[dict[str, Any]]:
