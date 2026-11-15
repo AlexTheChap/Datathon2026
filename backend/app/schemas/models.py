@@ -36,7 +36,7 @@ def profile_from_persona(persona: dict[str, Any]) -> Profile:
     personas.json keeps `horizon_years` as a list [min, max] and nests the
     capital as `simulated_capital.value`; the canonical Profile uses a
     HorizonYears object and a flat `capital` field. Extra descriptive fields
-    (age, occupation, test_case…) are dropped — Profile is strict (extra=forbid).
+    (occupation, test_case…) are dropped — Profile is strict (extra=forbid).
     """
     h_min, h_max = persona.get("horizon_years", [None, None])
     cap = persona.get("simulated_capital") or {}
@@ -46,7 +46,9 @@ def profile_from_persona(persona: dict[str, Any]) -> Profile:
         horizon_years=HorizonYears(min=h_min, max=h_max),
         experience=persona.get("experience", "intermediate"),
         language=persona.get("language", "en"),
+        age=persona.get("age"),
         objective=persona.get("objective"),
+        preferences_text=persona.get("preferences_text"),
         preferences=persona.get("preferences", []),
         constraints=persona.get("constraints", []),
         exclusions=persona.get("exclusions", []),

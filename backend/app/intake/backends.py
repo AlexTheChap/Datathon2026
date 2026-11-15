@@ -231,6 +231,32 @@ _TOGGLE_ON = re.compile(
     rf"\s*(?:the\s+)?{_AGENT_WORD}", re.I)
 
 
+# Preferences and constraints written in one free-text field (profile form): split into clauses, then each clause
+# is a constraint when it says what to avoid or limit, a preference otherwise.
+_CLAUSE_SPLIT = re.compile(
+    r"[.;!?\n]+|,?\s+\bbut\b\s+|\s+\band\s+(?=(?:also\s+)?(?:(?:does|do)\s+n[o']?t\b|never\b|avoid\b|without\b|"
+    r"not\s+only\b|not\s+exclusively\b|(?:has|have)\s+little\b|little\b|no\s+(?:crypto|speculat)))",
+    re.I)
+_AVOID_CUE = re.compile(
+    r"\b(?:avoid\w*|exclud\w*|without|never|stay\s+away|keep\s+away|rather\s+not|"
+    r"(?:no|little|low|limited)\s+interest|not\s+(?:very\s+)?interested|"
+    r"(?:does|do|did)\s+n[o']?t\b|don'?t|doesn'?t|not\s+want|not\s+only|not\s+exclusively|"
+    r"no\s+(?:crypto|bitcoin|speculat\w*|oil|fossil)|too\s+(?:risky|speculative)|limit\w*)\b", re.I)
+MAX_DERIVED_ITEMS = 10
+MAX_DERIVED_LENGTH = 200
+def split_preferences_by_rules(text: str) -> tuple[list[str], list[str]]:
+    """(preferences, constraints) from the investor's own words, by simple English rules (no LLM)."""
+    preferences: list[str] = []
+    constraints: list[str] = []
+    for clause in _CLAUSE_SPLIT.split(text or ""):
+        item = " ".join(clause.split()).strip(" ,:-")
+        if len(item) < 3:
+            continue
+        target = constraints if _AVOID_CUE.search(item) else preferences
+        item = item[:MAX_DERIVED_LENGTH]
+        if item not in target:
+            target.append(item)
+    return preferences[:MAX_DERIVED_ITEMS], constraints[:MAX_DERIVED_ITEMS]
 def _agent_for(word: str) -> str:
     w = word.lower()
     if w in ("news", "headlines"):
@@ -333,6 +359,9 @@ class MockBackend:
             positions.append(Position(ticker=ticker, weight=float(pcts[match[1]].group(1)) / 100 if match else None))
         return positions
 
+    def split_preferences(self, text: str) -> tuple[list[str], list[str]]:
+        """Profile form, "Preferences and constraints": the offline rules above."""
+        return split_preferences_by_rules(text)
     def extract_profile(self, text: str):
         """Offline onboarding: the profile part of `extract`; nothing is flagged as irrelevant."""
         from .onboarding import OnboardingDraft

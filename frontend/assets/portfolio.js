@@ -331,12 +331,16 @@ function heroCard(view) {
   const v = (p.governance && p.governance.verdict) || "UNVERIFIED";
   const vs = ctx.VERDICTS[v] || ctx.VERDICTS.UNVERIFIED;
   const fit = D.fitScore(p.governance, risk.contribution);
-  const short = p.answer && p.answer.short_answer;
+  // Written here from the page's own numbers, so it follows the level and "wants to learn" (the Explainer's text,
+  // written once at build time, is under "Why this portfolio").
+  const summary = D.heroSummary({ level, learn: view.learn, weights: p.weights, universe: view.uni, governance: p.governance,
+    vol: risk.contribution ? risk.contribution.vol : null, profile: view.profile });
   return h("section", { class: "panel hero-card", "aria-labelledby": "hero-title" },
     h("div", { class: "hero-card__main stack-sm" },
       h("span", { class: `verdict verdict--${vs.cls}` }, ctx.icon(vs.icon, 14), verdictWord(v)),
       h("h2", { id: "hero-title", class: "hero-card__title" }, level === "simple" ? "A mix chosen for you" : "Your simulated portfolio"),
-      short ? h("p", { class: "hero-card__answer" }, short) : null,
+      h("p", { class: "hero-card__answer" }, summary.text),
+      summary.learn ? learnNote(view, summary.learn) : null,
       h("p", { class: "small muted" }, `Built from your profile on ${ctx.timeText(p.builtAt)} \u00B7 `,
         h("a", { href: `#/runs/${p.runId}` }, "See how it was built and its sources"))),
     h("div", { class: "hero-card__score" },
@@ -528,6 +532,7 @@ function explanationSection(view) {
   const max = level === "simple" ? 3 : level === "standard" ? 5 : 8;
   return h("section", { class: "panel stack-sm", "aria-labelledby": "why-title" },
     h("h2", { id: "why-title", class: "section-title" }, "Why this portfolio"),
+    level === "detailed" && a.short_answer ? h("p", null, a.short_answer) : null,
     a.key_points.length ? h("ul", { class: "answer-list" }, a.key_points.slice(0, max).map((k) => h("li", null, k.text))) : null,
     a.glossary && a.glossary.length ? h("div", { class: "answer__section" }, h("h3", null, "Words used here"),
       h("dl", { class: "glossary" }, a.glossary.map((g) => [h("dt", null, g.term), h("dd", null, g.meaning)]))) : null,

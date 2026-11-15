@@ -46,6 +46,8 @@ def persona_block(profile: Profile, language: str) -> str:
         f"- actor: {profile.actor_id} · risk {profile.risk_band} · horizon {horizon} · experience: {profile.experience}",
         f"- objective: {profile.objective or 'n/a'}",
     ]
+    if profile.age is not None:
+        lines.append(f"- age: {profile.age}")
     if profile.preferences:
         lines.append("- preferences: " + "; ".join(profile.preferences))
     if profile.constraints:
