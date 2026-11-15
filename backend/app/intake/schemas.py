@@ -1,9 +1,9 @@
-"""Modèles propres à l'Intake (boîte ③ de architecture.mmd).
+"""Intake-specific models (box 3 of architecture.mmd).
 
-- `IntakeDraft` : ce que le LLM (ou le backend hors ligne) remplit. Il ne contient AUCUN champ serveur
-  (`actor_id`, `request_id`, `schema_version`) : le code les ajoute après, pour que le modèle ne puisse pas
-  les inventer. Tous les champs du profil sont optionnels : un texte libre ne dit pas tout.
-- `IntakeResult` : ce que `run_intake` renvoie à l'API ② et au Plan resolver ④.
+- `IntakeDraft`: what the LLM (or the offline backend) fills in. It holds NO server-side field
+  (`actor_id`, `request_id`, `schema_version`): the code adds them afterwards, so the model cannot make
+  them up. Every profile field is optional: free text never says everything.
+- `IntakeResult`: what `run_intake` returns to the API (box 2) and the Plan resolver (box 4).
 """
 from __future__ import annotations
 
@@ -28,8 +28,8 @@ class ProfileDraft(BaseModel):
     preferences: list[str] = Field(default_factory=list)
     constraints: list[str] = Field(default_factory=list)
     exclusions: list[Exclusion] = Field(default_factory=list)
-    loss_capacity: Optional[float] = Field(default=None, description="Perte tolérée, fraction du capital (0,15 = 15 %).")
-    capital: Optional[float] = Field(default=None, description="Capital fictif total, en CAD.")
+    loss_capacity: Optional[float] = Field(default=None, description="Tolerated loss, as a fraction (0.15 = 15%).")
+    capital: Optional[float] = Field(default=None, description="Total simulated capital, in CAD.")
 
 
 class RequestDraft(BaseModel):
@@ -43,18 +43,18 @@ class RequestDraft(BaseModel):
     stress_tests: bool = False
     include_rag: bool = False
     as_of: Optional[date] = None
-    intake_confidence: float = Field(description="Entre 0 et 1 : à quel point la demande est claire.")
+    intake_confidence: float = Field(description="Between 0 and 1: how clear the request is.")
 
 
 class IntakeDraft(BaseModel):
-    """Sortie structurée du modèle (Bedrock structured outputs, puis validation Pydantic)."""
+    """Structured model output (Bedrock structured outputs, then Pydantic validation)."""
 
     model_config = ConfigDict(extra="forbid")
 
     profile: ProfileDraft
     request: RequestDraft
     clarification_question: Optional[str] = Field(
-        default=None, description="Une seule question, seulement si une information indispensable manque."
+        default=None, description="A single question, only if essential information is missing."
     )
 
 
@@ -70,4 +70,4 @@ class IntakeResult(BaseModel):
     clarification_question: Optional[str] = None
     missing_fields: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
-    backend: str = Field(description="'bedrock' ou 'mock' : qui a produit le brouillon.")
+    backend: str = Field(description="'bedrock' or 'mock': which backend produced the draft.")

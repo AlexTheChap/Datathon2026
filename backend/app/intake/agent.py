@@ -1,15 +1,15 @@
-"""Intake agent (boîte ③) : texte libre → Profile JSON + Request JSON validés.
+"""Intake agent (box 3): free text -> validated Profile JSON + Request JSON.
 
-Étapes de `run_intake` :
-1. lire le profil déjà enregistré (store) et le formulaire de profil ;
-2. demander un brouillon au backend (Bedrock Haiku ou mock), réessayer une fois si la sortie est invalide ;
-3. fusionner : profil enregistré < texte libre < formulaire (le formulaire, explicite, gagne toujours) ;
-4. ajouter les champs serveur (actor_id, request_id, as_of) et valider avec Pydantic ;
-5. contrôles : tickers hors univers, poids > 100 %, conflit avec une exclusion, date après les données ;
-6. décider le statut : ready, needs_clarification (une question au plus) ou out_of_scope ;
-7. enregistrer le profil s'il est complet.
+Steps of `run_intake`:
+1. read the already stored profile (store) and the profile form;
+2. ask the backend (Bedrock Haiku or mock) for a draft, retrying once if the output is invalid;
+3. merge: stored profile < free text < form (the explicit form always wins);
+4. add the server-side fields (actor_id, request_id, as_of) and validate with Pydantic;
+5. checks: tickers outside the universe, weights > 100%, conflict with an exclusion, date after the data;
+6. pick the status: ready, needs_clarification (at most one question) or out_of_scope;
+7. store the profile if it is complete.
 
-L'Intake n'analyse rien et ne bloque rien : la gouvernance (boîte ⑤) tranche. Il signale seulement.
+The Intake analyses nothing and blocks nothing: governance (box 5) decides. It only flags.
 """
 from __future__ import annotations
 
@@ -26,37 +26,21 @@ from .backends import IntakeBackend, IntakeRefused, get_backend
 from .schemas import IntakeDraft, IntakeResult
 from .universe import load_universe, normalize_ticker
 
-DATA_END = date(2026, 11, 12)  # dernière date du jeu de données (voir schemas/enums.py)
+DATA_END = date(2026, 11, 12)  # last date of the dataset (see schemas/enums.py)
 MIN_CONFIDENCE = 0.6
 REQUIRED_PROFILE_FIELDS = ("risk_band", "experience", "language")
 
 QUESTIONS = {
-    "risk_band": {
-        "fr": "Quel niveau de risque acceptez-vous : faible, faible à modéré, modéré ou élevé ?",
-        "en": "What level of risk are you comfortable with: low, low-to-moderate, moderate or high?",
-    },
-    "experience": {
-        "fr": "Comment décririez-vous votre expérience en placement : débutante, intermédiaire ou avancée ?",
-        "en": "How would you describe your investing experience: beginner, intermediate or advanced?",
-    },
-    "language": {
-        "fr": "Préférez-vous que je vous réponde en français ou en anglais ?",
-        "en": "Would you like answers in French or in English?",
-    },
-    "task": {
-        "fr": "Que voulez-vous que j'analyse : le risque de votre portefeuille, un scénario de crise, une allocation, un filtre ESG, les fondamentaux ou les nouvelles ?",
-        "en": "What would you like me to analyse: portfolio risk, a crisis scenario, an allocation, an ESG screen, fundamentals or news?",
-    },
+    "risk_band": "What level of risk are you comfortable with: low, low-to-moderate, moderate or high?",
+    "experience": "How would you describe your investing experience: beginner, intermediate or advanced?",
+    "language": "Which language would you like the answers in?",
+    "task": "What would you like me to analyse: portfolio risk, a crisis scenario, an allocation, an ESG screen, "
+            "fundamentals or news?",
 }
 
 
-def _question(key: str, lang: str) -> Optional[str]:
-    q = QUESTIONS.get(key, {})
-    return q.get(lang) or q.get("en")
-
-
 class IntakeError(RuntimeError):
-    """Le backend n'a pas produit de brouillon valide, même après un nouvel essai."""
+    """The backend did not produce a valid draft, even after a retry."""
 
 
 def _extract_with_retry(backend: IntakeBackend, text: str, known: dict) -> IntakeDraft:
@@ -66,7 +50,7 @@ def _extract_with_retry(backend: IntakeBackend, text: str, known: dict) -> Intak
         try:
             return backend.extract(text, known, feedback=str(first_error))
         except (ValidationError, ValueError) as second_error:
-            raise IntakeError(f"Sortie invalide après 2 essais : {second_error}") from second_error
+            raise IntakeError(f"Invalid output after 2 attempts: {second_error}") from second_error
 
 
 def _dedupe(items: list) -> list:
@@ -78,7 +62,7 @@ def _dedupe(items: list) -> list:
 
 
 def _known_profile(stored: Optional[Profile], form: Optional[dict]) -> dict[str, Any]:
-    """Ce qu'on sait déjà avant de lire le texte (envoyé au modèle comme contexte)."""
+    """What we already know before reading the text (sent to the model as context)."""
     known: dict[str, Any] = stored.model_dump(mode="json", exclude={"actor_id", "schema_version"}) if stored else {}
     known.update({k: v for k, v in (form or {}).items() if v is not None})
     return known
@@ -94,12 +78,12 @@ def _merge_profile(stored: Optional[Profile], draft: IntakeDraft, form: Optional
             merged[field] = value
     if d.horizon_min_years is not None or d.horizon_max_years is not None:
         merged["horizon_years"] = {"min": d.horizon_min_years, "max": d.horizon_max_years}
-    # Les listes s'accumulent : le texte peut ajouter une exclusion, pas en retirer une en silence.
+    # Lists accumulate: the text can add an exclusion, never silently remove one.
     for field in ("preferences", "constraints"):
         merged[field] = _dedupe(list(merged.get(field, [])) + list(getattr(d, field)))
     merged["exclusions"] = _dedupe(list(merged.get("exclusions", [])) + [e.model_dump() for e in d.exclusions])
 
-    for key, value in (form or {}).items():  # formulaire : explicite, il gagne
+    for key, value in (form or {}).items():  # the form is explicit: it wins
         if value is not None:
             merged[key] = value
     return merged
@@ -126,11 +110,10 @@ def _conflicts(profile: Optional[Profile], positions: list[Position], warnings: 
     universe = load_universe()
     excluded_classes = {e.value for e in profile.exclusions if e.type == "asset_class" and e.value}
     for p in positions:
-        if universe[p.ticker].asset_class in excluded_classes:
-            warnings.append(
-                f"{p.ticker} est de classe « {universe[p.ticker].asset_class} », exclue par le profil : "
-                "la gouvernance tranchera."
-            )
+        asset_class = universe[p.ticker].asset_class
+        if asset_class in excluded_classes:
+            warnings.append(f"{p.ticker} is in asset class '{asset_class}', which the profile excludes: "
+                            "governance will decide.")
 
 
 def run_intake(
@@ -154,9 +137,8 @@ def run_intake(
 
     warnings: list[str] = []
 
-    # --- Profil ---------------------------------------------------------------------------------
+    # --- Profile --------------------------------------------------------------------------------
     merged = _merge_profile(stored, draft, profile_form)
-    lang = merged.get("language") or "en"
     missing = [f for f in REQUIRED_PROFILE_FIELDS if not merged.get(f)]
     profile: Optional[Profile] = None
     if not missing:
@@ -165,7 +147,7 @@ def run_intake(
         except ValidationError as e:
             missing = sorted({str(err["loc"][0]) for err in e.errors()})
 
-    # --- Demande --------------------------------------------------------------------------------
+    # --- Request --------------------------------------------------------------------------------
     r = draft.request
     positions = _clean_positions(r.positions, warnings)
     _conflicts(profile, positions, warnings)
@@ -189,16 +171,16 @@ def run_intake(
         intake_confidence=max(0.0, min(1.0, r.intake_confidence)),
     )
 
-    # --- Statut ---------------------------------------------------------------------------------
+    # --- Status ---------------------------------------------------------------------------------
     question = None
     if request.task == "out_of_scope":
         status = "out_of_scope"
     elif missing:
         status = "needs_clarification"
-        question = _question(missing[0], lang) or draft.clarification_question
+        question = QUESTIONS.get(missing[0]) or draft.clarification_question
     elif request.intake_confidence < MIN_CONFIDENCE:
         status = "needs_clarification"
-        question = draft.clarification_question or _question("task", lang)
+        question = draft.clarification_question or QUESTIONS["task"]
     else:
         status = "ready"
 

@@ -1,4 +1,4 @@
-"""Univers d'actifs lu depuis `data/curated/assets_universe.csv` : sert à valider et normaliser les tickers."""
+"""Asset universe read from `data/curated/assets_universe.csv`: used to validate and normalise tickers."""
 from __future__ import annotations
 
 import csv
@@ -11,15 +11,15 @@ from typing import Optional
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_UNIVERSE = REPO_ROOT / "data" / "curated" / "assets_universe.csv"
 
-# Noms courants → ticker. Les noms complets de l'univers sont aussi reconnus (voir `aliases`).
+# Common names -> ticker. The full names from the universe are recognised too (see `aliases`).
 EXTRA_ALIASES = {
     "nvidia": "NVDA", "apple": "AAPL", "microsoft": "MSFT", "google": "GOOGL", "alphabet": "GOOGL",
     "amazon": "AMZN", "tesla": "TSLA", "shopify": "SHOP.TO", "enbridge": "ENB.TO", "fortis": "FTS.TO",
     "exxon": "XOM", "exxonmobil": "XOM", "jpmorgan": "JPM", "johnson & johnson": "JNJ", "procter": "PG",
     "manulife": "MFC.TO", "couche-tard": "ATD.TO", "constellation software": "CSU.TO",
-    "banque royale": "RY.TO", "royal bank": "RY.TO", "rbc": "RY.TO", "banque td": "TD.TO",
-    "canadien national": "CNR.TO", "canadian national": "CNR.TO", "cn rail": "CNR.TO",
-    "canadian natural": "CNQ.TO", "bitcoin": "BTC-USD", "btc": "BTC-USD", "ethereum": "ETH-USD", "ether": "ETH-USD",
+    "royal bank": "RY.TO", "rbc": "RY.TO", "td bank": "TD.TO",
+    "canadian national": "CNR.TO", "cn rail": "CNR.TO", "canadian natural": "CNQ.TO",
+    "bitcoin": "BTC-USD", "btc": "BTC-USD", "ethereum": "ETH-USD", "ether": "ETH-USD",
 }
 
 
@@ -44,7 +44,7 @@ def aliases(universe: dict[str, Asset]) -> dict[str, str]:
 
 
 def normalize_ticker(raw: str, universe: dict[str, Asset]) -> Optional[str]:
-    """'nvda', 'NVIDIA', 'XIU', 'xiu.to' → ticker de l'univers ; None si inconnu."""
+    """'nvda', 'NVIDIA', 'XIU', 'xiu.to' -> universe ticker; None if unknown."""
     s = raw.strip()
     up = s.upper()
     if up in universe:

@@ -1,10 +1,10 @@
-"""Lambda de l'Intake (lien L2 : API → Intake).
+"""Intake Lambda (link L2: API -> Intake).
 
-Entrée (invocation directe ou corps JSON d'une requête HTTP) :
+Input (direct invocation, or the JSON body of an HTTP request):
     {"text": "...", "actor_id": "sub-xyz", "profile_form": {...}?, "portfolio_ref": {...}?}
-Sortie : IntakeResult en JSON (statut, Profile JSON, Request JSON, question éventuelle, avertissements).
+Output: IntakeResult as JSON (status, Profile JSON, Request JSON, optional question, warnings).
 
-Pas encore de stockage du profil ici : la table DynamoDB viendra avec l'API ② (store=None).
+No profile storage here yet: the DynamoDB table comes with the API (box 2), so store=None.
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from typing import Any
 
 from app.intake import IntakeError, get_backend, run_intake
 
-_backend = None  # réutilisé entre invocations d'un même conteneur Lambda
+_backend = None  # reused across invocations of the same Lambda container
 
 
 def _parse(event: dict) -> dict:

@@ -1,7 +1,7 @@
-"""Stockage des profils (lien L3 : « le profil est enregistré dans DynamoDB (ACTOR#… / PROFILE#…) »).
+"""Profile storage (link L3: "the profile is stored in DynamoDB (ACTOR#… / PROFILE#…)").
 
-Analogue local de DynamoDB : en mémoire (tests) ou un fichier JSON par acteur. La clé suit le format
-DynamoDB prévu, pour que le passage à boto3 ne change que cette classe.
+Local DynamoDB stand-in: in memory (tests) or one JSON file per actor. The key follows the planned
+DynamoDB format, so moving to boto3 only changes this module.
 """
 from __future__ import annotations
 
