@@ -14,10 +14,11 @@ Evidence envelope as every other tool (evidence_id, say, output, assumptions, da
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 
 import pandas as pd
 from app.core.config import get_settings
-from app.tools.analysis_tools import _envelope
+from app.tools.macro_tools import _envelope
 from app.tools.context import effective_as_of
 from strands import tool
 
@@ -36,7 +37,9 @@ def _load(path: str, mtime: float) -> pd.DataFrame:  # mtime in the key: reload 
 
 @lru_cache
 def _sectors(path: str, mtime: float) -> dict[str, str]:
-    u = pd.read_csv(path)
+    from app.tools import curated_store as cs
+
+    u = cs.read_extended(Path(path).parent, "assets_universe")   # + S&P 500 extension
     return dict(zip(u["ticker"], u["sector"], strict=False))
 
 

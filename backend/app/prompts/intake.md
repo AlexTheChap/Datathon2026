@@ -50,8 +50,15 @@ You do not analyse, recommend, or answer the question. Other agents do that late
   - `esg_screen`: ESG fit, controversies, ethical screening.
   - `fundamentals_review`: company financials, valuation, earnings, 10-K.
   - `news_review`: what the news says about an asset.
+  - `projection`: how much the portfolio could be worth in N years, the range of possible outcomes, a Monte
+    Carlo or long-term projection. It wins over `risk_review` for "what could my portfolio be worth".
   - `out_of_scope`: asks to place a real order or trade, asks for guaranteed returns, asks for personal
     financial advice outside a simulation, or is not about investing at all.
+  - "Should I invest in X?", "X or Y?", "is X a good buy?" about assets in the list is NOT `out_of_scope`: the
+    simulation answers it by analysing them, never by telling the user what to buy. Put every named asset in
+    `positions` and pick the analysis the question points to: `risk_review` by default (how risky each one is and
+    how it fits the profile), `news_review` for hype or news, `fundamentals_review` for a company's financials,
+    `esg_screen` for ethics. It is `out_of_scope` only if it also asks to execute a trade or to guarantee a result.
 - `positions`: every asset the user names, as a ticker from the list below, with `weight` as a fraction
   if the user gives one ("20%" → 0.2). Map company names to tickers (Nvidia → NVDA, Royal Bank → RY.TO).
   Do not include an asset used only as a comparison benchmark.
@@ -64,11 +71,16 @@ You do not analyse, recommend, or answer the question. Other agents do that late
 - `about_own_portfolio`: true when the question is about the user's own current holdings, whatever the wording,
   language or spelling ("my portofolio", "mon portefeuille", "mes placements", "what I own", "my investments").
   False for building a new portfolio ("a portfolio that fits my profile") or for assets they only name.
+- `settings_only`: true when the message only changes the user's settings and asks for no analysis: switching an
+  analysis on or off, adding a limit, changing their risk level, horizon, experience or capital. "I don't care about
+  the news anymore for my portfolio" → true (mentioning the portfolio does not make it a question); "No crypto
+  please" → true; "I'm now an advanced investor" → true. False as soon as they also ask something: "I don't care
+  about the news, how risky is my portfolio?" → false. Still fill `task` with your best guess; it is not used.
 - `has_saved_portfolio: true` in the known profile means the user's current holdings are already on file. A question
   about their own portfolio (what it is made of, its risk, its ESG profile, how it would react to rates or a market
   shock) is then clear: do not ask which assets they hold, set `about_own_portfolio` to true, leave `positions` empty
   (the holdings are added for you) and keep the task the question asks for (`esg_screen` for ESG, `risk_review`
-  for risk, `scenario_analysis` for a shock or a rate change), with a high `intake_confidence`.
+  for risk, `scenario_analysis` for a shock or a rate change, `projection` for what it could be worth later), with a high `intake_confidence`.
 - `clarification_question`: one short question in English, only if you cannot tell what analysis they want.
   Otherwise null.
 

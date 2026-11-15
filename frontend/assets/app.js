@@ -1,5 +1,5 @@
 // AlphaForge frontend (box ① of docs/architecture.mmd): plain ES module, no framework, no build step.
-// Talks to the box ② API (POST/GET /v1/runs, GET/PUT /v1/profile, GET /v1/personas, GET /v1/me) and, when
+// Talks to the box ② API (POST/GET /v1/runs, GET/PUT /v1/profile, GET /v1/me) and, when
 // to Amazon Cognito for the login (settings served by the API as config.js, from backend/app/core/signin.json).
 // Every piece of user or server text goes into the page as a text node (never as HTML).
 
@@ -31,6 +31,7 @@ const TASKS = {
   esg_screen: "ESG screen",
   fundamentals_review: "fundamentals review",
   news_review: "news review",
+  projection: "projection of possible outcomes",
   out_of_scope: "request outside the simulation",
 };
 
@@ -302,25 +303,6 @@ async function api(method, path, body, retried = false) {
 }
 
 /** POST a file (multipart): same sign-in as api(), the browser sets the multipart boundary. */
-async function upload(path, formData) {
-  const headers = {};
-  if (COGNITO) {
-    const token = await idToken();
-    if (!token) { signOut("Your session has expired. Sign in again."); throw new ApiError(401, "Sign in to continue."); }
-    headers.Authorization = `Bearer ${token}`;
-  } else if (DEV) {
-    headers["X-Actor-Id"] = actorId();
-  } else {
-    throw new ApiError(401, "Sign-in is not set up.");
-  }
-  let res;
-  try { res = await fetch(API_BASE + path, { method: "POST", headers, body: formData }); } catch { throw new ApiError(0, "network"); }
-  let data = null;
-  try { data = await res.json(); } catch { /* empty body */ }
-  if (!res.ok) throw new ApiError(res.status, data && data.detail);
-  return { status: res.status, data };
-}
-
 function errorText(err, what) {
   if (err.status === 0) return { title: "AlphaForge isn't responding", body: "The app can't reach its server. Check that the API is running, then try again." };
   if (err.status === 401) return { title: "You're not signed in", body: "Sign in again, then try again." };
@@ -351,7 +333,6 @@ function alertBox(err, what, onRetry) {
 
 const state = {
   profile: undefined, // undefined = not loaded, null = none yet
-  personas: null,
   thread: [],        // the conversation on the Ask page: one turn per question
   sessionId: null,   // the API's conversation id (AgentCore Memory), kept for the follow-up questions
   historyLoaded: false,
@@ -654,10 +635,11 @@ function renderAsk(main) {
     if (r.kind === "question") parts.push(...drawQuestion(turn));
     if (r.kind === "message") {
       parts.push(h("p", null, r.message));
-      if (/profile/i.test(r.message || "")) parts.push(h("div", { class: "notice" }, h("a", { class: "btn btn--secondary btn--sm", href: "#/profile" }, "Set up your profile")));
+      if (r.intake_status !== "profile_updated" && /profile/i.test(r.message || "")) parts.push(h("div", { class: "notice" }, h("a", { class: "btn btn--secondary btn--sm", href: "#/profile" }, "Set up your profile")));
     }
     if (r.kind === "run") parts.push(...drawRunTurn(turn));
-    for (const change of r.toggle_changes || []) parts.push(drawToggleChange(change));
+    // A settings-only message already says what changed: each card then only offers to undo it.
+    for (const change of r.toggle_changes || []) parts.push(drawToggleChange(change, r.intake_status === "profile_updated"));
     const notes = (r.warnings || []).filter(Boolean);
     if (notes.length) parts.push(h("ul", { class: "warning-list" }, notes.map((w) => h("li", null, w))));
     turn.el.replaceChildren(you(turn.text), ai(parts));
@@ -731,9 +713,10 @@ function renderAsk(main) {
     return out;
   }
 
-  function drawToggleChange(change) {
+  function drawToggleChange(change, brief = false) {
     const name = (AGENTS[change.agent] || { name: change.agent }).name;
-    const line = h("p", null, `${name} is now ${change.enabled ? "on" : "off"} in your profile, because you said “${change.quote}”.`);
+    const line = h("p", null, brief ? `${name}: you said “${change.quote}”.`
+      : `${name} is now ${change.enabled ? "on" : "off"} in your profile, because you said “${change.quote}”.`);
     const undo = h("button", { class: "link-btn", type: "button", onclick: async () => {
       undo.disabled = true;
       try {
@@ -851,7 +834,7 @@ function renderProfile(main) {
       h("h1", null, "Your investor profile"),
       h("p", null, "One question at a time. AlphaForge uses your answers to decide what to analyse and how to explain the results. Only your risk level and experience are required."))));
   const seq = routeSeq;
-  Promise.all([loadProfile(true), loadPersonas()]).then(([profile]) => {
+  loadProfile(true).then((profile) => {
     if (seq !== routeSeq) return; // the person went elsewhere (or came back) meanwhile: never draw twice
     main.append(head, band("body", body));
     body.replaceChildren(profileForm(profile));
@@ -859,11 +842,6 @@ function renderProfile(main) {
     if (seq !== routeSeq) return;
     main.replaceChildren(head, band("body", alertBox(err, "your profile", () => { main.replaceChildren(); renderProfile(main); })));
   });
-}
-async function loadPersonas() {
-  if (state.personas) return state.personas;
-  try { state.personas = (await api("GET", "/v1/personas")).data; } catch { state.personas = []; }
-  return state.personas;
 }
 
 function profileForm(saved) {
@@ -889,81 +867,11 @@ function profileForm(saved) {
       return { profile: fresh, building: Boolean(building) };
     },
   }, { saved, record: store.get(recordKey, null) });
-  const personas = state.personas || [];
-  const examples = personas.length ? h("section", { class: "panel stack-sm", "aria-labelledby": "examples-title" },
-    h("h2", { id: "examples-title", class: "section-title" }, "Start from an example"),
-    h("p", { class: "lede small" }, "The three investors from the challenge brief. Picking one fills every question; nothing is saved until you press Save all."),
-    h("div", { class: "examples" }, personas.map((p) => h("button", { class: "example", type: "button",
-      onclick: () => { steps.fillAll(p.profile_form); announce(`Filled with ${p.name}'s profile. Review it, then save all.`); } },
-      `${p.name}: ${p.summary}`)))) : null;
-  const documentPanel = profileDocumentPanel(steps);
-  const root = h("div", { class: "columns" }, h("div", { class: "stack" }, examples, documentPanel, steps.el),
-    h("aside", { class: "stack" }, profileAccount(), settingsPointer()));
+  // The challenge's three investors (Amira, Mateo, Robert) are offered as demo accounts at sign-in only.
+  const root = h("div", { class: "stack" }, steps.el);
   state.dirty = false;
   return root;
 }
-const DOCUMENT_FIELDS = { risk_band: "Risk level", experience: "Experience", horizon_years: "Investment horizon", capital: "Capital",
-  loss_capacity: "Largest acceptable loss", objective: "Goal", wants_to_learn: "Learning explanations", exclusions: "Hard limits",
-  agent_toggles: "Analyses", age: "Age", preferences_text: "Preferences and constraints" };
-/** "Fill it from a document": the API reads a PDF or Word file; what it found fills the questions, unsaved. */
-function profileDocumentPanel(steps) {
-  const report = h("div", { class: "stack-sm", role: "status" });
-  const input = h("input", { class: "input", id: "profile-file", type: "file", accept: ".pdf,.docx,.txt,.md",
-    "aria-describedby": "profile-file-help", onchange: async () => {
-      const file = input.files[0];
-      if (!file) return;
-      report.replaceChildren(h("p", { class: "small muted" }, "Reading your document…"));
-      const form = new FormData();
-      form.append("file", file);
-      try {
-        const r = (await upload("/v1/profile/draft/file", form)).data;
-        if (r.refused) { report.replaceChildren(h("p", null, "This document can't be used. Answer the questions instead.")); return; }
-        const fields = { ...r.fields };
-        const said = [...(fields.preferences || []), ...(fields.constraints || [])];
-        if (said.length) fields.preferences_text = said.join(".\n");   // the server splits it again on save
-        const found = [...(r.found || []), ...(said.length ? ["preferences_text"] : [])].map((k) => DOCUMENT_FIELDS[k]).filter(Boolean);
-        if (found.length) steps.fillAll({ ...steps.readAll(), ...fields });
-        report.replaceChildren(
-          h("p", null, found.length ? `Found in the document: ${found.join(", ")}. Review the answers, then press Save all.`
-            : "Nothing about your investing profile was found in it."),
-          r.irrelevant && r.irrelevant.length ? h("div", null, h("p", { class: "small" }, "Not relevant to your profile, so ignored:"),
-            h("ul", { class: "warning-list" }, r.irrelevant.map((x) => h("li", null, x)))) : null);
-        announce("Document read.");
-      } catch (err) {
-        report.replaceChildren(alertBox(err, "your document", null));
-      }
-    } });
-  return h("section", { class: "panel stack-sm", "aria-labelledby": "document-title" },
-    h("h2", { id: "document-title", class: "section-title" }, "Fill it from a document"),
-    h("label", { class: "field__label", for: "profile-file" }, "A PDF or Word file about your situation ", h("span", { class: "optional" }, "(optional)")),
-    input,
-    h("p", { class: "field__help", id: "profile-file-help" }, "For example notes from an advisor. It is read to fill the questions and is not kept. Nothing is saved until you press Save all."),
-    report);
-}
-function profileAccount() {
-  const session = COGNITO ? readSession() : null;
-  return COGNITO ? h("section", { class: "panel stack-sm", "aria-labelledby": "account-title" },
-    h("h2", { id: "account-title", class: "section-title" }, "Account"),
-    h("p", { class: "small" }, "Signed in as ", h("strong", null, session ? session.email : "")),
-    session && DEMO_EMAIL.test(session.email)
-      ? h("p", { class: "small muted" }, "This is a shared demo account: anyone trying the demo can see and change this profile.")
-      : null,
-    h("div", null, h("button", { class: "btn btn--secondary", type: "button", onclick: () => {
-      if (state.dirty && !window.confirm("Your profile has unsaved changes. Sign out without saving?")) return;
-      signOut("You're signed out.");
-    } }, "Sign out"))) : h("section", { class: "panel stack-sm", "aria-labelledby": "account-title" },
-    h("h2", { id: "account-title", class: "section-title" }, "Local test user"),
-    h("p", { class: "small muted" }, `Local test mode (AF_AUTH_MODE=dev): you are ${actorId()}, a name kept in this browser only.`),
-    h("div", null, h("button", { class: "btn btn--secondary", type: "button", onclick: () => {
-      if (!window.confirm("Start over as a new test user? Your current profile stays saved under the old name.")) return;
-      try { localStorage.removeItem("af.actor"); } catch { /* ignore */ }
-      state.profile = undefined; state.thread = []; state.dirty = false;
-      setWho(); window.location.hash = "#/profile"; route();
-    } }, "Start over as a new user")));
-
-  return account;
-}
-
 /* ---------------- Run (the plan) ---------------- */
 
 /* ---------------- The answer (box ⑤ Explainer) ---------------- */
@@ -1044,10 +952,12 @@ function drawAnswer(run, { scope = "page", chat = false, animate = false } = {})
   const v = a.verification;
   if (v) {
     const removed = v.removed.length;
+    const grounded = v.output_guardrail === "passed" || v.output_guardrail === "flagged";
     section.append(h("div", { class: "verification" }, icon(removed ? "alert" : "check", 16), h("div", { class: "stack-sm" },
       h("p", null, removed
         ? `${v.claims_checked - removed} of ${v.claims_checked} statements were checked against the evidence. ${removed} could not be matched to it and ${removed === 1 ? "was" : "were"} removed.`
-        : `All ${v.claims_checked} statements were checked against the evidence: every figure comes from a cited source.`),
+        : `All ${v.claims_checked} statements were checked against the evidence: every figure comes from a cited source${grounded ? ", and every statement is supported by it" : ""}.`),
+      v.output_guardrail === "unavailable" ? h("p", { class: "small muted" }, "The grounding check could not run this time.") : null,
       removed ? h("details", null, h("summary", null, "What was removed"),
         h("ul", { class: "warning-list" }, v.removed.map((r) => h("li", null, `${r.text} (${r.reason})`)))) : null)));
   }
@@ -1346,26 +1256,28 @@ async function flushNotifyChoice() {
   }
 }
 
-/** Profile page aside: where notifications and account changes live now. */
-function settingsPointer() {
-  return h("section", { class: "panel panel--plain stack-sm", "aria-labelledby": "settings-pointer-title" },
-    h("h2", { id: "settings-pointer-title", class: "section-title" }, "Notifications and account"),
-    h("p", { class: "small" }, "Text alerts on your portfolio news, your email, your password and deleting your account are in My profile settings."),
-    h("a", { class: "link-btn", href: "#/settings" }, "Open My profile settings"));
-}
 
 /** My profile settings (#/settings): email, password, notifications, delete the account. */
 function renderSettings(main) {
   const session = COGNITO ? readSession() : null;
+  // Shared demo accounts: their password is public, so email, password and deletion stay locked for everyone.
+  const demo = Boolean(session && DEMO_EMAIL.test(session.email));
   main.append(
     band("head", h("div", { class: "page-head" },
       h("h1", null, "My profile settings"),
       h("p", null, "Your account, your notifications, and deleting your account. Your investor profile is in \u201CSet up my profile\u201D."))),
     band("body", h("div", { class: "settings stack" },
-      COGNITO ? emailSection(session) : localTestNote(),
-      COGNITO ? passwordSection() : null,
+      demo ? demoAccountNote(session) : (COGNITO ? emailSection(session) : localTestNote()),
+      COGNITO && !demo ? passwordSection() : null,
       notifySection(session),
-      deleteSection(session))));
+      demo ? null : deleteSection(session))));
+}
+
+function demoAccountNote(session) {
+  return h("section", { class: "panel stack-sm" }, h("h2", { class: "section-title" }, "Account"),
+    h("p", { class: "small" }, "Signed in as ", h("strong", null, session.email)),
+    h("p", { class: "small muted" }, "This is a shared demo account: its email and password can't be changed and it "
+      + "can't be deleted, so the demo keeps working for everyone. Create your own account to use these settings."));
 }
 
 function localTestNote() {

@@ -1,5 +1,9 @@
 """L8 — parallel sub-agent graph (Strands fork/join): plan-enabled sub-agents run
-CONCURRENTLY, then one synthesis node joins their findings.
+CONCURRENTLY, then one synthesis agent joins their findings.
+
+The synthesis agent runs AFTER the graph, not as a graph node: Strands refuses a session manager on a graph
+agent ("Session persistence is not supported for Graph agents yet"), and the synthesis agent carries the run's
+AgentCore Memory session (L17, short-term conversation).
 
 Why: the tools mode called sub-agents serially — each delegation was a full
 orchestrator round-trip. Here the plan decides dispatch (no routing turns) and
@@ -15,6 +19,7 @@ tagged with the sub-agent name (L15), exactly like the tools mode.
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from typing import Any, Callable
 
@@ -49,12 +54,10 @@ class ToolNode(MultiAgentBase):
         ok = "error" not in envelope
         # The NodeResult carries the envelope inside a real AgentResult: the graph's input
         # aggregation (get_agent_results) walks AgentResult/MultiAgentResult shapes only.
-        import json as _json
-
         agent_result = AgentResult(
             stop_reason="end_turn",
             message={"role": "assistant",
-                     "content": [{"text": _json.dumps(envelope, ensure_ascii=False)}]},
+                     "content": [{"text": json.dumps(envelope, ensure_ascii=False)}]},
             metrics=EventLoopMetrics(), state={},
         )
         return MultiAgentResult(
@@ -68,55 +71,51 @@ def _tool_name(key: str, fn: Callable) -> str:
     return getattr(fn, "tool_name", None) or getattr(fn, "__name__", key)
 
 
-def _all_arrived(keys: list[str]):
-    """AND-join: the synthesis node fires only when every fork has produced a result
-    (default graph semantics are OR — the first finished node would trigger it)."""
-    def check(state) -> bool:
-        return all(k in state.results for k in keys)
-    return check
+def synthesis_message(brief: str, findings: list[dict]) -> str:
+    """What the synthesis agent reads: the run's brief, then every sub-agent's evidence envelope."""
+    parts = [brief, "Findings of the sub-agents (evidence envelopes):"]
+    for f in findings:
+        envelope = {k: v for k, v in f.items() if not k.startswith("_")}
+        parts.append(f"From {f['_key']}:\n{json.dumps(envelope, ensure_ascii=False, default=str)}")
+    return "\n\n".join(parts)
+
+
+def envelope_of(node: Any, key: str) -> dict | None:
+    """The ToolNode returns a MultiAgentResult that the graph wraps in another NodeResult: descend until the
+    envelope (a dict, or the JSON text of one). None when there is none, or its text is not a JSON object."""
+    r = getattr(node, "result", None) if node else None
+    for _ in range(3):
+        if isinstance(r, dict):
+            return r
+        if hasattr(r, "message"):                     # AgentResult: text = envelope JSON
+            try:
+                value = json.loads(str(r))
+            except ValueError:                        # JSONDecodeError is a ValueError
+                return None
+            return value if isinstance(value, dict) else None
+        inner = getattr(r, "results", None)
+        r = inner.get(key).result if inner and key in inner else None
+    return None
 
 
 def run(enabled: list[tuple[str, Callable[..., dict]]], subject: str,
         weights: dict[str, float] | None, tickers: list[str] | None,
-        synthesis_agent=None, ledger=None, run_id: str | None = None) -> dict:
-    """Fork every (key, sub-agent tool) in parallel, join into `synthesis_agent`.
+        synthesis_agent=None, ledger=None, run_id: str | None = None, brief: str | None = None) -> dict:
+    """Fork every (key, sub-agent tool) in parallel, then join their findings in `synthesis_agent`.
 
     Returns {"summary": <synthesis text>, "findings": [envelope dicts]} — the
     envelopes are also appended to the run ledger (tagged with the sub-agent name),
     so the Explainer and the dashboard read the same records as the tools mode.
+    `brief` (default: the subject) opens the synthesis message: question, portfolio, reference date.
     """
     builder = GraphBuilder()
     keys = [key for key, _ in enabled]
     for key, fn in enabled:
         builder.add_node(ToolNode(key, fn, subject, weights, tickers), key)
-    if synthesis_agent is not None:
-        builder.add_node(synthesis_agent, "synthesis")   # node before its edges
-        for key in keys:
-            builder.add_edge(key, "synthesis", condition=_all_arrived(keys))
-    # Bounded by construction: each node runs once (fork/join DAG), plus margin.
+    # Bounded by construction: each node runs once (independent forks), plus margin.
     builder.set_max_node_executions(len(keys) + 4)
     builder.set_execution_timeout(900)   # 15 min, same ceiling as the Bedrock clients
     result = builder.build()(subject)
-
-    def _envelope(key: str) -> dict | None:
-        """The ToolNode returns a MultiAgentResult that the graph wraps in another
-        NodeResult; descend until the envelope (dict, or JSON text of one)."""
-        import json as _json
-
-        node = result.results.get(key)
-        r = getattr(node, "result", None) if node else None
-        for _ in range(3):
-            if isinstance(r, dict):
-                return r
-            if hasattr(r, "message"):                     # AgentResult: text = envelope JSON
-                text = str(r)
-                try:
-                    return _json.loads(text)
-                except (json.JSONDecodeError, ValueError):
-                    return None
-            inner = getattr(r, "results", None)
-            r = inner.get(key).result if inner and key in inner else None
-        return None
 
     def _node_ms(key: str) -> int:
         """Wall time of a fork node, as measured by the graph (outer NodeResult.execution_time)."""
@@ -125,13 +124,10 @@ def run(enabled: list[tuple[str, Callable[..., dict]]], subject: str,
 
     findings = []
     for key, _fn in enabled:
-        envelope = _envelope(key) or {"error": f"{key} produced no result",
+        envelope = envelope_of(result.results.get(key), key) or {"error": f"{key} produced no result",
                                       "note": "The node failed before returning an evidence envelope."}
         findings.append({**envelope, "_duration_ms": _node_ms(key),
                          "_key": key, "_tool_name": _tool_name(key, _fn)})
-
-    synthesis_result = result.results.get("synthesis")
-    summary = str(synthesis_result.result) if synthesis_result is not None else ""
 
     if ledger is not None and run_id:
         for f in findings:
@@ -141,4 +137,8 @@ def run(enabled: list[tuple[str, Callable[..., dict]]], subject: str,
                                    "evidence_id": envelope.get("evidence_id"),
                                    "say": envelope.get("say", ""),
                                    "duration_ms": f["_duration_ms"]})
+
+    # AND-join: the synthesis runs once every fork has returned (its governance_check calls follow the
+    # sub-agents' evidence in the ledger).
+    summary = str(synthesis_agent(synthesis_message(brief or subject, findings))) if synthesis_agent else ""
     return {"summary": summary, "findings": findings}

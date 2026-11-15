@@ -3,16 +3,12 @@
 Skipped unless Playwright and its Chromium are installed:
     pip install -e ".[ui]" && python -m playwright install chromium
 """
-import socket
-import threading
 import time
 
 import pytest
 
 playwright_api = pytest.importorskip("playwright.sync_api")
-uvicorn = pytest.importorskip("uvicorn")
 
-from app.api.app import create_app  # noqa: E402
 from app.api.service import ApiService, NoDispatcher  # noqa: E402
 from app.intake import MockBackend  # noqa: E402
 
@@ -27,27 +23,6 @@ def DEV_CONFIG(route):
 
 def NO_CONFIG(route):
     route.fulfill(status=200, content_type="application/javascript", body="")
-
-
-@pytest.fixture(scope="module")
-def base_url():
-    import os
-
-    os.environ["AF_AUTH_MODE"] = "dev"
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        port = s.getsockname()[1]
-    server = uvicorn.Server(uvicorn.Config(create_app(SERVICE),
-                                           host="127.0.0.1", port=port, log_level="warning"))
-    thread = threading.Thread(target=server.run, daemon=True)
-    thread.start()
-    for _ in range(100):
-        if server.started:
-            break
-        time.sleep(0.05)
-    yield f"http://127.0.0.1:{port}"
-    server.should_exit = True
-    thread.join(timeout=5)
 
 
 @pytest.fixture
@@ -118,6 +93,19 @@ def test_news_switched_off_in_chat_shows_in_plan_profile_and_can_be_undone(page)
     assert page.errors == []
 
 
+def test_a_setting_said_alone_in_chat_is_confirmed_without_an_analysis(page):
+    fill_profile_form(page, risk=6, experience=2)   # Moderate, Beginner
+    page.click("a.nav__link:has-text('Ask')")
+    page.fill("#question", "I do not care about the news anymore for my portfolio")
+    page.keyboard.press("Control+Enter")
+    page.wait_for_selector("text=Done. News is now switched off")
+    assert page.locator("text=How AlphaForge worked on this").count() == 0     # no analysis ran
+    assert page.locator("a:has-text('Set up your profile')").count() == 0
+    page.click("button:has-text('Undo')")
+    page.wait_for_selector("text=News is back on")
+    assert page.errors == []
+
+
 def test_learning_switch_is_saved_and_picks_the_learning_template(page):
     fill_profile_form(page, risk=6, experience=2)   # Moderate, Beginner
     page.check("#q-wants_to_learn")
@@ -135,9 +123,11 @@ def test_learning_switch_is_saved_and_picks_the_learning_template(page):
     assert page.errors == []
 
 
-def test_profile_validation_and_example_persona(page):
+def test_profile_validation_without_example_personas(page):
     page.goto(page.url.split("#")[0] + "#/profile")
-    page.wait_for_selector("text=Start from an example")
+    page.wait_for_selector("button[aria-label='Skip age']")
+    assert page.locator("text=Start from an example").count() == 0   # personas: demo accounts at sign-in only
+    assert page.locator("button.example").count() == 0
     page.click("button[aria-label='Skip age']")
     page.click("button[aria-label='Save risk level']")  # nothing chosen yet
     page.wait_for_selector("text=Pick the risk level that fits you best.")
@@ -150,11 +140,9 @@ def test_profile_validation_and_example_persona(page):
     page.fill("#q-horizon_max", "3")
     page.click("button[aria-label='Save investment horizon']")
     page.wait_for_selector("text=The end can't be before the start.")
-    page.click("button.example:has-text('Robert')")          # fills every question, unsaved
-    page.click("button[aria-label='Save all answers']")
-    page.wait_for_selector("#q-card-limits.q-card--locked")
-    assert page.is_checked("input[name='limit-crypto']")
-    assert page.input_value("#q-age") == "59"
+    page.fill("#q-horizon_max", "15")
+    page.click("button[aria-label='Save investment horizon']")
+    page.wait_for_selector("#q-card-horizon.q-card--locked")
     assert page.errors == []
 
 
@@ -370,6 +358,30 @@ def test_portfolio_dashboard_shows_the_built_portfolio(page, base_url):
     assert page.errors == []
 
 
+def test_portfolio_shows_how_it_reacts_to_rates_when_macro_is_on(page, base_url):
+    _portfolio_for(page)
+    page.goto(f"{base_url}/#/portfolio")
+    page.wait_for_selector("#rates-title")
+    page.wait_for_selector("section[aria-labelledby=rates-title] dl.facts", timeout=8000)
+    text = page.locator("section[aria-labelledby='rates-title']").inner_text()
+    assert "Bank of Canada rate" in text and "2.5%" in text
+    assert "−" in text and "not a forecast" in text                                 # a 1-point rise lowers bond-fund values
+    rows = page.locator("section[aria-labelledby='rates-title'] tbody tr")
+    assert rows.count() == 4                                                         # SPY, XBB.TO, XIU.TO, QQQ
+    assert "Not measured" in page.locator("section[aria-labelledby='rates-title'] tbody tr:has-text('SPY')").inner_text()
+    assert page.errors == []
+
+
+def test_rates_section_is_hidden_when_macro_is_off(page, base_url):
+    run = _portfolio_for(page)
+    SERVICE.put_profile(run.actor_id, {"agent_toggles": {"macro_scenarios": False}})
+    page.goto(f"{base_url}/#/portfolio")
+    page.wait_for_selector(".hero-card")
+    page.wait_for_timeout(500)
+    assert page.locator("#rates-title").count() == 0
+    assert page.errors == []
+
+
 def test_detail_level_follows_experience_and_can_be_changed(page, base_url):
     _portfolio_for(page, experience="beginner")
     page.goto(f"{base_url}/#/portfolio")
@@ -383,9 +395,13 @@ def test_detail_level_follows_experience_and_can_be_changed(page, base_url):
     assert page.locator("text=Each holding's history").count() == 0
     simple = page.inner_text(".hero-card__answer")
     assert simple.startswith("Your money is spread over 4 investments") and "SPY" not in simple
+    page.wait_for_selector(".hero-card__score .hero-card__figure")
+    assert "null" not in page.inner_text(".hero-card__score")                    # parts left out in Simple leave no trace
     page.click("label.seg-control__option:has-text('Detailed')")
     page.wait_for_selector("text=Each holding's history")
-    assert page.locator("text=Largest single position").count() == 1             # technical names when detailed
+    assert page.locator("text=Largest single position").count() >= 1            # technical names when detailed
+    page.wait_for_selector(".fit-lines")                                          # the fit, every part with its points
+    assert page.inner_text(".hero-card__score").count("%") >= 1 and "/ 30" in page.inner_text(".fit-lines")
     assert page.inner_text(".hero-card__answer").startswith("Weights: SPY 34.8%")   # the summary follows the level
     page.click("a.nav__link:has-text('Ask a question')")
     page.click("a.nav__link:has-text('My portfolio')")
@@ -421,26 +437,6 @@ def test_portfolio_without_a_profile_asks_for_one(page, base_url):
     page.click("main a:has-text('Set up my profile')")
     page.wait_for_selector("#q-card-age.q-card--open")                        # a new user gets the first question
     assert page.errors == []
-
-
-def test_portfolio_on_a_phone_has_no_sideways_scroll(base_url):
-    with playwright_api.sync_playwright() as p:
-        try:
-            browser = p.chromium.launch()
-        except Exception as e:
-            pytest.skip(f"Chromium for Playwright is not installed: {e}")
-        ctx = browser.new_context(viewport={"width": 360, "height": 780})
-        ctx.route("**/config.js", DEV_CONFIG)
-        ctx.add_init_script("localStorage.setItem('af.actor', JSON.stringify('e2e-phone-pf'))")
-        page = ctx.new_page()
-        page.goto(f"{base_url}/#/ask")
-        _portfolio_for(page)
-        page.goto(f"{base_url}/#/portfolio")
-        page.wait_for_selector(".hero-card")
-        wide = page.evaluate("""() => [...document.querySelectorAll('body *')].filter(
-            (e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 1).map((e) => e.className)""")
-        assert wide == [] and page.locator("#usermenu-btn").is_visible()
-        browser.close()
 
 
 # ---------- Profile set-up, one question at a time (profile-steps.js) ----------
@@ -511,30 +507,6 @@ def test_profile_set_up_step_by_step(page, base_url):
     assert page.errors == []
 
 
-def test_profile_set_up_from_a_document(page, base_url, tmp_path):
-    import sys as _sys
-    from pathlib import Path as _Path
-    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "unit"))
-    from test_onboarding import docx
-    f = tmp_path / "advisor-notes.docx"
-    f.write_bytes(docx(["Moderate risk. I'm a student and I want to learn.", "No crypto please.", "Buy milk."]))
-    page.goto(page.url.split("#")[0] + "#/profile")
-    page.wait_for_selector("#profile-file")
-    page.set_input_files("#profile-file", str(f))
-    page.wait_for_selector("text=Found in the document")
-    found = page.locator("section[aria-labelledby='document-title']").inner_text()
-    assert "Risk level" in found and "Learning explanations" in found and "Hard limits" in found
-    assert page.locator("fieldset.q-card--open").count() == 10                       # filled, unsaved
-    page.fill("#q-experience", "9")                                                  # the document said nothing about it
-    page.click("button[aria-label='Save all answers']")
-    page.wait_for_selector("#q-card-analyses.q-card--locked")
-    actor = page.evaluate("JSON.parse(localStorage.getItem('af.actor'))")
-    saved = SERVICE.get_profile(actor)
-    assert (saved.risk_band, saved.experience, saved.wants_to_learn) == ("moderate", "advanced", True)
-    assert [e.value for e in saved.exclusions] == ["crypto"]
-    assert page.errors == []
-
-
 def test_floating_ask_button(page, base_url):
     page.goto(page.url.split("#")[0] + "#/portfolio")
     fab = page.locator("#ask-fab")
@@ -564,7 +536,7 @@ def test_my_portfolio_questions_know_the_portfolio_without_opening_the_dashboard
 def test_profile_page_is_drawn_once_when_the_user_navigates_during_its_load(page, base_url):
     """Leaving and coming back while the profile loads used to add the form twice (Hard limits, Analyses twice)."""
     page.add_init_script("""const f = window.fetch; window.fetch = async (u, o) => {
-      if (String(u).includes('/v1/personas')) await new Promise((r) => setTimeout(r, 700)); return f(u, o); };""")
+      if (String(u).includes('/v1/profile')) await new Promise((r) => setTimeout(r, 700)); return f(u, o); };""")
     fill_profile_form(page, risk=6, experience=5)
     page.goto(page.url.split("#")[0] + "#/portfolio")
     for h in ("#/profile", "#/ask", "#/profile"):

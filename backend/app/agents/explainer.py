@@ -7,6 +7,8 @@
 3. Otherwise: load the Explainer template named by the run's PromptRef (part ④; refused if its version or
    sha256 changed), ask Claude Sonnet on Bedrock for an ExplainerDraft (structured output) from the question,
    the reader's profile, the plan, the governance verdicts and the evidence catalogue; run the claim check;
+   then the output guardrail (Bedrock Guardrails: each statement grounded in the evidence it cites, relevant to the
+   question, no denied topic; app.agents.output_guardrail, when AF_GUARDRAIL_ID is set);
    retry once with the problems listed; remove what still fails; record it all in `verification`.
 A refusal or an API error falls back to (2) instead of failing the run.
 """
@@ -19,6 +21,7 @@ from typing import Any, Optional
 
 from app.agents.claim_check import apply, check, context_numbers, count_claims
 from app.agents.evidence import TOP_LEVEL, EvidenceItem, build_catalog, governance_items
+from app.agents.output_guardrail import apply_masks, screen
 from app.context.prompt_loader import PromptError, load_prompt
 from app.core.config import Settings, get_settings
 from app.schemas.run_result import ExplainerDraft, RemovedClaim, RunAnswer, Verification
@@ -137,11 +140,12 @@ def _feedback(issues) -> str:
     lines = [f"- {x.section}[{x.index}]: {x.reason}" for x in issues]
     return ("The automatic check of your answer found these problems:\n" + "\n".join(lines) +
             "\nReturn the whole answer again. Fix each item: cite the evidence that contains the number, use the "
-            "number as the evidence states it, or leave the claim out.")
+            "number as the evidence states it, rephrase so the statement says only what its cited evidence says, "
+            "or leave the claim out.")
 
 
 def explain(run: Any, orchestrator: Optional[dict], records: list[dict], *, client: Any = None,
-            settings: Optional[Settings] = None, prompt_source: Any = None) -> RunAnswer:
+            settings: Optional[Settings] = None, prompt_source: Any = None, guardrail_client: Any = None) -> RunAnswer:
     s = settings or get_settings()
     plan = _plan(run)
     if not plan.get("enabled_agents"):
@@ -169,6 +173,19 @@ def explain(run: Any, orchestrator: Optional[dict], records: list[dict], *, clie
                              "content": [{"type": "text", "text": payload,
                                           "cache_control": {"type": "ephemeral"}}]}]
     context = context_numbers(_dump(run.profile), _dump(run.request))
+    question = _dump(run.request).get("user_message") or ""
+    guarded = None  # the latest output-guardrail Screen (None = not configured)
+
+    def verify(d: ExplainerDraft):
+        """Claim check (numbers, ids, verdicts), then the output guardrail (grounding, topics). Never raises
+        for the guardrail: screen() turns an AWS error into status "unavailable"."""
+        nonlocal guarded
+        found, unknown_ids = check(d, catalog, context)
+        guarded = screen(d, catalog, question, settings=s, client=guardrail_client)
+        if guarded is not None:
+            failed = {(x.section, x.index) for x in found}
+            found += [x for x in guarded.issues if (x.section, x.index) not in failed]
+        return found, unknown_ids
 
     def ask(msgs: list[dict]):
         response = client.messages.parse(model=s.model_explainer, max_tokens=16000, system=system, messages=msgs,
@@ -179,18 +196,20 @@ def explain(run: Any, orchestrator: Optional[dict], records: list[dict], *, clie
 
     try:
         draft = ask(messages)
-        issues, unknown = check(draft, catalog, context)
+        issues, unknown = verify(draft)
         retried = False
         if issues:
             retried = True
             messages += [{"role": "assistant", "content": draft.model_dump_json()},
                          {"role": "user", "content": _feedback(issues)}]
             draft = ask(messages)
-            issues, unknown = check(draft, catalog, context)
+            issues, unknown = verify(draft)
     except Exception as e:  # API error, refusal, invalid output: an honest fallback, never a failed run
         return fallback(run, catalog, f"The explanation model was unavailable ({type(e).__name__}).")
 
     claims = count_claims(draft)
+    if guarded is not None:
+        draft = apply_masks(draft, guarded.masked)  # personal data anonymized by the guardrail
     final = apply(draft, issues, catalog)
     short_failed = any(x.section == "short_answer" and not x.reason.startswith("cites evidence that does not exist")
                        for x in issues)
@@ -206,7 +225,8 @@ def explain(run: Any, orchestrator: Optional[dict], records: list[dict], *, clie
         glossary=final.glossary if run.prompt_ref.style == "learning" else [],
         clarifying_question=final.clarifying_question,
         not_analysed=_not_analysed(plan),
-        verification=Verification(claims_checked=claims, removed=removed, unknown_ids_dropped=unknown, retried=retried),
+        verification=Verification(claims_checked=claims, removed=removed, unknown_ids_dropped=unknown, retried=retried,
+                                  output_guardrail=guarded.status if guarded is not None else None),
         model=s.model_explainer, prompt=run.prompt_ref,
         duration_ms=int((time.perf_counter() - start) * 1000),
     )

@@ -1,43 +1,42 @@
 %% =====================================================================================
-%% AlphaForge — agent architecture (diagram v3)
+%% AlphaForge — agent architecture (diagram v4)
 %% Lines starting with "%%" are comments: Mermaid does not render them. For each link,
 %% they list the AWS tools used, plus the CURRENT implementation status.
-%% Glossary of AWS tools (1-2 lines each): at the bottom of this file.
-%% Details and alternatives: docs/AWS.md · Link-by-link explanation: docs/ARCHITECTURE.md
+%% Glossary of AWS tools (1-2 lines each): at the bottom of this file. Setup and commands: README.md.
 %% Color legend: orange = AWS service · green = LLM agent · blue = deterministic code
 %%                 violet = JSON data · white = interface
 %% =====================================================================================
-%% IMPLEMENTATION STATUS (main, 2026-11-14)
+%% IMPLEMENTATION STATUS (main, 2026-11-15)
 %% -------------------------------------------------------------------------------------
-%% BUILT: ⑤ orchestrator (Strands Agent, Claude Sonnet via Bedrock) · 6 sub-agents exposed
-%%   as tools (Claude Haiku; news = SIMULATED placeholder) · prompt loader + en templates ·
-%%   governance_check as a deterministic TOOL (no LLM — see GOV) · evidence hook
-%%   (Before/AfterToolCallEvent, with per-call duration_ms) → local JSONL ledger (data/runs/<run_id>.jsonl,
-%%   DynamoDB-shaped
-%%   interface) · quant + analysis tools in-process (agent_tools.py, analysis_tools.py over
-%%   data/curated CSVs) · AgentCore entrypoint (app/entrypoint.py, not yet deployed) ·
-%%   AF_* / .env config · sub-agents chosen from the ④ ExecutionPlan (L6).
-%%   ② API (backend/app/api/: FastAPI, POST/GET /v1/runs, GET/PUT /v1/profile, GET /v1/runs/{id}/evidence
-%%   [+ /catalog], DynamoDB-ready stores; not deployed yet) · L6 dispatcher in-process (AF_DISPATCH=local, the
-%%   default with the memory store: a background thread runs ⑤ then the Explainer; inline: same, before POST
-%%   returns; none: runs stay QUEUED, the default with DynamoDB) · ⑤ Explainer (app/agents/
-%%   explainer.py: Claude Sonnet on Bedrock, structured sections, deterministic claim check, retry once then
-%%   remove, honest fallback; style from experience × wants_to_learn) · ③ Intake (deployed Lambda
-%%   alphaforge-intake; chat toggles saved in the profile; the API calls it with AF_INTAKE_MODE=lambda) · ④ plan
-%%   resolver + Explainer prompt loader (deployed Lambda alphaforge-context, 1.2.0 templates in S3; the API calls
-%%   it with AF_CONTEXT_MODE=lambda; deploy_context_lambda.py --test-only detects a stale bucket or package).
-%% DIVERGES from target (by design for the prototype): dispatch = agents-as-tools
-%%   (sequential), Strands graph + parallel nodes = next phase · PURE DELEGATION: the
-%%   orchestrator holds only governance_check, all quant tools live in the sub-agents ·
-%%   tools called in-process (no Gateway/MCP yet) · ledger = JSONL not DynamoDB ·
-%%   news = simulated (no KB feed yet).
-%% ① + ⑦ frontend (frontend/: HTML/CSS/JS, no build step; sign-in, portfolio dashboard (home: the portfolio built from
-%%   the profile, detail by experience), ask, profile form, analysis plan, light+dark;
-%%   served by the API locally; scripts/deploy_frontend.py publishes it to S3 + CloudFront, not run yet; ⑦ result view: short answer, verdicts, key points,
-%%   glossary for learners, numbered evidence chips → evidence panel, what the claim check removed).
-%% NOT BUILT: L6 dispatcher to AgentCore Runtime (Lambda) · file upload · Guardrails grounding check (L18) ·
-%%   Guardrails (wired in the Intake, needs AF_GUARDRAIL_ID) · Memory (wired, needs AF_MEMORY_ID) ·
-%%   optimizer tool.
+%% DEPLOYED (state files in build/, written by the deploy scripts):
+%%   ② + ⑤ one container-image Lambda "alphaforge-api" (scripts/deploy_api.py): FastAPI + the agents in-process,
+%%     public Function URL (auth NONE) — the API verifies every Cognito ID token itself (AF_AUTH_MODE=cognito);
+%%     store = DynamoDB table "alphaforge" (profiles · runs · evidence ledger · contacts); AF_DISPATCH=lambda:
+%%     an analysis runs in a second, asynchronous invocation of the same Lambda (15 min max, retries 0).
+%%   ⑥ S3 curated Parquet + DynamoDB (deploy_data_layer.py) · AgentCore Gateway (MCP) → quant tools Lambda,
+%%     always-warm alias (deploy_quant_gateway.py) · Neptune Serverless market graph in a VPC + Yahoo refresh /
+%%     loader Lambdas on EventBridge schedules (deploy_graph.py) · Bedrock Knowledge Base on S3 Vectors
+%%     (deploy_news_kb.py) · news-alert Lambda: SEC filings → SNS SMS every 15 min (deploy_sms_alerts.py).
+%%   ③ Lambda alphaforge-intake and ④ Lambda alphaforge-context (+ explainer templates in S3) exist, but the
+%%     deployed API runs both IN-PROCESS (AF_INTAKE_MODE=bedrock, AF_CONTEXT_MODE unset = local).
+%%   ① frontend: static S3 + CloudFront (deploy_frontend.py; --api-url routes /v1/* to the Function URL) ·
+%%     Cognito user pool + web client + 3 shared demo accounts (setup_cognito.py).
+%% BUILT IN CODE: ⑤ orchestration = Strands GRAPH by default (AF_ORCHESTRATION=graph): the plan's sub-agents run
+%%   as parallel fork nodes, then one synthesis agent joins them (Claude Sonnet, holds governance_check);
+%%   AF_ORCHESTRATION=tools = the older agents-as-tools orchestrator (serial) · 6 sub-agents (Claude Haiku) ·
+%%   governance_check = deterministic tool (rules.yaml) · evidence hook → ledger (DynamoDB, or JSONL in data/runs
+%%   locally) · Explainer (Claude Sonnet, structured sections, deterministic claim check, retry once then remove,
+%%   honest fallback) · optimizer tool (cvxpy, allocation sub-agent) · projection (Monte Carlo, planning
+%%   guidelines) and vol_forecast (GARCH, SageMaker AI Processing batch, L20) · rate exposure (POST /v1/rate-exposure)
+%%   · step-by-step profile form · profile from a PDF / Word file (API: POST /v1/profile/draft/file; no longer on the
+%%   profile page) · notification settings (SMS / email) and account deletion · AgentCore entrypoint ·
+%%   output guardrail on the answer (L18, app/agents/output_guardrail.py: Bedrock Guardrails grounding + relevance
+%%   per statement vs its cited evidence, output-only denied topics, contact details masked; on when
+%%   AF_GUARDRAIL_ID is set; guardrail resource from scripts/deploy_guardrail.py, written but not yet deployed).
+%% DIVERGES from target: ⑤ runs inside the API Lambda, not AgentCore Runtime (entrypoint ready, not deployed) ·
+%%   no API Gateway: Function URL + in-app JWT verification · uploads go through the API (5 MB, never stored),
+%%   not S3 presigned URLs.
+%% NOT BUILT: AgentCore Observability wiring · S3 offload of large run results (DynamoDB 400 KB item limit).
 %% =====================================================================================
 flowchart TB
   %% ===== 1. Frontend =====
@@ -47,11 +46,12 @@ flowchart TB
   %%      On AWS: scripts/deploy_frontend.py → private S3 bucket read by CloudFront only (Origin Access Control),
   %%      managed security headers; with --api-url, CloudFront also routes /v1/* to the API Gateway (same origin:
   %%      no CORS, the Cognito Bearer token is forwarded). config.js = the Cognito settings from setup_cognito.py.
-  UI["① Frontend — web app (HTML/CSS/JS) on S3 + CloudFront · Cognito login<br/>my portfolio (built from the profile) · ask (chat) · profile form, one question at a time (or filled from a PDF / Word file) · analysis plan"]
+  UI["① Frontend — web app (HTML/CSS/JS) on S3 + CloudFront · Cognito login<br/>my portfolio (built from the profile) · ask (chat) · profile form, one question at a time · analysis plan · settings (alerts, account)"]
 
   %% ===== 2. API =====
-  %% AWS: API Gateway (HTTP API + Cognito JWT authorizer) · Lambda (FastAPI + Mangum)
-  API["② API Gateway HTTP + Lambda (FastAPI)<br/>POST /v1/runs → 202 run_id (or 200 question) · GET /v1/runs/id · GET/PUT /v1/profile · GET /v1/personas · GET /v1/me"]
+  %% AWS: Lambda (container image from ECR, built by CodeBuild) + Function URL · FastAPI + Mangum.
+  %%      Target: API Gateway HTTP API + Cognito JWT authorizer (not used: the API verifies tokens itself).
+  API["② API — Lambda Function URL (FastAPI, container image)<br/>POST /v1/runs → 202 run_id (or 200 question) · GET /v1/runs[/id, /evidence, /catalog, /replay]<br/>GET/PUT /v1/profile · POST /v1/profile/draft[/file] · GET/PUT /v1/notifications · DELETE /v1/account · GET /v1/me"]
 
   %% ===== 3. Intake =====
   %% AWS: Bedrock (Claude Haiku, Converse API + structured outputs JSON Schema) · Guardrails (input)
@@ -69,13 +69,14 @@ flowchart TB
   end
 
   %% ===== 5. Agents =====
-  %% AWS: Bedrock AgentCore Runtime (hosts the Strands graph) · Bedrock (Sonnet, Haiku) · AgentCore Memory
-  subgraph RT["⑤ Amazon Bedrock AgentCore Runtime — Strands graph"]
-    ORCH["Main agent · orchestrator<br/>Claude Sonnet"]
+  %% AWS: Bedrock (Sonnet, Haiku) · AgentCore Memory. CURRENT host: the API Lambda (asynchronous self-invocation).
+  %%      Target host: Bedrock AgentCore Runtime (app/entrypoint.py is ready, not deployed).
+  subgraph RT["⑤ Agents — Strands graph (runs in the API Lambda · target: AgentCore Runtime)"]
+    ORCH["Orchestrator / synthesis node<br/>Claude Sonnet"]
     MEM[("AgentCore Memory<br/>session · soft preferences")]
-    subgraph SUB["Sub-agents · Claude Haiku · enabled per profile toggles (plan) · agents-as-tools (graph = next phase)"]
+    subgraph SUB["Sub-agents · Claude Haiku · enabled by the plan · parallel graph fork nodes"]
       RISK["Risk"]
-      NEWS["News (SIMULATED)"]
+      NEWS["News"]
       ESG["ESG"]
       FUND["Fundamentals"]
       MACRO["Macro & scenarios"]
@@ -86,38 +87,52 @@ flowchart TB
   end
 
   %% ===== 6. Tools & data =====
-  %% AWS: AgentCore Gateway (MCP) · Lambda · Bedrock Knowledge Bases · S3 Vectors · S3 · DynamoDB
+  %% AWS: AgentCore Gateway (MCP) · Lambda · Neptune Serverless · Bedrock Knowledge Bases · S3 Vectors · S3 · DynamoDB
   subgraph DATA["⑥ Tools & data"]
-    GW["AgentCore Gateway (MCP)<br/>Lambda quant tools: metrics · concentration · correlation<br/>risk_contribution · macro · rates · esg_screen · company_fundamentals · optimizer (later)"]
+    GW["AgentCore Gateway (MCP) → quant tools Lambda<br/>metrics · concentration · correlation · risk_contribution<br/>macro_snapshot · fx_usdcad · market screen / related · esg_screen<br/>(in-process: rate_sensitivity · company_fundamentals · optimize · governance_check<br/>projection (Monte Carlo, planning guidelines) · vol_forecast (GARCH trend))"]
+    NEP[("Neptune Serverless market graph<br/>31 core assets + S&P 500 · ESG · holdings · correlations<br/>refreshed 11:00 / 17:00 ET")]
     KB["Bedrock Knowledge Base<br/>news & docs · S3 Vectors"]
-    S3[("S3 curated Parquet<br/>prices · FX · macro · point-in-time")]
-    DDB[("DynamoDB<br/>profiles · runs · evidence ledger")]
+    S3[("S3 curated Parquet<br/>prices · FX · macro · point-in-time<br/>31 curated assets + S&P 500 extension (prices only)")]
+    SM["SageMaker AI Processing (batch, no endpoint)<br/>GARCH(1,1) volatility job → vol_forecast.csv"]
+    DDB[("DynamoDB<br/>profiles · runs · evidence ledger · alert contacts")]
   end
 
+  %% ===== News alerts (side process, no LLM) =====
+  %% AWS: Lambda alphaforge-news-alerts · EventBridge Scheduler (every 15 min, 7:00-22:45 Toronto) · SNS (SMS).
+  %%      Opted-in contacts × the tickers of their saved portfolio → new SEC 8-K filings → one fixed-wording text.
+  ALR["News alerts — deterministic Lambda<br/>EventBridge every 15 min · SEC filings → SNS SMS"]
+
   %% AWS: same static frontend (S3 + CloudFront); reads the result via API Gateway + Lambda
-  OUT["⑦ Frontend result view + portfolio dashboard<br/>short answer · clickable evidence · checks · trace · charts by detail level"]
+  OUT["⑦ Frontend result view + portfolio dashboard<br/>short answer · clickable evidence · checks · trace · charts by detail level<br/>range of possible values (fan chart) · risk trend chips"]
 
   %% ===== Cross-cutting =====
   %% AWS: Bedrock Guardrails · AgentCore Observability → CloudWatch (GenAI observability) · IAM
   X["Cross-cutting: Bedrock Guardrails (inputs & outputs) · AgentCore Observability → CloudWatch · IAM least privilege"]
 
   %% ===== Flow =====
-  %% L1  UI → API: Cognito issues the JWT; the API Gateway JWT authorizer validates it before the Lambda.
+  %% L1  UI → API: Cognito issues the JWT (ID token, sent as Bearer). TARGET: an API Gateway JWT authorizer
+  %%      validates it before the Lambda. CURRENT (deployed): CloudFront routes /v1/* to the Lambda Function URL
+  %%      (auth NONE) and the API verifies the token itself (AF_AUTH_MODE=cognito, see below).
+  %%      Demo accounts share one password, published in config.js on purpose (one-click demo).
+  %%      So their email, password and deletion are locked (web app + DELETE /v1/account → 403), and re-running
+  %%      scripts/setup_cognito.py resets them (password, email) if a visitor changed them through Cognito directly.
   %%      BUILT: user pool alphaforge-users + public web client alphaforge-web (scripts/setup_cognito.py): email +
   %%      password, sign-up with an emailed code, forgot password, 3 demo accounts (amira/mateo/robert.demo@
   %%      alphaforge.example) whose profile is seeded from personas.json on first sign-in. The browser calls Cognito
-  %%      directly (USER_PASSWORD_AUTH, refresh); the API sends the ID token as Bearer. Locally (no API Gateway),
-  %%      AF_AUTH_MODE=cognito makes the API verify it itself (backend/app/api/auth.py: JWKS, RS256, iss, aud, exp).
-  %%      Files go straight to S3 via presigned URL (never through Lambda, 6 MB limit).
+  %%      directly (USER_PASSWORD_AUTH, refresh); the API sends the ID token as Bearer. Without API Gateway
+  %%      (locally and on the Function URL), AF_AUTH_MODE=cognito makes the API verify it itself
+  %%      (backend/app/api/auth.py: JWKS, RS256, iss, aud, exp, token_use=id).
+  %%      Files (profile from a PDF / Word document) go through the API: multipart upload, 5 MB cap, text extracted
+  %%      and never stored. Target: S3 presigned URLs for larger files.
   UI -->|"JWT"| API
   %% L2  API → Intake: the API Lambda (backend/app/api/, FastAPI + Mangum) runs the Intake and the context
   %%      resolution synchronously (a few s, under API Gateway's 30 s): it answers 200 with the Intake's
   %%      question or "create your profile first", else saves the run QUEUED and answers 202 {run_id}.
-  %%      On AWS (AF_INTAKE_MODE=lambda, AF_CONTEXT_MODE=lambda) the API invokes the two deployed Lambdas:
+  %%      With AF_INTAKE_MODE=lambda and AF_CONTEXT_MODE=lambda the API invokes two separate Lambdas:
   %%      alphaforge-intake does only the model step ({"op": "extract"}: Guardrails + Haiku → IntakeDraft) and the
   %%      API keeps the merge with the stored profile, the toggles and the storage; alphaforge-context returns the
-  %%      ExecutionPlan + PromptRef. The API Lambda then needs lambda:InvokeFunction on both, no Bedrock and no
-  %%      template bucket (least privilege). Locally and in tests both run in-process (default).
+  %%      ExecutionPlan + PromptRef. CURRENT (deployed API): both run IN-PROCESS (deploy_api.py sets
+  %%      AF_INTAKE_MODE=bedrock and no AF_CONTEXT_MODE), which is also the local and test default.
   %%      Identity = Cognito JWT `sub` (X-Actor-Id header only with AF_AUTH_MODE=dev).
   %%      The Intake calls Bedrock (Haiku) with structured outputs (JSON schema), via the anthropic
   %%      SDK (AnthropicBedrock client = InvokeModel, messages.parse, inference profile us.anthropic.claude-haiku-5-5);
@@ -148,50 +163,75 @@ flowchart TB
   %%      published to S3 by scripts/deploy_context_lambda.py (AF_PROMPT_SOURCE=s3); option: Bedrock Prompt
   %%      Management. Output: PromptRef (level, style, version, sha256).
   PROF --> LOAD
-  %% L6  Plan → Orchestrator: DynamoDB (run QUEUED) → "dispatcher" Lambda (asynchronous invocation)
-  %%      → AgentCore Runtime (InvokeAgentRuntime). API / agents boundary; IAM for the call.
+  %% L6  Plan → Orchestrator: TARGET: DynamoDB (run QUEUED) → "dispatcher" Lambda → AgentCore Runtime
+  %%      (InvokeAgentRuntime). CURRENT (AF_DISPATCH=lambda, deployed): POST /v1/runs saves the run QUEUED, answers
+  %%      202 and invokes the SAME Lambda asynchronously ({"af_dispatch_run": run_id}); that invocation runs the
+  %%      orchestrator then the Explainer and writes RUNNING → DONE / FAILED. Async retries are off (0), so a
+  %%      run is never analysed twice; a run cut by the 15-min Lambda timeout is marked FAILED when next read
+  %%      (RUNNING with no update for AF_RUN_STALE_MINUTES, 20 by default).
+  %%      Locally: AF_DISPATCH=inline (default, before POST returns) | local (background thread) | none.
   PLAN -->|"ExecutionPlan"| ORCH
   %% L7  Prompt loader → Explainer: only keys travel (level, style, version, sha256) in the run record; the
   %%      Explainer loads the template and refuses it if its version or sha256 changed since planning.
   LOAD -.->|"prompts"| EXP
-  %% L8  Orchestrator → Sub-agents: TARGET: Strands graph in AgentCore Runtime, plan-driven
-  %%      parallel nodes. CURRENT: agents-as-tools — ORCH calls each <domain>_subagent
-  %%      tool with a structured payload (subject + weights + tickers); the investor
-  %%      context is rendered into the brief by deterministic code (render_brief).
-  ORCH -->|"dispatch (agents-as-tools)"| SUB
-  %% L9  Governance: TARGET (graph phase): sub-agent findings verified by the GOV node.
-  %%      CURRENT: governance_check is a deterministic TOOL (pure-Python rules, no LLM):
-  %%      ORCH calls it on weights (reference verdict), and ALLOC self-verifies its
-  %%      proposal by iterating until PASS/WARN — L10's "BLOCK → fix" loop, implemented.
+  %% L8  Orchestrator → Sub-agents: CURRENT default (AF_ORCHESTRATION=graph, app/agents/graph.py): a Strands
+  %%      GraphBuilder with one fork node per plan-enabled sub-agent (run in worker threads, in parallel); each
+  %%      fork's envelope is appended to the run ledger, then the synthesis agent (Sonnet) joins them. It runs after
+  %%      the graph, not as a node, because it carries the memory session (Strands refuses sessions on graph agents).
+  %%      AF_ORCHESTRATION=tools: agents-as-tools — ORCH calls each <domain>_subagent tool in turn. Either way the
+  %%      payload is structured (subject + weights + tickers) and the investor context is rendered into the brief by
+  %%      deterministic code (render_brief). Target: the same graph hosted in AgentCore Runtime.
+  ORCH -->|"dispatch (parallel graph)"| SUB
+  %% L9  Governance: governance_check is a deterministic TOOL (pure-Python rules over rules.yaml, no LLM):
+  %%      the synthesis node (graph mode) or ORCH (tools mode) calls it on the weights for the reference verdict,
+  %%      and ALLOC self-verifies its proposal by iterating until PASS/WARN — L10's "BLOCK → fix" loop.
+  %%      Checks: single position and sector (equity ETFs decomposed), crypto, horizon rules, exclusions
+  %%      (asset class, ESG activity, verified controversies), ESG index preference. No loss-limit rule yet.
   ORCH -->|"governance_check (tool)"| GOV
   ALLOC -->|"self-verify loop"| GOV
-  %% L10 Governance → caller: the verdict returns to whoever called the tool (ORCH or ALLOC);
+  %% L10 Governance → caller: the verdict returns to whoever called the tool (synthesis / ORCH or ALLOC);
   %%      max 2 loops implemented inside ALLOC's iterate-to-PASS.
   GOV -->|"verdict (PASS / WARN / BLOCK)"| ORCH
-  %% L11 Governance → Explainer: the orchestrator's own governance verdicts (from the ledger) + the plan's
-  %%      disabled agents; each written check must match its verdict's evidence, else the verdict is shown as is.
+  %% L11 Governance → Explainer: the top-level governance verdicts (orchestrator or synthesis, from the ledger) +
+  %%      the plan's disabled agents; each written check must match its verdict's evidence, else the verdict is shown as is.
   GOV -->|"PASS / WARN"| EXP
-  %% L12 Sub-agents → Tools: TARGET: AgentCore Gateway (MCP, SigV4/OAuth auth, optional Cedar
-  %%      Policy) → quant tool Lambdas. CURRENT: direct in-process calls — sub-agents own their
-  %%      domain toolsets (risk: metrics/concentration/correlation/risk_contribution +
-  %%      market_screen/market_related ·
-  %%      macro: macro_snapshot/rate_sensitivity/correlation · esg: esg_screen (Gateway esg___esg_screen
-  %%      when configured: the Lambda reads the LIVE market graph, freshness-gated; local = curated CSVs) ·
-  %%      fundamentals: company_fundamentals (SEC XBRL, point-in-time) + news_search(8-K) + esg_screen ·
-  %%      allocation: optimize/metrics/concentration/governance_check + market_screen/market_related
-  %%      (candidate discovery; optimize still gates tickers on the dated returns)).
-  SUB -->|"tool calls (in-process)"| GW
+  %% L12 Sub-agents → Tools: AF_GATEWAY_URL set (deployed): the quant tools go through the AgentCore Gateway (MCP,
+  %%      SigV4; one MCPClient per URL, shared) to the quant tools Lambda (metrics, concentration, correlation,
+  %%      risk_contribution, macro_snapshot, fx_usdcad, market screen / related, esg_screen). Unset: the same
+  %%      functions run in-process (app/tools/toolsets.py). Always in-process: rate_sensitivity,
+  %%      company_fundamentals (SEC XBRL, point-in-time), news_search, optimize (cvxpy), governance_check, and
+  %%      projection / vol_forecast: Monte Carlo range under the 2026 FP Canada / IPF planning guidelines
+  %%      (app/quant/projection.py, never a return forecast) and the GARCH volatility trend (vol_forecast.csv from
+  %%      L20); also served by POST /v1/projection and GET /v1/vol-forecast.
+  %%      Toolsets per sub-agent: risk: metrics/concentration/correlation/risk_contribution + market_screen/
+  %%      market_related + projection/vol_forecast · macro: macro_snapshot/rate_sensitivity/correlation ·
+  %%      esg: esg_screen · fundamentals: company_fundamentals + news_search(8-K) + esg_screen · allocation:
+  %%      optimize/metrics/concentration/governance_check + market_screen/market_related (candidate discovery;
+  %%      optimize still gates tickers on the dated returns). Target option: Cedar policies at the Gateway.
+  SUB -->|"tool calls (MCP / in-process)"| GW
   %% L13 News → KB: Bedrock Knowledge Base "alphaforge-news-docs" (Titan Text Embeddings v2, S3 Vectors index, metadata
   %%      filter published_date <= as_of applied BEFORE ranking), deployed by scripts/deploy_news_kb.py (AF_KB_ID).
   %%      Corpus: news_index.csv (SEC 8-K filings with the text of the reported item, rate decisions; no press headlines)
   %%      and the annual-report risk / legal sections. Without AF_KB_ID the sub-agent falls back to news_search, a
   %%      keyword search over the same file with the same date rule; SIMULATED (labeled fictional) only if that file is
   %%      missing. After scripts/ingest_news.py or scripts/enrich_8k.py, re-run deploy_news_kb.py to re-sync and re-index.
-  NEWS -.->|"RAG · published ≤ as_of (later)"| KB
-  %% L14 Tools → Data: TARGET: Gateway Lambdas read S3 Parquet (pandas/DuckDB, point-in-time).
-  %%      CURRENT: in-process pandas reads over data/curated CSVs (returns_daily_cad,
-  %%      macro_daily_asof, rate_sensitivity, esg_index_screen, controversies…).
+  NEWS -.->|"RAG · published ≤ as_of"| KB
+  %% L14 Tools → Data: the quant tools Lambda reads the curated Parquet on S3 (AF_CURATED_S3, written by
+  %%      scripts/deploy_data_layer.py; pandas + fastparquet, point-in-time as-of filter). In-process tools read the
+  %%      same tables through app/tools/curated_store.py (S3 Parquet or the repo CSVs; the API image bakes data/ in).
+  %%      curated_store.read_extended() appends the S&P 500 extension (assets_universe_ext / returns_daily_cad_ext,
+  %%      scripts/build_extended_universe.py: Yahoo Finance on the curated calendar, in CAD) to the 31 curated
+  %%      assets: risk, governance, optimizer and projection accept any constituent; evidence names the source.
   GW --> S3
+  GW -->|"screen · related · esg (freshness-gated)"| NEP
+  %% L20 GARCH job ↔ curated data: scripts/run_garch_sagemaker.py runs sagemaker/garch_job/processing.py
+  %%      (FrameworkProcessor, SKLearn image, app/quant/garch.py) on returns_daily_cad.csv (+ the S&P 500
+  %%      extension returns_daily_cad_ext.csv when built; --backtest-core-only limits the backtest) ≤ as_of; outputs
+  %%      vol_forecast.csv + garch_backtest.csv + manifest.json under s3://$AF_DATA_BUCKET/quant/garch/as_of=…/,
+  %%      downloaded to data/curated/. Risk (volatility) forecast only, never returns. --local runs the same code
+  %%      without AWS. Details: docs/garch_job.md.
+  S3 -.->|"returns ≤ as_of"| SM
+  SM -.->|"vol_forecast.csv"| S3
   %% Market graph (app.market): LIVE Neptune snapshot (or the identical LocalGraph over data/market
   %%      Parquet), refreshed 11:00/17:00 ET business days. Reliable within AF_GRAPH_FRESH_HOURS (12h
   %%      default) of Snapshot.loaded_at/intraday_at; a STALE graph refuses every graph tool
@@ -209,15 +249,18 @@ flowchart TB
   %%      (memory 1769MB) behind the Gateway targets; sub-agent prompts batch independent tool
   %%      calls into one turn (they execute concurrently).
   %% L15 Tools → Evidence ledger: a Strands hook (Before/AfterToolCallEvent) fires around every
-  %%      tool call. TARGET sink: DynamoDB (RUN#id / EVID#ev-<hash>). CURRENT: local JSONL ledger
-  %%      data/runs/<run_id>.jsonl behind the same EvidenceLedger interface — every call is
+  %%      tool call. Sink: DynamoDB (RUN#<id> / EVID#<seq>#<evidence_id>, atomic EVIDSEQ counter for the parallel
+  %%      forks) when AF_STORE=dynamodb (deployed API); locally the JSONL ledger data/runs/<run_id>.jsonl behind
+  %%      the same EvidenceLedger interface — every call is
   %%      one record (seq, caller agent tag, tool, inputs, envelope, wall-time duration_ms),
   %%      incl. nested sub-agent calls and failures; graph fork nodes also record their
   %%      execution_time as duration_ms. Viewer: scripts/show_run.py (ms column + per-caller totals).
   GW -->|"each call = 1 evidence"| DDB
   %% L16 DynamoDB → Explainer: reads the run's ledger (EvidenceLedger.records) and builds an evidence catalogue
   %%      (every evidence_id, nested ones linked to their parent); the claim check compares each stated
-  %%      number with the evidence it cites. Same catalogue served by GET /v1/runs/{id}/evidence/catalog.
+  %%      number with the evidence it cites: only the numbers the Explainer was shown of each item (say, facts,
+  %%      weights), within the rounding of the precision written, and a gain is never backed by a loss.
+  %%      Same catalogue served by GET /v1/runs/{id}/evidence/catalog.
   DDB -.->|"evidence ledger"| EXP
   %% L17 Orchestrator ↔ Memory: AgentCore Memory, on the main agent only (sub-agents stay stateless).
   %%      Short term: the conversation, stored per (actorId, sessionId) by the Strands session manager and restored
@@ -225,27 +268,36 @@ flowchart TB
   %%      preferences into /preferences/{actorId}/; code loads them at each run into the system prompt.
   %%      They guide tone and emphasis, never override profile or governance, and are not evidence.
   %%      Setup: scripts/agentcore_memory.py create --write-env (AF_MEMORY_ID). Without it the run goes on, memory off.
+  %%      The top-level agent carries both: the synthesis agent in graph mode (default), the orchestrator in tools mode.
   ORCH <-.-> MEM
   %% L18 Explainer → DynamoDB: RunRecord.result["answer"] (RunAnswer: sections, citations, verification,
-  %%      model, PromptRef) via the RunStore. Target: S3 if > 400 KB; Guardrails grounding check (not built).
+  %%      model, PromptRef) via the RunStore. Target: S3 if > 400 KB. Before it is stored, the output guardrail
+  %%      (ApplyGuardrail, source=OUTPUT) checks each statement: grounded in the evidence it cites, relevant to the
+  %%      question, no denied topic. Flagged → shares the claim check's single retry, then removed (verification.removed);
+  %%      verification.output_guardrail = passed | flagged | unavailable (AWS error: nothing removed).
   EXP -->|"RunResult"| DDB
   %% L19 Explainer → Result view: in practice the frontend polls GET /v1/runs/{id} (API Gateway + Lambda
   %%      that reads DynamoDB). Option: API Gateway REST with response streaming (SSE) for progress.
   EXP -->|"GET /v1/runs/id (poll)"| OUT
+  %% Alerts: the news-alert Lambda reads the opted-in contacts and their saved portfolios from DynamoDB, fetches
+  %%      the new SEC filings on those tickers, and texts one fixed-wording message (no model, never advice) via SNS.
+  %%      Dedupe per filing (SMSSENT log): a person may get several texts a day, never the same news twice.
+  %%      Not yet: phone ownership check (OTP) beyond the SNS sandbox.
+  DDB -.->|"contacts · saved portfolios"| ALR
 
   classDef aws fill:#fff4e5,stroke:#e88a1a,color:#1f1f1f;
   classDef det fill:#eaf2ff,stroke:#3b6fd8,color:#1f1f1f;
   classDef agent fill:#eaf8ee,stroke:#2f9e55,color:#1f1f1f;
   classDef json fill:#f6f0ff,stroke:#8a63d2,color:#1f1f1f;
   classDef ui fill:#ffffff,stroke:#555,color:#1f1f1f;
-  class API,GW,KB,S3,DDB,MEM,X aws;
-  class PLAN,LOAD,GOV det;
+  class API,GW,KB,S3,SM,DDB,MEM,NEP,X aws;
+  class PLAN,LOAD,GOV,ALR det;
   class ING,ORCH,RISK,NEWS,ESG,FUND,MACRO,ALLOC,EXP agent;
   class PROF,REQ json;
   class UI,OUT ui;
 
 %% =====================================================================================
-%% GLOSSARY OF AWS TOOLS (summary; details, regions and alternatives: docs/AWS.md)
+%% GLOSSARY OF AWS TOOLS (summary)
 %% -------------------------------------------------------------------------------------
 %% Amazon CloudFront: CDN in front of the S3 bucket holding the frontend's static files (HTTPS, caching).
 %% (ECS on Fargate + ALB were planned for a Streamlit frontend; not needed for a static web app.)
@@ -253,7 +305,12 @@ flowchart TB
 %% Amazon S3: object storage. Uploaded files (presigned URLs), curated Parquet, prompt templates.
 %% Amazon API Gateway (HTTP API): managed HTTPS entry point; validates the JWT; times out at 30 s
 %%   (hence the asynchronous runs). REST APIs offer response streaming up to 15 min.
-%% AWS Lambda: on-demand code (15 min max). FastAPI API, dispatcher, upload validation, tools.
+%% AWS Lambda: on-demand code (15 min max). FastAPI API + agents (container image), quant tools, market refresh /
+%%   graph loader, news alerts. Function URL: a Lambda's own HTTPS endpoint (used instead of API Gateway).
+%% Amazon ECR + AWS CodeBuild: image registry and the managed build that produces the API image (no local Docker).
+%% Amazon Neptune Serverless: managed graph database (openCypher) holding the market graph, inside a VPC.
+%% Amazon EventBridge Scheduler: cron schedules (market refresh 11:00 / 17:00 ET, news alerts every 15 min).
+%% Amazon SNS: sends the news-alert text messages (SMS sandbox: verified numbers only).
 %% Amazon Bedrock: API access to models (Claude Sonnet / Haiku, Titan Embeddings).
 %%   Structured outputs: response that conforms to a JSON schema (replaces forced toolChoice).
 %% Bedrock Prompt Management (option): versioned prompts with variables, deployed by version.
@@ -268,8 +325,9 @@ flowchart TB
 %% Bedrock Guardrails: configurable filters (denied topics, prompt attack, personal data,
 %%   contextual grounding) on model inputs and outputs.
 %% AgentCore Observability: OpenTelemetry traces from the agents to CloudWatch (GenAI observability view).
+%% Amazon SageMaker AI Processing: managed batch jobs in a container (here: the daily GARCH fit); no endpoint.
 %% Amazon CloudWatch: logs, metrics, dashboards, alarms.
 %% AWS IAM: roles and permissions; one least-privilege role per component.
-%% Not in the diagram: AWS CDK (infrastructure as code) · Secrets Manager (API keys) ·
-%%   Step Functions + EventBridge Scheduler (data pipeline) · Glue + Athena (SQL on S3).
+%% Not used: AWS CDK (infrastructure is created by the boto3 scripts in scripts/deploy_*.py) · Secrets Manager ·
+%%   Step Functions · Glue + Athena (SQL on S3).
 %% =====================================================================================

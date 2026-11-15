@@ -21,7 +21,7 @@ from app.schemas import Exclusion, Position
 from app.schemas.profile import Language
 
 from .schemas import AgentToggleChange, IntakeDraft, ProfileDraft, RequestDraft
-from .universe import Asset, aliases, load_universe, universe_for_prompt
+from .universe import COMMON_WORDS, Asset, aliases, load_universe, match_symbol, universe_for_prompt
 
 PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "intake.md"
 # Inference profile ("us." prefix): on Bedrock, Haiku 5.5 can only be called through an inference profile.
@@ -67,14 +67,11 @@ class BedrockBackend:
         """Bedrock Guardrails on the input (prompt attacks, personal data), when configured."""
         if not self.guardrail_id:
             return
+        # No truststore.inject_into_ssl() here: injected this late (botocore already loaded) it recurses forever in
+        # ssl.SSLContext.options and breaks every later HTTPS call of the process. truststore IS in the Lambda image
+        # (a dependency of httpx2/httpcore2): this took the deployed API down on 2026-11-15 once AF_GUARDRAIL_ID was
+        # set. On Windows, inject it at process start, as the scripts do.
         import boto3
-
-        try:  # on Windows, botocore does not always see the system certificates (CERTIFICATE_VERIFY_FAILED)
-            import truststore
-
-            truststore.inject_into_ssl()
-        except ImportError:
-            pass
 
         rt = boto3.client("bedrock-runtime", region_name=self.region)
         out = rt.apply_guardrail(
@@ -186,6 +183,8 @@ _EXPERIENCE = [
 _TASKS = [  # priority: the first match wins
     ("allocation_proposal", r"allocation|rebalanc|(?:put\w*|invest\w*|allocat\w*|mov\w*|add\w*)\s+(?:\w+\s+){0,2}\d+(?:\.\d+)?\s*%|"
                             r"build\s+(?:me\s+)?a\s+(?:\w+\s+)?portfolio|how\s+should\s+i\s+split"),
+    ("projection", (r"\bbe\s+worth\b|\bworth\s+in\s+\d+|\bproject(?:ion|ions|ed)\b|monte\s*carlo|future\s+value|"
+                    r"\bgrow\s+to\b|end\s+up\s+with|range\s+(?:of\s+(?:possible\s+)?outcomes|for\s+(?:my|the)\s+portfolio)")),
     ("esg_screen", r"\besg\b|controvers|ethical|sustainab"),
     ("risk_review", r"\brisk|volatil|drawdown|diversif|concentrat"),
     ("scenario_analysis", r"crash|stress|scenario|recession|rate\s+hike"),
@@ -330,7 +329,9 @@ class MockBackend:
         found: dict[str, tuple[int, int]] = {}  # ticker -> (start, end) of its first mention
         for tok in _TICKER_TOKEN.finditer(text):
             t = tok.group(0)
-            ticker = t if t in self.universe else next((t + s for s in (".TO", "-USD") if t + s in self.universe), None)
+            ticker = match_symbol(t, self.universe)
+            if ticker and self.universe[ticker].extended and t in COMMON_WORDS:
+                continue                      # "ALL in", "IT sector": a word, not an S&P 500 holding
             if ticker and ticker != benchmark:
                 found.setdefault(ticker, (tok.start(), tok.end()))
         low = text.lower()
@@ -411,6 +412,8 @@ class MockBackend:
             positions=self._positions(text, bench),
             benchmark=bench,
             include_rag=bool(_NEWS.search(request_text)),
+            # Only a setting (an analysis switched on/off, a new limit), no task word and no question mark.
+            settings_only=bool(toggle_changes or exclusions) and not task and "?" not in text,
             intake_confidence=0.9 if task else 0.4,
         )
         return IntakeDraft(profile=profile, request=request)

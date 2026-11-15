@@ -1,5 +1,5 @@
 {
- "source": "data/curated/assets_universe.csv",
+ "source": "data/curated/assets_universe.csv (+ assets_universe_ext.csv)",
  "assets": {
   "RY.TO": {
    "name": "Royal Bank of Canada",
@@ -217,6 +217,3429 @@
    "currency": "USD",
    "sector": "Crypto asset",
    "plain": "Ether"
+  },
+  "A": {
+   "name": "Agilent Technologies Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Agilent Technologies Inc"
+  },
+  "ABBV": {
+   "name": "Abbvie Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Abbvie Inc"
+  },
+  "ABNB": {
+   "name": "Airbnb Inc Class A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Airbnb Inc Class A"
+  },
+  "ABT": {
+   "name": "Abbott Laboratories",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Abbott Laboratories"
+  },
+  "ACGL": {
+   "name": "Arch Capital Group Ltd",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Arch Capital Group Ltd"
+  },
+  "ACN": {
+   "name": "Accenture Plc Cl A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Accenture Plc Cl A"
+  },
+  "ADBE": {
+   "name": "Adobe Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Adobe Inc"
+  },
+  "ADI": {
+   "name": "Analog Devices Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Analog Devices Inc"
+  },
+  "ADM": {
+   "name": "Archer Daniels Midland Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Archer Daniels Midland Co"
+  },
+  "ADP": {
+   "name": "Automatic Data Processing",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Automatic Data Processing"
+  },
+  "ADSK": {
+   "name": "Autodesk Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Autodesk Inc"
+  },
+  "AEE": {
+   "name": "Ameren Corporation",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Ameren Corporation"
+  },
+  "AEP": {
+   "name": "American Electric Power",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "American Electric Power"
+  },
+  "AES": {
+   "name": "Aes Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Aes Corp"
+  },
+  "AFL": {
+   "name": "Aflac Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Aflac Inc"
+  },
+  "AIG": {
+   "name": "American International Group",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "American International Group"
+  },
+  "AIZ": {
+   "name": "Assurant Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Assurant Inc"
+  },
+  "AJG": {
+   "name": "Arthur J Gallagher + Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Arthur J Gallagher + Co"
+  },
+  "AKAM": {
+   "name": "Akamai Technologies Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Akamai Technologies Inc"
+  },
+  "ALB": {
+   "name": "Albemarle Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Albemarle Corp"
+  },
+  "ALGN": {
+   "name": "Align Technology Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Align Technology Inc"
+  },
+  "ALL": {
+   "name": "Allstate Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Allstate Corp"
+  },
+  "ALLE": {
+   "name": "Allegion Plc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Allegion Plc"
+  },
+  "AMAT": {
+   "name": "Applied Materials Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Applied Materials Inc"
+  },
+  "AMCR": {
+   "name": "Amcor Plc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Amcor Plc"
+  },
+  "AMD": {
+   "name": "Advanced Micro Devices",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Advanced Micro Devices"
+  },
+  "AME": {
+   "name": "Ametek Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Ametek Inc"
+  },
+  "AMGN": {
+   "name": "Amgen Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Amgen Inc"
+  },
+  "AMP": {
+   "name": "Ameriprise Financial Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Ameriprise Financial Inc"
+  },
+  "AMT": {
+   "name": "American Tower Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "American Tower Corp"
+  },
+  "ANET": {
+   "name": "Arista Networks Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Arista Networks Inc"
+  },
+  "AON": {
+   "name": "Aon Plc Class A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Aon Plc Class A"
+  },
+  "AOS": {
+   "name": "Smith (A.O.) Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Smith (A.O.) Corp"
+  },
+  "APA": {
+   "name": "Apa Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Apa Corp"
+  },
+  "APD": {
+   "name": "Air Products + Chemicals Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Air Products + Chemicals Inc"
+  },
+  "APH": {
+   "name": "Amphenol Corp Cl A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Amphenol Corp Cl A"
+  },
+  "APO": {
+   "name": "Apollo Global Management Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Apollo Global Management Inc"
+  },
+  "APP": {
+   "name": "Applovin Corp Class A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "Applovin Corp Class A"
+  },
+  "APTV": {
+   "name": "Aptiv Plc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Aptiv Plc"
+  },
+  "ARE": {
+   "name": "Alexandria Real Estate Equit",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Alexandria Real Estate Equit"
+  },
+  "ARES": {
+   "name": "Ares Management Corp   A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Ares Management Corp   A"
+  },
+  "ATO": {
+   "name": "Atmos Energy Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Atmos Energy Corp"
+  },
+  "AVGO": {
+   "name": "Broadcom Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Broadcom Inc"
+  },
+  "AVY": {
+   "name": "Avery Dennison Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Avery Dennison Corp"
+  },
+  "AWK": {
+   "name": "American Water Works Co Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "American Water Works Co Inc"
+  },
+  "AXON": {
+   "name": "Axon Enterprise Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Axon Enterprise Inc"
+  },
+  "AXP": {
+   "name": "American Express Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "American Express Co"
+  },
+  "AZO": {
+   "name": "Autozone Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Autozone Inc"
+  },
+  "BA": {
+   "name": "Boeing Co/The",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Boeing Co/The"
+  },
+  "BAC": {
+   "name": "Bank Of America Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Bank Of America Corp"
+  },
+  "BALL": {
+   "name": "Ball Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Ball Corp"
+  },
+  "BAX": {
+   "name": "Baxter International Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Baxter International Inc"
+  },
+  "BBY": {
+   "name": "Best Buy Co Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Best Buy Co Inc"
+  },
+  "BDX": {
+   "name": "Becton Dickinson And Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Becton Dickinson And Co"
+  },
+  "BE": {
+   "name": "Bloom Energy Corp  A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Bloom Energy Corp  A"
+  },
+  "BEN": {
+   "name": "Franklin Templeton Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Franklin Templeton Inc"
+  },
+  "BF-B": {
+   "name": "Brown Forman Corp Class B",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Brown Forman Corp Class B"
+  },
+  "BG": {
+   "name": "Bunge Global Sa",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Bunge Global Sa"
+  },
+  "BIIB": {
+   "name": "Biogen Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Biogen Inc"
+  },
+  "BKNG": {
+   "name": "Booking Holdings Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Booking Holdings Inc"
+  },
+  "BKR": {
+   "name": "Baker Hughes Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Baker Hughes Co"
+  },
+  "BLK": {
+   "name": "Blackrock Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Blackrock Inc"
+  },
+  "BMY": {
+   "name": "Bristol Myers Squibb Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Bristol Myers Squibb Co"
+  },
+  "BNY": {
+   "name": "Bank Of New York Mellon Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Bank Of New York Mellon Corp"
+  },
+  "BR": {
+   "name": "Broadridge Financial Solutio",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Broadridge Financial Solutio"
+  },
+  "BRK-B": {
+   "name": "Berkshire Hathaway Inc Cl B",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Berkshire Hathaway Inc Cl B"
+  },
+  "BRO": {
+   "name": "Brown + Brown Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Brown + Brown Inc"
+  },
+  "BSX": {
+   "name": "Boston Scientific Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Boston Scientific Corp"
+  },
+  "BX": {
+   "name": "Blackstone Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Blackstone Inc"
+  },
+  "BXP": {
+   "name": "Bxp Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Bxp Inc"
+  },
+  "C": {
+   "name": "Citigroup Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Citigroup Inc"
+  },
+  "CAH": {
+   "name": "Cardinal Health Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Cardinal Health Inc"
+  },
+  "CARR": {
+   "name": "Carrier Global Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Carrier Global Corp"
+  },
+  "CASY": {
+   "name": "Casey S General Stores Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Casey S General Stores Inc"
+  },
+  "CAT": {
+   "name": "Caterpillar Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Caterpillar Inc"
+  },
+  "CB": {
+   "name": "Chubb Ltd",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Chubb Ltd"
+  },
+  "CBOE": {
+   "name": "Cboe Global Markets Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Cboe Global Markets Inc"
+  },
+  "CBRE": {
+   "name": "Cbre Group Inc   A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Cbre Group Inc   A"
+  },
+  "CCI": {
+   "name": "Crown Castle Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Crown Castle Inc"
+  },
+  "CCL": {
+   "name": "Carnival Corp Ltd",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Carnival Corp Ltd"
+  },
+  "CDNS": {
+   "name": "Cadence Design Sys Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Cadence Design Sys Inc"
+  },
+  "CDW": {
+   "name": "Cdw Corp/De",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Cdw Corp/De"
+  },
+  "CEG": {
+   "name": "Constellation Energy",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Constellation Energy"
+  },
+  "CF": {
+   "name": "Cf Industries Holdings Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Cf Industries Holdings Inc"
+  },
+  "CFG": {
+   "name": "Citizens Financial Group",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Citizens Financial Group"
+  },
+  "CHD": {
+   "name": "Church + Dwight Co Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Church + Dwight Co Inc"
+  },
+  "CHRW": {
+   "name": "C.H. Robinson Worldwide Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "C.H. Robinson Worldwide Inc"
+  },
+  "CHTR": {
+   "name": "Charter Communications Inc A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "Charter Communications Inc A"
+  },
+  "CI": {
+   "name": "The Cigna Group",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "The Cigna Group"
+  },
+  "CIEN": {
+   "name": "Ciena Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Ciena Corp"
+  },
+  "CINF": {
+   "name": "Cincinnati Financial Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Cincinnati Financial Corp"
+  },
+  "CL": {
+   "name": "Colgate Palmolive Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Colgate Palmolive Co"
+  },
+  "CLX": {
+   "name": "Clorox Company",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Clorox Company"
+  },
+  "CMCSA": {
+   "name": "Comcast Corp Class A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "Comcast Corp Class A"
+  },
+  "CME": {
+   "name": "Cme Group Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Cme Group Inc"
+  },
+  "CMG": {
+   "name": "Chipotle Mexican Grill Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Chipotle Mexican Grill Inc"
+  },
+  "CMI": {
+   "name": "Cummins Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Cummins Inc"
+  },
+  "CMS": {
+   "name": "Cms Energy Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Cms Energy Corp"
+  },
+  "CNC": {
+   "name": "Centene Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Centene Corp"
+  },
+  "CNP": {
+   "name": "Centerpoint Energy Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Centerpoint Energy Inc"
+  },
+  "COF": {
+   "name": "Capital One Financial Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Capital One Financial Corp"
+  },
+  "COHR": {
+   "name": "Coherent Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Coherent Corp"
+  },
+  "COIN": {
+   "name": "Coinbase Global Inc  Class A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Coinbase Global Inc  Class A"
+  },
+  "COO": {
+   "name": "Cooper Cos Inc/The",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Cooper Cos Inc/The"
+  },
+  "COP": {
+   "name": "Conocophillips",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Conocophillips"
+  },
+  "COR": {
+   "name": "Cencora Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Cencora Inc"
+  },
+  "COST": {
+   "name": "Costco Wholesale Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Costco Wholesale Corp"
+  },
+  "CPAY": {
+   "name": "Corpay Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Corpay Inc"
+  },
+  "CPRT": {
+   "name": "Copart Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Copart Inc"
+  },
+  "CPT": {
+   "name": "Camden Property Trust",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Camden Property Trust"
+  },
+  "CRH": {
+   "name": "Crh Plc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Crh Plc"
+  },
+  "CRL": {
+   "name": "Charles River Laboratories",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Charles River Laboratories"
+  },
+  "CRM": {
+   "name": "Salesforce Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Salesforce Inc"
+  },
+  "CRWD": {
+   "name": "Crowdstrike Holdings Inc   A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Crowdstrike Holdings Inc   A"
+  },
+  "CSCO": {
+   "name": "Cisco Systems Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Cisco Systems Inc"
+  },
+  "CSGP": {
+   "name": "Costar Group Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Costar Group Inc"
+  },
+  "CSX": {
+   "name": "Csx Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Csx Corp"
+  },
+  "CTAS": {
+   "name": "Cintas Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Cintas Corp"
+  },
+  "CTSH": {
+   "name": "Cognizant Tech Solutions A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Cognizant Tech Solutions A"
+  },
+  "CVNA": {
+   "name": "Carvana Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Carvana Co"
+  },
+  "CVS": {
+   "name": "Cvs Health Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Cvs Health Corp"
+  },
+  "CVX": {
+   "name": "Chevron Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Chevron Corp"
+  },
+  "D": {
+   "name": "Dominion Energy Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Dominion Energy Inc"
+  },
+  "DAL": {
+   "name": "Delta Air Lines Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Delta Air Lines Inc"
+  },
+  "DASH": {
+   "name": "Doordash Inc   A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Doordash Inc   A"
+  },
+  "DD": {
+   "name": "Dupont De Nemours Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Dupont De Nemours Inc"
+  },
+  "DDOG": {
+   "name": "Datadog Inc   Class A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Datadog Inc   Class A"
+  },
+  "DE": {
+   "name": "Deere + Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Deere + Co"
+  },
+  "DECK": {
+   "name": "Deckers Outdoor Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Deckers Outdoor Corp"
+  },
+  "DELL": {
+   "name": "Dell Technologies  C",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Dell Technologies  C"
+  },
+  "DG": {
+   "name": "Dollar General Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Dollar General Corp"
+  },
+  "DGX": {
+   "name": "Quest Diagnostics Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Quest Diagnostics Inc"
+  },
+  "DHI": {
+   "name": "Dr Horton Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Dr Horton Inc"
+  },
+  "DHR": {
+   "name": "Danaher Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Danaher Corp"
+  },
+  "DIS": {
+   "name": "Walt Disney Co/The",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "Walt Disney Co/The"
+  },
+  "DLR": {
+   "name": "Digital Realty Trust Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Digital Realty Trust Inc"
+  },
+  "DLTR": {
+   "name": "Dollar Tree Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Dollar Tree Inc"
+  },
+  "DOC": {
+   "name": "Healthpeak Properties Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Healthpeak Properties Inc"
+  },
+  "DOV": {
+   "name": "Dover Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Dover Corp"
+  },
+  "DOW": {
+   "name": "Dow Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Dow Inc"
+  },
+  "DPZ": {
+   "name": "Domino S Pizza Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Domino S Pizza Inc"
+  },
+  "DRI": {
+   "name": "Darden Restaurants Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Darden Restaurants Inc"
+  },
+  "DTE": {
+   "name": "Dte Energy Company",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Dte Energy Company"
+  },
+  "DUK": {
+   "name": "Duke Energy Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Duke Energy Corp"
+  },
+  "DVA": {
+   "name": "Davita Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Davita Inc"
+  },
+  "DVN": {
+   "name": "Devon Energy Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Devon Energy Corp"
+  },
+  "DXCM": {
+   "name": "Dexcom Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Dexcom Inc"
+  },
+  "EBAY": {
+   "name": "Ebay Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Ebay Inc"
+  },
+  "ECHO": {
+   "name": "Echostar Corp A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "Echostar Corp A"
+  },
+  "ECL": {
+   "name": "Ecolab Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Ecolab Inc"
+  },
+  "ED": {
+   "name": "Consolidated Edison Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Consolidated Edison Inc"
+  },
+  "EFX": {
+   "name": "Equifax Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Equifax Inc"
+  },
+  "EG": {
+   "name": "Everest Group Ltd",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Everest Group Ltd"
+  },
+  "EIX": {
+   "name": "Edison International",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Edison International"
+  },
+  "EL": {
+   "name": "Estee Lauder Companies Cl A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Estee Lauder Companies Cl A"
+  },
+  "ELV": {
+   "name": "Elevance Health Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Elevance Health Inc"
+  },
+  "EME": {
+   "name": "Emcor Group Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Emcor Group Inc"
+  },
+  "EMR": {
+   "name": "Emerson Electric Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Emerson Electric Co"
+  },
+  "EOG": {
+   "name": "Eog Resources Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Eog Resources Inc"
+  },
+  "EQIX": {
+   "name": "Equinix Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Equinix Inc"
+  },
+  "EQT": {
+   "name": "Eqt Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Eqt Corp"
+  },
+  "ERIE": {
+   "name": "Erie Indemnity Company Cl A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Erie Indemnity Company Cl A"
+  },
+  "ES": {
+   "name": "Eversource Energy",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Eversource Energy"
+  },
+  "ESS": {
+   "name": "Essex Property Trust Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Essex Property Trust Inc"
+  },
+  "ETN": {
+   "name": "Eaton Corp Plc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Eaton Corp Plc"
+  },
+  "ETR": {
+   "name": "Entergy Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Entergy Corp"
+  },
+  "EVRG": {
+   "name": "Evergy Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Evergy Inc"
+  },
+  "EW": {
+   "name": "Edwards Lifesciences Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Edwards Lifesciences Corp"
+  },
+  "EXC": {
+   "name": "Exelon Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Exelon Corp"
+  },
+  "EXE": {
+   "name": "Expand Energy Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Expand Energy Corp"
+  },
+  "EXPD": {
+   "name": "Expeditors Intl Wash Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Expeditors Intl Wash Inc"
+  },
+  "EXPE": {
+   "name": "Expedia Group Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Expedia Group Inc"
+  },
+  "EXR": {
+   "name": "Extra Space Storage Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Extra Space Storage Inc"
+  },
+  "F": {
+   "name": "Ford Motor Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Ford Motor Co"
+  },
+  "FANG": {
+   "name": "Diamondback Energy Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Diamondback Energy Inc"
+  },
+  "FAST": {
+   "name": "Fastenal Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Fastenal Co"
+  },
+  "FCX": {
+   "name": "Freeport Mcmoran Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Freeport Mcmoran Inc"
+  },
+  "FDS": {
+   "name": "Factset Research Systems Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Factset Research Systems Inc"
+  },
+  "FDX": {
+   "name": "Fedex Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Fedex Corp"
+  },
+  "FE": {
+   "name": "Firstenergy Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Firstenergy Corp"
+  },
+  "FERG": {
+   "name": "Ferguson Enterprises Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Ferguson Enterprises Inc"
+  },
+  "FFIV": {
+   "name": "F5 Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "F5 Inc"
+  },
+  "FICO": {
+   "name": "Fair Isaac Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Fair Isaac Corp"
+  },
+  "FIS": {
+   "name": "Fidelity National Info Serv",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Fidelity National Info Serv"
+  },
+  "FISV": {
+   "name": "Fiserv Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Fiserv Inc"
+  },
+  "FITB": {
+   "name": "Fifth Third Bancorp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Fifth Third Bancorp"
+  },
+  "FIX": {
+   "name": "Comfort Systems Usa Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Comfort Systems Usa Inc"
+  },
+  "FLEX": {
+   "name": "Flex Ltd",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Flex Ltd"
+  },
+  "FOX": {
+   "name": "Fox Corp   Class B",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "Fox Corp   Class B"
+  },
+  "FOXA": {
+   "name": "Fox Corp   Class A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "Fox Corp   Class A"
+  },
+  "FRT": {
+   "name": "Federal Realty Invs Trust",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Federal Realty Invs Trust"
+  },
+  "FSLR": {
+   "name": "First Solar Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "First Solar Inc"
+  },
+  "FTNT": {
+   "name": "Fortinet Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Fortinet Inc"
+  },
+  "FTV": {
+   "name": "Fortive Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Fortive Corp"
+  },
+  "GD": {
+   "name": "General Dynamics Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "General Dynamics Corp"
+  },
+  "GDDY": {
+   "name": "Godaddy Inc   Class A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Godaddy Inc   Class A"
+  },
+  "GE": {
+   "name": "General Electric",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "General Electric"
+  },
+  "GEHC": {
+   "name": "Ge Healthcare Technology",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Ge Healthcare Technology"
+  },
+  "GEN": {
+   "name": "Gen Digital Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Gen Digital Inc"
+  },
+  "GEV": {
+   "name": "Ge Vernova Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Ge Vernova Inc"
+  },
+  "GILD": {
+   "name": "Gilead Sciences Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Gilead Sciences Inc"
+  },
+  "GIS": {
+   "name": "General Mills Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "General Mills Inc"
+  },
+  "GL": {
+   "name": "Globe Life Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Globe Life Inc"
+  },
+  "GLW": {
+   "name": "Corning Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Corning Inc"
+  },
+  "GM": {
+   "name": "General Motors Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "General Motors Co"
+  },
+  "GNRC": {
+   "name": "Generac Holdings Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Generac Holdings Inc"
+  },
+  "GPC": {
+   "name": "Genuine Parts Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Genuine Parts Co"
+  },
+  "GPN": {
+   "name": "Global Payments Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Global Payments Inc"
+  },
+  "GRMN": {
+   "name": "Garmin Ltd",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Garmin Ltd"
+  },
+  "GS": {
+   "name": "Goldman Sachs Group Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Goldman Sachs Group Inc"
+  },
+  "GWW": {
+   "name": "Ww Grainger Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Ww Grainger Inc"
+  },
+  "HAL": {
+   "name": "Halliburton Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Halliburton Co"
+  },
+  "HAS": {
+   "name": "Hasbro Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Hasbro Inc"
+  },
+  "HBAN": {
+   "name": "Huntington Bancshares Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Huntington Bancshares Inc"
+  },
+  "HCA": {
+   "name": "Hca Healthcare Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Hca Healthcare Inc"
+  },
+  "HD": {
+   "name": "Home Depot Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Home Depot Inc"
+  },
+  "HIG": {
+   "name": "Hartford Insurance Group Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Hartford Insurance Group Inc"
+  },
+  "HII": {
+   "name": "Huntington Ingalls Industrie",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Huntington Ingalls Industrie"
+  },
+  "HLT": {
+   "name": "Hilton Worldwide Holdings In",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Hilton Worldwide Holdings In"
+  },
+  "HON": {
+   "name": "Honeywell International Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Honeywell International Inc"
+  },
+  "HOOD": {
+   "name": "Robinhood Markets Inc   A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Robinhood Markets Inc   A"
+  },
+  "HPE": {
+   "name": "Hewlett Packard Enterprise",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Hewlett Packard Enterprise"
+  },
+  "HPQ": {
+   "name": "Hp Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Hp Inc"
+  },
+  "HRL": {
+   "name": "Hormel Foods Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Hormel Foods Corp"
+  },
+  "HSIC": {
+   "name": "Henry Schein Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Henry Schein Inc"
+  },
+  "HST": {
+   "name": "Host Hotels + Resorts Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Host Hotels + Resorts Inc"
+  },
+  "HSY": {
+   "name": "Hershey Co/The",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Hershey Co/The"
+  },
+  "HUBB": {
+   "name": "Hubbell Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Hubbell Inc"
+  },
+  "HUM": {
+   "name": "Humana Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Humana Inc"
+  },
+  "HWM": {
+   "name": "Howmet Aerospace Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Howmet Aerospace Inc"
+  },
+  "IBKR": {
+   "name": "Interactive Brokers Gro Cl A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Interactive Brokers Gro Cl A"
+  },
+  "IBM": {
+   "name": "Intl Business Machines Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Intl Business Machines Corp"
+  },
+  "ICE": {
+   "name": "Intercontinental Exchange In",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Intercontinental Exchange In"
+  },
+  "IDXX": {
+   "name": "Idexx Laboratories Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Idexx Laboratories Inc"
+  },
+  "IEX": {
+   "name": "Idex Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Idex Corp"
+  },
+  "IFF": {
+   "name": "Intl Flavors + Fragrances",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Intl Flavors + Fragrances"
+  },
+  "ILMN": {
+   "name": "Illumina Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Illumina Inc"
+  },
+  "INCY": {
+   "name": "Incyte Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Incyte Corp"
+  },
+  "INTC": {
+   "name": "Intel Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Intel Corp"
+  },
+  "INTU": {
+   "name": "Intuit Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Intuit Inc"
+  },
+  "INVH": {
+   "name": "Invitation Homes Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Invitation Homes Inc"
+  },
+  "IP": {
+   "name": "International Paper Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "International Paper Co"
+  },
+  "IQV": {
+   "name": "Iqvia Holdings Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Iqvia Holdings Inc"
+  },
+  "IR": {
+   "name": "Ingersoll Rand Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Ingersoll Rand Inc"
+  },
+  "IRM": {
+   "name": "Iron Mountain Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Iron Mountain Inc"
+  },
+  "ISRG": {
+   "name": "Intuitive Surgical Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Intuitive Surgical Inc"
+  },
+  "IT": {
+   "name": "Gartner Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Gartner Inc"
+  },
+  "ITW": {
+   "name": "Illinois Tool Works",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Illinois Tool Works"
+  },
+  "IVZ": {
+   "name": "Invesco Ltd",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Invesco Ltd"
+  },
+  "J": {
+   "name": "Jacobs Solutions Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Jacobs Solutions Inc"
+  },
+  "JBHT": {
+   "name": "Hunt (Jb) Transprt Svcs Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Hunt (Jb) Transprt Svcs Inc"
+  },
+  "JBL": {
+   "name": "Jabil Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Jabil Inc"
+  },
+  "JCI": {
+   "name": "Johnson Controls Internation",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Johnson Controls Internation"
+  },
+  "JKHY": {
+   "name": "Jack Henry + Associates Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Jack Henry + Associates Inc"
+  },
+  "KDP": {
+   "name": "Keurig Dr Pepper Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Keurig Dr Pepper Inc"
+  },
+  "KEY": {
+   "name": "Keycorp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Keycorp"
+  },
+  "KEYS": {
+   "name": "Keysight Technologies In",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Keysight Technologies In"
+  },
+  "KHC": {
+   "name": "Kraft Heinz Co/The",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Kraft Heinz Co/The"
+  },
+  "KIM": {
+   "name": "Kimco Realty Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Kimco Realty Corp"
+  },
+  "KKR": {
+   "name": "Kkr + Co Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Kkr + Co Inc"
+  },
+  "KLAC": {
+   "name": "Kla Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Kla Corp"
+  },
+  "KMB": {
+   "name": "Kimberly Clark Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Kimberly Clark Corp"
+  },
+  "KMI": {
+   "name": "Kinder Morgan Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Kinder Morgan Inc"
+  },
+  "KO": {
+   "name": "Coca Cola Co/The",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Coca Cola Co/The"
+  },
+  "KR": {
+   "name": "Kroger Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Kroger Co"
+  },
+  "L": {
+   "name": "Loews Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Loews Corp"
+  },
+  "LDOS": {
+   "name": "Leidos Holdings Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Leidos Holdings Inc"
+  },
+  "LEN": {
+   "name": "Lennar Corp A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Lennar Corp A"
+  },
+  "LH": {
+   "name": "Labcorp Holdings Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Labcorp Holdings Inc"
+  },
+  "LHX": {
+   "name": "L3Harris Technologies Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "L3Harris Technologies Inc"
+  },
+  "LII": {
+   "name": "Lennox International Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Lennox International Inc"
+  },
+  "LIN": {
+   "name": "Linde Plc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Linde Plc"
+  },
+  "LITE": {
+   "name": "Lumentum Holdings Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Lumentum Holdings Inc"
+  },
+  "LLY": {
+   "name": "Eli Lilly + Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Eli Lilly + Co"
+  },
+  "LMT": {
+   "name": "Lockheed Martin Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Lockheed Martin Corp"
+  },
+  "LNT": {
+   "name": "Alliant Energy Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Alliant Energy Corp"
+  },
+  "LOW": {
+   "name": "Lowe S Cos Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Lowe S Cos Inc"
+  },
+  "LRCX": {
+   "name": "Lam Research Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Lam Research Corp"
+  },
+  "LULU": {
+   "name": "Lululemon Athletica Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Lululemon Athletica Inc"
+  },
+  "LUV": {
+   "name": "Southwest Airlines Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Southwest Airlines Co"
+  },
+  "LVS": {
+   "name": "Las Vegas Sands Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Las Vegas Sands Corp"
+  },
+  "LYB": {
+   "name": "Lyondellbasell Indu Cl A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Lyondellbasell Indu Cl A"
+  },
+  "LYV": {
+   "name": "Live Nation Entertainment In",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "Live Nation Entertainment In"
+  },
+  "MA": {
+   "name": "Mastercard Inc   A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Mastercard Inc   A"
+  },
+  "MAA": {
+   "name": "Mid America Apartment Comm",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Mid America Apartment Comm"
+  },
+  "MAR": {
+   "name": "Marriott International  Cl A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Marriott International  Cl A"
+  },
+  "MAS": {
+   "name": "Masco Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Masco Corp"
+  },
+  "MCD": {
+   "name": "Mcdonald S Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Mcdonald S Corp"
+  },
+  "MCHP": {
+   "name": "Microchip Technology Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Microchip Technology Inc"
+  },
+  "MCK": {
+   "name": "Mckesson Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Mckesson Corp"
+  },
+  "MCO": {
+   "name": "Moody S Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Moody S Corp"
+  },
+  "MDLZ": {
+   "name": "Mondelez International Inc A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Mondelez International Inc A"
+  },
+  "MDT": {
+   "name": "Medtronic Plc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Medtronic Plc"
+  },
+  "MET": {
+   "name": "Metlife Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Metlife Inc"
+  },
+  "META": {
+   "name": "Meta Platforms Inc Class A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "Meta Platforms Inc Class A"
+  },
+  "MGM": {
+   "name": "Mgm Resorts International",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Mgm Resorts International"
+  },
+  "MKC": {
+   "name": "Mccormick + Co Non Vtg Shrs",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Mccormick + Co Non Vtg Shrs"
+  },
+  "MLM": {
+   "name": "Martin Marietta Materials",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Martin Marietta Materials"
+  },
+  "MMM": {
+   "name": "3M Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "3M Co"
+  },
+  "MNST": {
+   "name": "Monster Beverage Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Monster Beverage Corp"
+  },
+  "MO": {
+   "name": "Altria Group Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Altria Group Inc"
+  },
+  "MOS": {
+   "name": "Mosaic Co/The",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Mosaic Co/The"
+  },
+  "MPC": {
+   "name": "Marathon Petroleum Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Marathon Petroleum Corp"
+  },
+  "MPWR": {
+   "name": "Monolithic Power Systems Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Monolithic Power Systems Inc"
+  },
+  "MRK": {
+   "name": "Merck + Co. Inc.",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Merck + Co. Inc."
+  },
+  "MRNA": {
+   "name": "Moderna Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Moderna Inc"
+  },
+  "MRSH": {
+   "name": "Marsh + Mclennan Cos",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Marsh + Mclennan Cos"
+  },
+  "MRVL": {
+   "name": "Marvell Technology Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Marvell Technology Inc"
+  },
+  "MS": {
+   "name": "Morgan Stanley",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Morgan Stanley"
+  },
+  "MSCI": {
+   "name": "Msci Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Msci Inc"
+  },
+  "MSI": {
+   "name": "Motorola Solutions Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Motorola Solutions Inc"
+  },
+  "MTB": {
+   "name": "M + T Bank Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "M + T Bank Corp"
+  },
+  "MTD": {
+   "name": "Mettler Toledo International",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Mettler Toledo International"
+  },
+  "MU": {
+   "name": "Micron Technology Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Micron Technology Inc"
+  },
+  "NCLH": {
+   "name": "Norwegian Cruise Line Holdin",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Norwegian Cruise Line Holdin"
+  },
+  "NDAQ": {
+   "name": "Nasdaq Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Nasdaq Inc"
+  },
+  "NDSN": {
+   "name": "Nordson Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Nordson Corp"
+  },
+  "NEE": {
+   "name": "Nextera Energy Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Nextera Energy Inc"
+  },
+  "NEM": {
+   "name": "Newmont Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Newmont Corp"
+  },
+  "NFLX": {
+   "name": "Netflix Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "Netflix Inc"
+  },
+  "NI": {
+   "name": "Nisource Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Nisource Inc"
+  },
+  "NKE": {
+   "name": "Nike Inc  Cl B",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Nike Inc  Cl B"
+  },
+  "NOC": {
+   "name": "Northrop Grumman Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Northrop Grumman Corp"
+  },
+  "NOW": {
+   "name": "Servicenow Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Servicenow Inc"
+  },
+  "NRG": {
+   "name": "Nrg Energy Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Nrg Energy Inc"
+  },
+  "NSC": {
+   "name": "Norfolk Southern Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Norfolk Southern Corp"
+  },
+  "NTAP": {
+   "name": "Netapp Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Netapp Inc"
+  },
+  "NTRS": {
+   "name": "Northern Trust Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Northern Trust Corp"
+  },
+  "NUE": {
+   "name": "Nucor Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Nucor Corp"
+  },
+  "NVR": {
+   "name": "Nvr Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Nvr Inc"
+  },
+  "NWS": {
+   "name": "News Corp   Class B",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "News Corp   Class B"
+  },
+  "NWSA": {
+   "name": "News Corp   Class A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "News Corp   Class A"
+  },
+  "NXPI": {
+   "name": "Nxp Semiconductors Nv",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Nxp Semiconductors Nv"
+  },
+  "O": {
+   "name": "Realty Income Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Realty Income Corp"
+  },
+  "ODFL": {
+   "name": "Old Dominion Freight Line",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Old Dominion Freight Line"
+  },
+  "OKE": {
+   "name": "Oneok Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Oneok Inc"
+  },
+  "OKTA": {
+   "name": "Okta Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Okta Inc"
+  },
+  "OMC": {
+   "name": "Omnicom Group",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "Omnicom Group"
+  },
+  "ON": {
+   "name": "On Semiconductor",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "On Semiconductor"
+  },
+  "ORCL": {
+   "name": "Oracle Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Oracle Corp"
+  },
+  "ORLY": {
+   "name": "O Reilly Automotive Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "O Reilly Automotive Inc"
+  },
+  "OTIS": {
+   "name": "Otis Worldwide Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Otis Worldwide Corp"
+  },
+  "OXY": {
+   "name": "Occidental Petroleum Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Occidental Petroleum Corp"
+  },
+  "P": {
+   "name": "Everpure Inc A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Everpure Inc A"
+  },
+  "PANW": {
+   "name": "Palo Alto Networks Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Palo Alto Networks Inc"
+  },
+  "PAYX": {
+   "name": "Paychex Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Paychex Inc"
+  },
+  "PCAR": {
+   "name": "Paccar Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Paccar Inc"
+  },
+  "PCG": {
+   "name": "P G + E Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "P G + E Corp"
+  },
+  "PEG": {
+   "name": "Public Service Enterprise Gp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Public Service Enterprise Gp"
+  },
+  "PEP": {
+   "name": "Pepsico Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Pepsico Inc"
+  },
+  "PFE": {
+   "name": "Pfizer Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Pfizer Inc"
+  },
+  "PFG": {
+   "name": "Principal Financial Group",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Principal Financial Group"
+  },
+  "PGR": {
+   "name": "Progressive Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Progressive Corp"
+  },
+  "PH": {
+   "name": "Parker Hannifin Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Parker Hannifin Corp"
+  },
+  "PHM": {
+   "name": "Pultegroup Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Pultegroup Inc"
+  },
+  "PKG": {
+   "name": "Packaging Corp Of America",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Packaging Corp Of America"
+  },
+  "PLD": {
+   "name": "Prologis Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Prologis Inc"
+  },
+  "PLTR": {
+   "name": "Palantir Technologies Inc A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Palantir Technologies Inc A"
+  },
+  "PM": {
+   "name": "Philip Morris International",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Philip Morris International"
+  },
+  "PNC": {
+   "name": "Pnc Financial Services Group",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Pnc Financial Services Group"
+  },
+  "PNR": {
+   "name": "Pentair Plc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Pentair Plc"
+  },
+  "PNW": {
+   "name": "Pinnacle West Capital",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Pinnacle West Capital"
+  },
+  "PODD": {
+   "name": "Insulet Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Insulet Corp"
+  },
+  "PPG": {
+   "name": "Ppg Industries Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Ppg Industries Inc"
+  },
+  "PPL": {
+   "name": "Ppl Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Ppl Corp"
+  },
+  "PRU": {
+   "name": "Prudential Financial Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Prudential Financial Inc"
+  },
+  "PSA": {
+   "name": "Public Storage",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Public Storage"
+  },
+  "PSX": {
+   "name": "Phillips 66",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Phillips 66"
+  },
+  "PTC": {
+   "name": "Ptc Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Ptc Inc"
+  },
+  "PWR": {
+   "name": "Quanta Services Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Quanta Services Inc"
+  },
+  "PYPL": {
+   "name": "Paypal Holdings Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Paypal Holdings Inc"
+  },
+  "Q": {
+   "name": "Qnity Electronics Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Qnity Electronics Inc"
+  },
+  "QCOM": {
+   "name": "Qualcomm Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Qualcomm Inc"
+  },
+  "RCL": {
+   "name": "Royal Caribbean Cruises Ltd",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Royal Caribbean Cruises Ltd"
+  },
+  "RDDT": {
+   "name": "Reddit Inc Cl A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "Reddit Inc Cl A"
+  },
+  "REG": {
+   "name": "Regency Centers Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Regency Centers Corp"
+  },
+  "REGN": {
+   "name": "Regeneron Pharmaceuticals",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Regeneron Pharmaceuticals"
+  },
+  "RF": {
+   "name": "Regions Financial Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Regions Financial Corp"
+  },
+  "RJF": {
+   "name": "Raymond James Financial Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Raymond James Financial Inc"
+  },
+  "RL": {
+   "name": "Ralph Lauren Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Ralph Lauren Corp"
+  },
+  "RMD": {
+   "name": "Resmed Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Resmed Inc"
+  },
+  "ROK": {
+   "name": "Rockwell Automation Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Rockwell Automation Inc"
+  },
+  "ROL": {
+   "name": "Rollins Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Rollins Inc"
+  },
+  "ROP": {
+   "name": "Roper Technologies Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Roper Technologies Inc"
+  },
+  "ROST": {
+   "name": "Ross Stores Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Ross Stores Inc"
+  },
+  "RSG": {
+   "name": "Republic Services Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Republic Services Inc"
+  },
+  "RTX": {
+   "name": "Rtx Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Rtx Corp"
+  },
+  "RVTY": {
+   "name": "Revvity Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Revvity Inc"
+  },
+  "SBAC": {
+   "name": "Sba Communications Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Sba Communications Corp"
+  },
+  "SBUX": {
+   "name": "Starbucks Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Starbucks Corp"
+  },
+  "SCHW": {
+   "name": "Schwab (Charles) Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Schwab (Charles) Corp"
+  },
+  "SHW": {
+   "name": "Sherwin Williams Co/The",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Sherwin Williams Co/The"
+  },
+  "SJM": {
+   "name": "Jm Smucker Co/The",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Jm Smucker Co/The"
+  },
+  "SKYD": {
+   "name": "Skydance Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "Skydance Corp"
+  },
+  "SLB": {
+   "name": "Slb Ltd",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Slb Ltd"
+  },
+  "SMCI": {
+   "name": "Super Micro Computer Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Super Micro Computer Inc"
+  },
+  "SNA": {
+   "name": "Snap On Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Snap On Inc"
+  },
+  "SNDK": {
+   "name": "Sandisk Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Sandisk Corp"
+  },
+  "SNPS": {
+   "name": "Synopsys Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Synopsys Inc"
+  },
+  "SO": {
+   "name": "Southern Co/The",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Southern Co/The"
+  },
+  "SOLV": {
+   "name": "Solventum Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Solventum Corp"
+  },
+  "SPG": {
+   "name": "Simon Property Group Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Simon Property Group Inc"
+  },
+  "SPGI": {
+   "name": "S+P Global Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "S+P Global Inc"
+  },
+  "SRE": {
+   "name": "Sempra",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Sempra"
+  },
+  "STE": {
+   "name": "Steris Plc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Steris Plc"
+  },
+  "STLD": {
+   "name": "Steel Dynamics Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Steel Dynamics Inc"
+  },
+  "STT": {
+   "name": "State Street Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "State Street Corp"
+  },
+  "STX": {
+   "name": "Seagate Technology Holdings",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Seagate Technology Holdings"
+  },
+  "STZ": {
+   "name": "Constellation Brands Inc A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Constellation Brands Inc A"
+  },
+  "SW": {
+   "name": "Smurfit Westrock Plc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Smurfit Westrock Plc"
+  },
+  "SWK": {
+   "name": "Stanley Black + Decker Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Stanley Black + Decker Inc"
+  },
+  "SWKS": {
+   "name": "Skyworks Solutions Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Skyworks Solutions Inc"
+  },
+  "SYF": {
+   "name": "Synchrony Financial",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Synchrony Financial"
+  },
+  "SYK": {
+   "name": "Stryker Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Stryker Corp"
+  },
+  "SYY": {
+   "name": "Sysco Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Sysco Corp"
+  },
+  "T": {
+   "name": "At+T Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "At+T Inc"
+  },
+  "TDG": {
+   "name": "Transdigm Group Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Transdigm Group Inc"
+  },
+  "TDY": {
+   "name": "Teledyne Technologies Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Teledyne Technologies Inc"
+  },
+  "TECH": {
+   "name": "Bio Techne Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Bio Techne Corp"
+  },
+  "TEL": {
+   "name": "Te Connectivity Plc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Te Connectivity Plc"
+  },
+  "TER": {
+   "name": "Teradyne Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Teradyne Inc"
+  },
+  "TFC": {
+   "name": "Truist Financial Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Truist Financial Corp"
+  },
+  "TGT": {
+   "name": "Target Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Target Corp"
+  },
+  "TJX": {
+   "name": "Tjx Companies Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Tjx Companies Inc"
+  },
+  "TKO": {
+   "name": "Tko Group Holdings Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "Tko Group Holdings Inc"
+  },
+  "TMO": {
+   "name": "Thermo Fisher Scientific Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Thermo Fisher Scientific Inc"
+  },
+  "TMUS": {
+   "name": "T Mobile Us Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "T Mobile Us Inc"
+  },
+  "TPL": {
+   "name": "Texas Pacific Land Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Texas Pacific Land Corp"
+  },
+  "TPR": {
+   "name": "Tapestry Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Tapestry Inc"
+  },
+  "TRGP": {
+   "name": "Targa Resources Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Targa Resources Corp"
+  },
+  "TRMB": {
+   "name": "Trimble Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Trimble Inc"
+  },
+  "TROW": {
+   "name": "T Rowe Price Group Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "T Rowe Price Group Inc"
+  },
+  "TRV": {
+   "name": "Travelers Cos Inc/The",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Travelers Cos Inc/The"
+  },
+  "TSCO": {
+   "name": "Tractor Supply Company",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Tractor Supply Company"
+  },
+  "TSN": {
+   "name": "Tyson Foods Inc Cl A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Tyson Foods Inc Cl A"
+  },
+  "TT": {
+   "name": "Trane Technologies Plc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Trane Technologies Plc"
+  },
+  "TTWO": {
+   "name": "Take Two Interactive Softwre",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "Take Two Interactive Softwre"
+  },
+  "TWLO": {
+   "name": "Twilio Inc   A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Twilio Inc   A"
+  },
+  "TXN": {
+   "name": "Texas Instruments Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Texas Instruments Inc"
+  },
+  "TXT": {
+   "name": "Textron Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Textron Inc"
+  },
+  "TYL": {
+   "name": "Tyler Technologies Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Tyler Technologies Inc"
+  },
+  "UAL": {
+   "name": "United Airlines Holdings Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "United Airlines Holdings Inc"
+  },
+  "UBER": {
+   "name": "Uber Technologies Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Uber Technologies Inc"
+  },
+  "UDR": {
+   "name": "Udr Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Udr Inc"
+  },
+  "UHS": {
+   "name": "Universal Health Services B",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Universal Health Services B"
+  },
+  "ULTA": {
+   "name": "Ulta Beauty Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Ulta Beauty Inc"
+  },
+  "UNH": {
+   "name": "Unitedhealth Group Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Unitedhealth Group Inc"
+  },
+  "UNP": {
+   "name": "Union Pacific Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Union Pacific Corp"
+  },
+  "UPS": {
+   "name": "United Parcel Service Cl B",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "United Parcel Service Cl B"
+  },
+  "URI": {
+   "name": "United Rentals Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "United Rentals Inc"
+  },
+  "USB": {
+   "name": "Us Bancorp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Us Bancorp"
+  },
+  "V": {
+   "name": "Visa Inc Class A Shares",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Visa Inc Class A Shares"
+  },
+  "VEEV": {
+   "name": "Veeva Systems Inc Class A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Veeva Systems Inc Class A"
+  },
+  "VICI": {
+   "name": "Vici Properties Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Vici Properties Inc"
+  },
+  "VLO": {
+   "name": "Valero Energy Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Valero Energy Corp"
+  },
+  "VLTO": {
+   "name": "Veralto Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Veralto Corp"
+  },
+  "VMC": {
+   "name": "Vulcan Materials Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Materials",
+   "plain": "Vulcan Materials Co"
+  },
+  "VMRK": {
+   "name": "Vivmark Residential",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Vivmark Residential"
+  },
+  "VRSK": {
+   "name": "Verisk Analytics Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Verisk Analytics Inc"
+  },
+  "VRSN": {
+   "name": "Verisign Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Verisign Inc"
+  },
+  "VRT": {
+   "name": "Vertiv Holdings Co A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Vertiv Holdings Co A"
+  },
+  "VRTX": {
+   "name": "Vertex Pharmaceuticals Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Vertex Pharmaceuticals Inc"
+  },
+  "VST": {
+   "name": "Vistra Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Vistra Corp"
+  },
+  "VTR": {
+   "name": "Ventas Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Ventas Inc"
+  },
+  "VTRS": {
+   "name": "Viatris Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Viatris Inc"
+  },
+  "VZ": {
+   "name": "Verizon Communications Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Communication Services",
+   "plain": "Verizon Communications Inc"
+  },
+  "WAB": {
+   "name": "Wabtec Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Wabtec Corp"
+  },
+  "WAT": {
+   "name": "Waters Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Waters Corp"
+  },
+  "WDAY": {
+   "name": "Workday Inc Class A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Workday Inc Class A"
+  },
+  "WDC": {
+   "name": "Western Digital Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Western Digital Corp"
+  },
+  "WEC": {
+   "name": "Wec Energy Group Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Wec Energy Group Inc"
+  },
+  "WELL": {
+   "name": "Welltower Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Welltower Inc"
+  },
+  "WFC": {
+   "name": "Wells Fargo + Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Wells Fargo + Co"
+  },
+  "WM": {
+   "name": "Waste Management Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Waste Management Inc"
+  },
+  "WMB": {
+   "name": "Williams Cos Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Energy",
+   "plain": "Williams Cos Inc"
+  },
+  "WMT": {
+   "name": "Walmart Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Staples",
+   "plain": "Walmart Inc"
+  },
+  "WRB": {
+   "name": "Wr Berkley Corp",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Wr Berkley Corp"
+  },
+  "WSM": {
+   "name": "Williams Sonoma Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Williams Sonoma Inc"
+  },
+  "WST": {
+   "name": "West Pharmaceutical Services",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "West Pharmaceutical Services"
+  },
+  "WTW": {
+   "name": "Willis Towers Watson Plc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Willis Towers Watson Plc"
+  },
+  "WY": {
+   "name": "Weyerhaeuser Co",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Real Estate",
+   "plain": "Weyerhaeuser Co"
+  },
+  "WYNN": {
+   "name": "Wynn Resorts Ltd",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Wynn Resorts Ltd"
+  },
+  "XEL": {
+   "name": "Xcel Energy Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Utilities",
+   "plain": "Xcel Energy Inc"
+  },
+  "XYL": {
+   "name": "Xylem Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Industrials",
+   "plain": "Xylem Inc"
+  },
+  "XYZ": {
+   "name": "Block Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Financials",
+   "plain": "Block Inc"
+  },
+  "YUM": {
+   "name": "Yum  Brands Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Consumer Discretionary",
+   "plain": "Yum  Brands Inc"
+  },
+  "ZBH": {
+   "name": "Zimmer Biomet Holdings Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Zimmer Biomet Holdings Inc"
+  },
+  "ZBRA": {
+   "name": "Zebra Technologies Corp Cl A",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Information Technology",
+   "plain": "Zebra Technologies Corp Cl A"
+  },
+  "ZTS": {
+   "name": "Zoetis Inc",
+   "class": "equity",
+   "currency": "USD",
+   "sector": "Health Care",
+   "plain": "Zoetis Inc"
   }
  }
 }

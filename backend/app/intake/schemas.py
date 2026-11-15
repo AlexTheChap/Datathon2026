@@ -73,6 +73,11 @@ class RequestDraft(BaseModel):
     about_own_portfolio: bool = Field(
         default=False, description="True when the question is about the user's own current holdings, in any wording, "
                                    "language or spelling (\"my portofolio\", \"mon portefeuille\", \"what I own\").")
+    settings_only: bool = Field(
+        default=False, description="True when the message only changes the person's settings (switches an analysis on "
+                                   "or off, adds a limit, changes their risk level, horizon, experience...) and asks for "
+                                   "no analysis: \"I don't care about the news anymore\" -> true; \"I don't care about the "
+                                   "news, how risky is my portfolio?\" -> false.")
     intake_confidence: float = Field(description="Between 0 and 1: how clear the request is.")
 
 
@@ -88,7 +93,8 @@ class IntakeDraft(BaseModel):
     )
 
 
-IntakeStatus = Literal["ready", "needs_clarification", "out_of_scope"]
+# profile_updated: the message only changed settings (saved); no analysis to run, `message` confirms what changed.
+IntakeStatus = Literal["ready", "needs_clarification", "out_of_scope", "profile_updated"]
 
 
 class IntakeResult(BaseModel):
@@ -98,6 +104,7 @@ class IntakeResult(BaseModel):
     profile: Optional[Profile] = None
     request: Optional[Request] = None
     clarification_question: Optional[str] = None
+    message: Optional[str] = Field(default=None, description="With profile_updated: what changed, in plain words.")
     missing_fields: list[str] = Field(default_factory=list)
     toggle_changes: list[AgentToggleChange] = Field(
         default_factory=list, description="Toggle changes applied (and saved) from this message, for the UI.")

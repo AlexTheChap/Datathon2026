@@ -111,6 +111,29 @@ def test_news_switched_off_in_chat_stays_off(client):
     assert profile["agent_toggles"]["news"] is False
 
 
+
+def test_a_setting_alone_gets_a_confirmation_not_an_analysis(client):
+    post(client, "robert", text="Is my portfolio too risky?", profile_form=FORM)
+    r = post(client, "robert", text="I do not care about the news anymore for my portfolio")
+    body = r.json()
+    assert r.status_code == 200 and body["kind"] == "message" and body["intake_status"] == "profile_updated"
+    assert body["message"].startswith("Done. News is now switched off") and "run_id" not in body
+    assert [c["agent"] for c in body["toggle_changes"]] == ["news"]
+
+
+
+def test_fit_score_is_measured_on_the_callers_profile(client):
+    h = {"X-Actor-Id": "robert"}
+    assert client.post("/v1/fit-score", json={"weights": {"SPY": 1.0}}, headers=h).status_code == 404   # no profile yet
+    post(client, "robert", text="Is my portfolio too risky?", profile_form=FORM)
+    r = client.post("/v1/fit-score", json={"weights": {"QQQ": 1.0}}, headers=h)
+    body = r.json()
+    assert r.status_code == 200 and body["out_of"] == 100 and body["score"] < 50     # all tech stocks, low-moderate risk
+    assert [p["key"] for p in body["parts"]] == ["rules", "risk_level", "asset_mix", "loss", "horizon", "diversification"]
+    assert client.post("/v1/fit-score", json={}, headers=h).status_code == 422          # no weights, no saved portfolio
+    assert client.post("/v1/fit-score", json={"weights": {"NOPE": 1.0}}, headers=h).status_code == 422
+
+
 # ---------- Profile form ----------
 
 def test_profile_form_roundtrip_and_partial_update(client):

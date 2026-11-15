@@ -17,6 +17,12 @@
                             the sign-in account itself (Cognito DeleteUser)
     GET  /v1/notifications/sms → the caller's text-alert choice (opt_in, phone)
     PUT  /v1/notifications/sms {opt_in, phone?} → save it (opting out deletes the phone number)
+    POST /v1/projection {weights?, start_value?, horizon_years?, monthly_contribution?, n_paths?} → range of
+                            possible values under the 2026 planning guidelines (percentiles only, n_paths ≤ 20000;
+                            defaults: saved portfolio, simulated capital, profile horizon)
+    POST /v1/fit-score {weights?} → how well the weights fit the caller's profile, out of 100, every point explained (no LLM)
+    POST /v1/rate-exposure {weights?} → how the holdings reacted to interest rates + the current rates (no LLM)
+    GET  /v1/vol-forecast?tickers=A,B → GARCH volatility forecast vs last 3 months: rising | stable | easing
     GET  /v1/me             → who is signed in (actor_id, email, demo persona)
     GET  /health
     /                       → the frontend (box ①, frontend/), served locally when that folder exists
@@ -46,7 +52,18 @@ from app.store.runs import RunRecord
 
 from .auth import AuthError, Identity, identify
 
-from .service import ApiError, ApiService, MessageIn, MessageOut, RunSummary, example_personas, service_from_env
+from .service import (
+    ApiError,
+    ApiService,
+    MessageIn,
+    MessageOut,
+    ProjectionIn,
+    RateExposureIn,
+    FitScoreIn,
+    RunSummary,
+    example_personas,
+    service_from_env,
+)
 
 FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
 
@@ -175,8 +192,9 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
         return svc.put_notifications(ident.actor_id, body, ident.email)
 
     @api.delete("/v1/account")
-    def delete_account(actor_id: str = Depends(actor_id_from)) -> dict[str, Any]:
-        return svc.delete_account(actor_id)
+    def delete_account(request: Request) -> dict[str, Any]:
+        ident = identity_from(request)            # a shared demo account is refused (its password is public)
+        return svc.delete_account(ident.actor_id, demo_persona=ident.demo_persona)
 
     # Onboarding (box ③): read the person's answers or a document, return the profile fields found. Saves nothing.
     @api.post("/v1/profile/draft")
@@ -186,6 +204,23 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
     @api.post("/v1/profile/draft/file")
     async def profile_draft_file(file: UploadFile = File(...), actor_id: str = Depends(current_actor)) -> dict[str, Any]:
         return svc.draft_profile_file(actor_id, file.filename or "", await file.read())
+
+    # Box ⑥ quant models (app.quant): a range of outcomes under the planning guidelines, the volatility trend.
+    @api.post("/v1/projection")
+    def projection(body: ProjectionIn, actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.projection(actor_id, body)
+
+    @api.post("/v1/rate-exposure")
+    def rate_exposure(body: RateExposureIn, actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.rate_exposure(actor_id, body)
+
+    @api.post("/v1/fit-score")
+    def fit_score(body: FitScoreIn, actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.fit_score(actor_id, body)
+
+    @api.get("/v1/vol-forecast")
+    def vol_forecast(tickers: str, actor_id: str = Depends(current_actor)) -> dict[str, Any]:
+        return svc.vol_forecast(actor_id, tickers.split(","))
 
     @api.get("/v1/personas")
     def personas() -> list[dict[str, Any]]:

@@ -145,3 +145,44 @@ export function heatmap({ id, title, note, labels, matrix, format }) {
   return frame({ id, title, note, chart: el("div", { class: "viz-heat-wrap" }, grid), legend: scale,
     table: { headers: ["", ...labels], rows: labels.map((l, i) => [l, ...matrix[i].map(format)]) } });
 }
+
+/* ---------- Fan chart (SVG): a range over time ---------- */
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+function svg(tag, attrs, ...children) {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs || {})) if (v !== null && v !== undefined) node.setAttribute(k, String(v));
+  for (const c of children.flat(Infinity)) if (c) node.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  return node;
+}
+
+/** P10–P90 band (light), P25–P75 band (darker), P50 line and a dashed start line. `geo` comes from
+ * projection-data.js fanGeometry; `rows` feed the "Show the numbers" table. Each year's median point is
+ * focusable and shows its P10 / P50 / P90 in the tooltip. */
+export function fanChart({ id, title, note, geo, format, rows, startLabel = "Today's value" }) {
+  const { width, height, plot } = geo;
+  const grid = geo.yTicks.map((t) => [
+    svg("line", { class: "fan__grid", x1: plot.left, x2: plot.right, y1: t.y, y2: t.y }),
+    svg("text", { class: "fan__axis", x: plot.left - 8, y: t.y, "text-anchor": "end", "dominant-baseline": "middle" }, format(t.value))]);
+  const xAxis = geo.xTicks.map((t) => svg("text", { class: "fan__axis", x: t.x, y: height - 8, "text-anchor": "middle" },
+    t.label === "0" ? "Now" : `${t.label}y`));
+  const chart = svg("svg", { class: "fan", viewBox: `0 0 ${width} ${height}`, "aria-hidden": "true" },
+    grid, xAxis,
+    svg("path", { class: "fan__outer", d: geo.outer }),
+    svg("path", { class: "fan__inner", d: geo.inner }),
+    svg("line", { class: "fan__start", x1: plot.left, x2: plot.right, y1: geo.startY, y2: geo.startY }),
+    svg("path", { class: "fan__median", d: geo.median }));
+  // Focus targets on top of the SVG (HTML, so they reuse the shared tooltip and keyboard behaviour).
+  const dots = el("div", { class: "fan__dots" }, geo.points.map((pt) => {
+    const label = pt.year === 0 ? "Now" : `Year ${pt.year}`;
+    const value = `P10 ${format(pt.p10)} · P50 ${format(pt.p50)} · P90 ${format(pt.p90)}`;
+    return mark("fan__dot", `left:${(pt.x / width) * 100}%;top:${(pt.y / height) * 100}%`, value, label);
+  }));
+  const legend = el("ul", { class: "viz__legend" },
+    el("li", null, el("span", { class: "viz-swatch fan-swatch--outer", "aria-hidden": "true" }), "8 in 10 scenarios (P10–P90)"),
+    el("li", null, el("span", { class: "viz-swatch fan-swatch--inner", "aria-hidden": "true" }), "Half of the scenarios (P25–P75)"),
+    el("li", null, el("span", { class: "viz-swatch fan-swatch--median", "aria-hidden": "true" }), "Middle scenario (P50)"),
+    el("li", null, el("span", { class: "viz-swatch fan-swatch--start", "aria-hidden": "true" }), startLabel));
+  return frame({ id, title, note, chart: el("div", { class: "fan-wrap", style: `aspect-ratio:${width} / ${height}` }, chart, dots), legend,
+    table: { headers: ["Year", "P10", "P25", "P50", "P75", "P90"], rows } });
+}

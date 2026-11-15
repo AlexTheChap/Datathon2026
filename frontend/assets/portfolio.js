@@ -9,7 +9,8 @@
  * The app's helpers (h, api, band...) are passed in as `ctx` by app.js. */
 
 import * as D from "./portfolio-data.js";
-import { meter, pairedBars, rankedBars, segmentedBar, heatmap } from "./charts.js";
+import * as PD from "./projection-data.js";
+import { fanChart, meter, pairedBars, rankedBars, segmentedBar, heatmap } from "./charts.js";
 
 let universe = null;
 async function loadUniverse() {
@@ -219,6 +220,8 @@ export async function renderPortfolio(main, ctx) {
       kpis(view),
       allocationSection(view),
       riskSection(view),
+      projectionSection(view),
+      analysisOn(profile, "macro_scenarios") ? ratesSection(view) : null,
       level !== "simple" && risk.concentration ? sectorSection(view) : null,
       level === "detailed" && risk.metrics ? metricsSection(view) : null,
       level === "detailed" && risk.correlation ? correlationSection(view) : null,
@@ -330,7 +333,6 @@ function heroCard(view) {
   const { ctx, h, p, risk, level } = view;
   const v = (p.governance && p.governance.verdict) || "UNVERIFIED";
   const vs = ctx.VERDICTS[v] || ctx.VERDICTS.UNVERIFIED;
-  const fit = D.fitScore(p.governance, risk.contribution);
   // Written here from the page's own numbers, so it follows the level and "wants to learn" (the Explainer's text,
   // written once at build time, is under "Why this portfolio").
   const summary = D.heroSummary({ level, learn: view.learn, weights: p.weights, universe: view.uni, governance: p.governance,
@@ -343,13 +345,49 @@ function heroCard(view) {
       summary.learn ? learnNote(view, summary.learn) : null,
       h("p", { class: "small muted" }, `Built from your profile on ${ctx.timeText(p.builtAt)} \u00B7 `,
         h("a", { href: `#/runs/${p.runId}` }, "See how it was built and its sources"))),
-    h("div", { class: "hero-card__score" },
-      h("p", { class: "kpi__label" }, "Fit with your rules"),
-      h("p", { class: "hero-card__figure" }, countUp(h("span", null, `${fit.score}`), fit.score), h("span", { class: "hero-card__of" }, " / 10")),
-      meter({ value: fit.score, max: 10, label: "Fit with your rules", display: `${fit.score} out of 10`, tone: fit.score >= 8.5 ? "good" : fit.score >= 6.5 ? "ok" : "bad" }),
-      h("p", { class: "small" }, fit.band),
-      level !== "simple" && fit.why.length ? h("ul", { class: "small plain-list" }, fit.why.map((w) => h("li", null, `${w.reason} (${w.points})`))) : null,
-      level !== "simple" && !fit.why.length ? h("p", { class: "small muted" }, "No rule warns or blocks: no point is taken off.") : null));
+    fitCard(view));
+}
+
+/* ---------- Fit with the profile (POST /v1/fit-score): out of 100, measured on the server, every point explained ---------- */
+
+const fitCache = new Map(); // weights + profile -> the server's answer (the level only changes how it is shown)
+
+function fitCard(view) {
+  const { ctx, h, p, level, profile } = view;
+  const box = h("div", { class: "hero-card__score", "aria-live": "polite" },
+    h("p", { class: "kpi__label" }, "Fit with your profile"), h("p", { class: "small muted" }, "Measuring the fit…"));
+  const key = JSON.stringify([p.weights, profile.risk_band, profile.horizon_years, profile.loss_capacity, profile.exclusions, profile.preferences]);
+  // replaceChildren writes a null as the text "null": drop the parts left out at this level.
+  const show = (fit) => box.replaceChildren(...fitBody(view, fit).filter(Boolean));
+  const load = () => {
+    if (!fitCache.has(key)) fitCache.set(key, ctx.api("POST", "/v1/fit-score", { weights: p.weights }).then((r) => r.data));
+    fitCache.get(key).then(show).catch((err) => {
+      fitCache.delete(key);
+      box.replaceChildren(h("p", { class: "kpi__label" }, "Fit with your profile"), ctx.alertBox(err, "the fit with your profile", load));
+    });
+  };
+  load();
+  return box;
+}
+
+function fitBody(view, fit) {
+  const { h, level } = view;
+  const lines = D.fitLines(fit, level);
+  const caps = (fit.caps || []).map((c) => h("p", { class: "small" }, h("strong", null, `Capped at ${c.at}%: `), `${c.why}.`));
+  return [
+    h("p", { class: "kpi__label" }, "Fit with your profile"),
+    h("p", { class: "hero-card__figure" }, countUp(h("span", null, `${fit.score}`), fit.score), h("span", { class: "hero-card__of" }, "%")),
+    meter({ value: fit.score, max: 100, label: "Fit with your profile", display: `${fit.score}%`, tone: D.fitTone(fit.score) }),
+    h("p", { class: "small" }, fit.band),
+    ...caps,
+    lines.length ? h("ul", { class: "small plain-list fit-lines" }, lines.map((l) => h("li", null,
+      h("strong", null, level === "simple" ? l.title : `${l.title}: ${l.points} / ${l.max}`),
+      l.reasons.length ? h("span", { class: "fit-lines__why" }, ` ${l.reasons.join("; ")}.`) : null)))
+      : h("p", { class: "small muted" }, "Every part of your profile is met: no point is taken off."),
+    level !== "simple" ? h("details", { class: "fold small" }, h("summary", null, "How this score is measured"),
+      h("p", null, `${fit.method} Data ${fit.period.replace("/", " to ")}.`),
+      h("ul", { class: "plain-list" }, fit.assumptions.map((a) => h("li", null, a)))) : null,
+  ];
 }
 
 function kpis(view) {
@@ -400,6 +438,7 @@ function allocationSection(view) {
       note: profile.capital ? "Share of the money, and the simulated amount" : "Share of the money",
       rows: holdings.map(([t, w]) => ({ ticker: t, label: name(t), sub: sub(t), value: w, display: `${pct1(w)}${amount(w)}` })),
       format: pct1, extraColumns: extra }),
+    trendChips(view),
     level === "detailed" && p.activeConstraints.length ? h("p", { class: "small muted" }, `Rules that shaped the weights: ${p.activeConstraints.map(String).join(", ")}.`) : null,
     learnNote(view, "a fund holds many companies or bonds at once. Spreading your money over several funds means one bad company or sector can't sink the whole portfolio."));
 }
@@ -434,6 +473,142 @@ function riskSection(view) {
   const note = learnNote(view, "some holdings move much more than others. A holding can be a small part of your money and still cause a big part of the swings.");
   if (note) section.append(note); // append(null) would print "null"
   return section;
+}
+
+/* ---------- Risk trend per holding (GET /v1/vol-forecast): volatility, never the direction of returns ---------- */
+
+function trendChips(view) {
+  const { ctx, h, p, level } = view;
+  const tickers = D.sortedWeights(p.weights).map(([t]) => t);
+  const list = h("ul", { class: "trend-chips", "aria-label": "Risk trend of each holding" });
+  const wrap = h("div", { class: "stack-sm" },
+    h("p", { class: "small" }, h("strong", null, level === "simple" ? "Are the ups and downs getting bigger?" : "Risk trend"),
+      " ", h("span", { class: "muted" }, "GARCH volatility forecast for the next month vs the last 3 months. It describes risk, not where prices go.")),
+    list);
+  ctx.api("GET", `/v1/vol-forecast?tickers=${encodeURIComponent(tickers.join(","))}`).then(({ data }) => {
+    list.replaceChildren(...tickers.map((t) => {
+      const c = PD.trendChip(t, data.tickers[t]);
+      return h("li", { class: `trend-chip trend-chip--${c.cls}`, title: c.tooltip, tabindex: "0", "aria-label": `${t}: risk ${c.word.toLowerCase()}. ${c.tooltip}` },
+        h("span", { class: "trend-chip__ticker" }, t),
+        c.arrow ? h("span", { class: "trend-chip__arrow", "aria-hidden": "true" }, c.arrow) : null,
+        h("span", null, c.word));
+    }));
+  }).catch(() => { wrap.replaceChildren(h("p", { class: "small muted" }, "The risk trend of the holdings couldn't be loaded.")); });
+  return wrap;
+}
+
+/* ---------- Range of possible values (POST /v1/projection): planning guidelines, not a forecast ---------- */
+
+function projectionSection(view) {
+  const { ctx, h, p, profile, level } = view;
+  const defaultYears = PD.horizonFromProfile(profile.horizon_years) || 10;
+  const state = { years: defaultYears, mode: "nominal", contribution: 0, data: null, seq: 0 };
+  const out = h("div", { class: "stack" }, ctx.skeleton(3));
+  const section = h("section", { class: "panel stack", "aria-labelledby": "proj-title" },
+    h("h2", { id: "proj-title", class: "section-title" }, level === "simple" ? "What it could be worth later" : "Range of possible values"),
+    h("p", { class: "disclaimer-line", role: "note" }, PD.DISCLAIMER));
+  if (!profile.capital) {
+    section.append(h("div", { class: "notice" }, h("span", null, "Add a simulated amount to your profile to see the range of possible values."),
+      h("a", { class: "link-btn", href: "#/profile" }, "Open my profile")));
+    return section;
+  }
+  const horizon = h("select", { class: "input input--inline", id: "proj-horizon" }, PD.horizonOptions(defaultYears).map((y) =>
+    h("option", { value: String(y), selected: y === defaultYears }, `${y} year${y === 1 ? "" : "s"}${y === defaultYears ? " (your horizon)" : ""}`)));
+  horizon.addEventListener("change", () => { state.years = Number(horizon.value); load(); });
+  const modes = h("fieldset", { class: "seg-control seg-control--small" }, h("legend", null, "Values shown"),
+    h("div", { class: "seg-control__options is-plain" }, [["nominal", "In future dollars"], ["real", "In today's dollars"]].map(([m, label]) =>
+      h("label", { class: "seg-control__option" },
+        h("input", { type: "radio", name: "proj-mode", value: m, checked: m === state.mode, onchange: () => { state.mode = m; draw(); } }),
+        h("span", null, label)))));
+  const contribution = h("input", { class: "input input--inline", id: "proj-contrib", type: "number", min: "0", step: "50", inputmode: "decimal", value: "0" });
+  const apply = h("button", { class: "btn btn--secondary", type: "button", onclick: () => {
+    const v = Math.max(0, Number(contribution.value) || 0);
+    if (v !== state.contribution) { state.contribution = v; load(); }
+  } }, "Update");
+  section.append(h("div", { class: "proj-controls" },
+    h("div", { class: "field" }, h("label", { class: "field__label", for: "proj-horizon" }, "Horizon"), horizon),
+    modes,
+    level === "simple" ? null : h("div", { class: "field" }, h("label", { class: "field__label", for: "proj-contrib" }, "Monthly contribution (CAD, optional)"),
+      h("div", { class: "proj-inline" }, contribution, apply))), out);
+
+  async function load() {
+    const seq = (state.seq += 1);
+    out.replaceChildren(ctx.skeleton(3));
+    try {
+      const { data } = await ctx.api("POST", "/v1/projection", { weights: p.weights, start_value: profile.capital,
+        horizon_years: state.years, monthly_contribution: state.contribution });
+      if (seq !== state.seq) return; // a newer request was sent meanwhile
+      state.data = data;
+      draw();
+    } catch (err) {
+      if (seq === state.seq) out.replaceChildren(ctx.alertBox(err, "the range of possible values", load));
+    }
+  }
+
+  function draw() {
+    const d = state.data;
+    if (!d) return;
+    const series = PD.fanSeries(d, state.mode);
+    const geo = PD.fanGeometry(series);
+    const rows = series.years.map((y, i) => [y === 0 ? "Now" : String(y), ...["p10", "p25", "p50", "p75", "p90"].map((k) => ctx.money(series[k][i]))]);
+    const short = (v) => (Math.abs(v) >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : `$${Math.round(v / 1e3)}k`);
+    out.replaceChildren(
+      h("p", { class: "proj-summary" }, PD.summarySentence(d, state.mode, ctx.money)),
+      fanChart({ id: "projection", title: state.mode === "real" ? "Simulated value, in today's dollars" : "Simulated value, in future dollars",
+        note: `${d.assumptions.n_paths.toLocaleString("en-CA")} simulated scenarios, monthly steps, rebalanced monthly`,
+        geo, format: short, rows, startLabel: `Today's value (${ctx.money(d.start_value)})` }),
+      d.warnings.length ? h("ul", { class: "warning-list" }, d.warnings.map((w) => h("li", null, w))) : null,
+      assumptionsBlock(view, d),
+      learnNote(view, "each scenario is one possible path for markets. The band shows where 8 in 10 of them ended, so your result could be anywhere in it, or outside it."));
+  }
+
+  load();
+  return section;
+}
+
+/* ---------- How the portfolio reacts to rates (POST /v1/rate-exposure): shown when "Macro and rates" is on ---------- */
+function ratesSection(view) {
+  const { ctx, h, p, level } = view;
+  const out = h("div", { class: "stack-sm" }, ctx.skeleton(3));
+  const section = h("section", { class: "panel stack", "aria-labelledby": "rates-title" },
+    h("h2", { id: "rates-title", class: "section-title" }, "How your portfolio reacts to rates"), out);
+  (async () => {
+    try {
+      const { data } = await ctx.api("POST", "/v1/rate-exposure", { weights: p.weights });
+      const facts = D.rateFacts(data);
+      out.replaceChildren(
+        h("p", null, D.rateSentence(data)),
+        facts.length ? h("dl", { class: "facts" }, facts.map(([k, v]) => [h("dt", null, k), h("dd", null, v)])) : null,
+        level === "simple" ? null : h("div", { class: "table-wrap" }, h("table", { class: "data-table" },
+          h("caption", { class: "visually-hidden" }, "Sensitivity of each holding to a 1-point rise in yields"),
+          h("thead", null, h("tr", null, ["Holding", "Share", "Sensitivity (years)", "If yields rise 1 point"].map((x) => h("th", { scope: "col" }, x)))),
+          h("tbody", null, D.rateRows(data).map((r) => h("tr", null, h("th", { scope: "row" }, r.ticker),
+            h("td", { class: "num" }, r.weight), h("td", { class: "num" }, r.duration), h("td", { class: "num" }, r.impact)))))),
+        h("p", { class: "small muted" }, `Rates as of ${data.rates_date || data.as_of}. Only bond funds have a measured sensitivity; stocks and equity funds are not measured. `
+          + "It uses the average of 2021–2026 and changes over time."));
+    } catch (err) {
+      out.replaceChildren(h("p", { class: "muted" }, "The rate sensitivity isn't available right now."));
+    }
+  })();
+  return section;
+}
+function assumptionsBlock(view, d) {
+  const { h } = view;
+  const a = d.assumptions;
+  const rows = PD.assumptionRows(d);
+  return h("details", { class: "proj-assumptions" }, h("summary", null, "Assumptions"),
+    h("div", { class: "stack-sm" },
+      h("div", { class: "table-wrap" }, h("table", { class: "data-table" },
+        h("caption", { class: "visually-hidden" }, "Expected yearly return and volatility used for each holding"),
+        h("thead", null, h("tr", null, ["Holding", "Category", "Yearly rate", "Source", "Volatility (year 1)"].map((x) => h("th", { scope: "col" }, x)))),
+        h("tbody", null, rows.map((r) => h("tr", null, h("th", { scope: "row" }, r.ticker),
+          h("td", null, r.category), h("td", { class: "num" }, r.rate), h("td", null, r.source), h("td", { class: "num" }, r.vol)))))),
+      h("ul", { class: "plain-list small" },
+        h("li", null, `Volatility: ${PD.volSourceText(d)}`),
+        h("li", null, `Inflation: ${(a.inflation * 100).toFixed(1)}% a year. Fees: ${(a.annual_fee * 100).toFixed(2)}% a year.`),
+        h("li", null, `${a.n_paths.toLocaleString("en-CA")} scenarios (seed ${a.seed}), ${a.rebalancing}. ${a.drift}.`),
+        rows.some((r) => r.note) ? h("li", null, "Individual stocks get their region's equity rate (the guidelines give rates by asset class) and their own volatility.") : null,
+        h("li", null, "Source of the rates: ", h("a", { href: a.source_url, rel: "noopener noreferrer", target: "_blank" }, a.source), ". ", a.horizon_note || ""))));
 }
 
 function sectorSection(view) {

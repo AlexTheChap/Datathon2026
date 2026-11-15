@@ -6,42 +6,17 @@ Cognito is faked at the network level for the sign-up form; the API runs for rea
 from __future__ import annotations
 
 import json
-import socket
-import threading
-import time
 
 import pytest
 
 playwright_api = pytest.importorskip("playwright.sync_api")
-uvicorn = pytest.importorskip("uvicorn")
 
-from app.api.app import create_app  # noqa: E402
 from app.api.service import ApiService, NoDispatcher  # noqa: E402
 from app.intake import MockBackend  # noqa: E402
 
 SERVICE = ApiService(intake_backend=MockBackend(), dispatcher=NoDispatcher())
 COGNITO_CONFIG = ('window.AF_CONFIG = {auth: "cognito", region: "us-east-1", userPoolId: "us-east-1_TEST", '
                   'clientId: "testclient", demoAccounts: []};')
-
-
-@pytest.fixture(scope="module")
-def base_url():
-    import os
-
-    os.environ["AF_AUTH_MODE"] = "dev"
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        port = s.getsockname()[1]
-    server = uvicorn.Server(uvicorn.Config(create_app(SERVICE), host="127.0.0.1", port=port, log_level="warning"))
-    thread = threading.Thread(target=server.run, daemon=True)
-    thread.start()
-    for _ in range(100):
-        if server.started:
-            break
-        time.sleep(0.05)
-    yield f"http://127.0.0.1:{port}"
-    server.should_exit = True
-    thread.join(timeout=5)
 
 
 @pytest.fixture

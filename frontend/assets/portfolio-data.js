@@ -226,21 +226,24 @@ export function checkValue(c) {
   return "";
 }
 
-/** Fit with the profile's own rules, out of 10: every point lost has a reason (a rule that warns or blocks). */
-export function fitScore(governance, contribution) {
-  let score = 10; const why = [];
-  for (const c of (governance && governance.checks) || []) {
-    if (c.status === "BLOCK") { score -= 2; why.push({ reason: `${checkName(c.id)}: blocked`, points: -2 }); }
-    else if (c.status === "WARN") { score -= 1; why.push({ reason: `${checkName(c.id)}: warning`, points: -1 }); }
-  }
-  if (contribution && contribution.risk) {
-    const [top, share] = Object.entries(contribution.risk).sort((a, b) => b[1] - a[1])[0] || [];
-    if (share > 0.5) { score -= 1; why.push({ reason: `${top} carries ${Math.round(share * 100)}% of the ups and downs`, points: -1 }); }
-  }
-  score = Math.max(0, Math.min(10, Math.round(score * 2) / 2));
-  const band = score < 3.5 ? "Poor fit" : score < 6.5 ? "Risky fit" : score < 8.5 ? "Acceptable fit" : "Good fit";
-  return { score, band, why };
+/**
+ * The fit score (POST /v1/fit-score: out of 100, measured on the server from the profile and the exact weights) as
+ * lines for the level. Simple: only the parts that lost points, in plain words. Standard: every part with its points.
+ * Detailed: every part, and each rule with its status. Each line: { title, points, max, reasons: [text] }.
+ */
+export function fitLines(fit, level = "standard") {
+  if (!fit || !Array.isArray(fit.parts)) return [];
+  const round = (x) => Math.round(x * 10) / 10;
+  return fit.parts.map((part) => {
+    const lost = part.items.filter((i) => i.lost > 0.05);
+    const reasons = part.key === "rules"
+      ? (level === "detailed" ? part.items.map((i) => `${checkName(i.id, true)}: ${i.why}`)
+        : lost.map((i) => `${checkName(i.id)}: ${i.why}`))
+      : (level === "simple" ? lost : part.items).map((i) => i.why);
+    return { key: part.key, title: part.title, points: round(part.points), max: part.max, lost: round(part.max - part.points), reasons };
+  }).filter((l) => level !== "simple" || l.lost > 0.05);
 }
+export const fitTone = (score) => (score >= 85 ? "good" : score >= 70 ? "ok" : "bad");
 
 /* ---------- The summary at the top, in the words of each level ---------- */
 
@@ -310,4 +313,34 @@ const FROM_EXPERIENCE = { beginner: "simple", intermediate: "standard", advanced
 export function levelFor(profile, override) {
   if (LEVELS.includes(override)) return override;
   return FROM_EXPERIENCE[(profile || {}).experience] || "standard";
+}
+
+/* ---------- Interest rates (POST /v1/rate-exposure): how the holdings reacted to rates, with the current rates ---------- */
+
+const fmtPct = (v) => `${(v * 100).toFixed(0)}%`;
+const signed = (n) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n).toFixed(1)}%`;
+
+/** One row per holding for the table. A stock or equity fund has no measured sensitivity: "Not measured", never 0. */
+export function rateRows(d) {
+  return (d.holdings || []).map((x) => ({
+    ticker: x.ticker, weight: fmtPct(x.weight), measured: x.measured,
+    duration: x.measured ? x.duration.toFixed(1) : "Not measured",
+    impact: x.measured ? signed(x.impact_pct_per_point) : "Not measured",
+  }));
+}
+
+/** The one-line takeaway. Past sensitivity, not a forecast of rates or returns. */
+export function rateSentence(d) {
+  const p = d.portfolio || {};
+  if (!p.measured_share) return "None of your holdings has a measured sensitivity to interest rates: stocks and equity funds are not measured here.";
+  return `${fmtPct(p.measured_share)} of your portfolio is in funds with a measured sensitivity to interest rates. `
+    + `By their history, a 1-point rise in yields would have moved your portfolio's value by about ${signed(p.impact_pct_per_point)}. `
+    + "This describes past sensitivity. It is not a forecast of rates.";
+}
+
+/** The current rates as [label, value] pairs, in a fixed order. */
+export function rateFacts(d) {
+  const names = { "BoC policy rate (%)": "Bank of Canada rate", "CA 2y yield (%)": "Canada 2-year yield", "CA 10y yield (%)": "Canada 10-year yield",
+    "US fed funds (%)": "US Fed funds rate", "US 10y yield (%)": "US 10-year yield", "CA CPI y/y (%)": "Canadian inflation (year over year)" };
+  return Object.entries(names).filter(([k]) => (d.rates || {})[k] != null).map(([k, label]) => [label, `${Number(d.rates[k]).toFixed(2).replace(/\.?0+$/, "")}%`]);
 }

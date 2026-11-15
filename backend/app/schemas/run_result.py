@@ -68,6 +68,8 @@ class Verification(BaseModel):
     removed: list[RemovedClaim] = Field(default_factory=list)
     unknown_ids_dropped: int = 0
     retried: bool = False
+    # Bedrock Guardrails grounding check on the answer (L18); None = not configured.
+    output_guardrail: Optional[Literal["passed", "flagged", "unavailable"]] = None
 
 
 DISCLAIMER = "Simulation only. This is not investment advice, and no real trade is placed. Past returns do not predict future returns."

@@ -8,7 +8,9 @@ evidence produced.
 Sub-agents come from the box 4 ExecutionPlan (L6): only `plan.enabled_agents` are registered as
 tools, and the tool guide lists only those. A payload without a plan (local smoke runs) gets one from
 the same deterministic resolver. A plan with no enabled agent (task out_of_scope) runs no LLM at all.
-Planned extension: the plan's sub-agents as Strands graph nodes (GraphBuilder / Swarm in parallel).
+AF_ORCHESTRATION=graph (default): the plan's sub-agents run in parallel (agents/graph.py), then a synthesis
+agent joins them; AF_ORCHESTRATION=tools: this orchestrator calls them as tools, one after the other.
+Either way the top-level agent carries the AgentCore Memory session (L17) when AF_MEMORY_ID is set.
 """
 from __future__ import annotations
 
@@ -136,12 +138,43 @@ def build_orchestrator(inp: OrchestratorInput, ledger: EvidenceLedger | None = N
             session_manager=session_manager,
         )
 
+    return _with_memory(make, memory, inp.run_id)
+
+
+def build_synthesis(inp: OrchestratorInput, ledger: EvidenceLedger, settings: Settings, as_of: str,
+                    memory: MemoryBinding) -> Agent:
+    """Graph mode's top-level agent (Sonnet): joins the sub-agents' findings, holds governance_check only, and
+    carries the run's memory session like the tools-mode orchestrator (it runs after the graph, not inside it)."""
+    s = settings
+
+    def make(session_manager) -> Agent:
+        return Agent(
+            model=BedrockModel(model_id=s.model_orchestrator, region_name=s.aws_region, cache_config=_CACHE),
+            system_prompt=render_prompt(
+                "synthesis",
+                persona_block=persona_block(inp.profile, inp.language),
+                task=inp.request.task,
+                as_of=as_of,
+                reply_language=inp.language,
+                memory_block=memory_block(memory),      # rendered after a fallback: never stale memory text
+            ),
+            tools=[agent_tools.governance_check],
+            hooks=[EvidenceHook(ledger, inp.run_id, agent="synthesis")],
+            session_manager=session_manager,
+        )
+
+    return _with_memory(make, memory, inp.run_id)
+
+
+def _with_memory(make, memory: MemoryBinding, run_id: str) -> Agent:
+    """make(session_manager) with the run's memory session; if restoring that session fails, memory is auxiliary:
+    it is disabled (and reported) and the agent is built without it."""
     try:
         return make(memory.session_manager)
-    except Exception as e:  # noqa: BLE001  restoring the session failed: memory is auxiliary, go on without it
+    except Exception as e:  # noqa: BLE001
         if memory.session_manager is None:
             raise
-        log.warning("AgentCore Memory disabled for run %s: %s", inp.run_id, e)
+        log.warning("AgentCore Memory disabled for run %s: %s", run_id, e)
         memory.disable(f"{type(e).__name__}: {e}")
         return make(None)
 
@@ -198,23 +231,11 @@ def run_orchestrator(inp: OrchestratorInput, settings: Settings | None = None) -
             # node joins them (Sonnet keeps the deterministic governance_check only).
             from app.agents.graph import run as run_graph
 
-            synthesis = Agent(
-                model=BedrockModel(model_id=s.model_orchestrator, region_name=s.aws_region, cache_config=_CACHE),
-                system_prompt=render_prompt(
-                    "synthesis",
-                    persona_block=persona_block(inp.profile, inp.language),
-                    task=inp.request.task,
-                    as_of=as_of,
-                    reply_language=inp.language,
-                    memory_block=memory_block(memory),
-                ),
-                tools=[agent_tools.governance_check],
-                hooks=[EvidenceHook(led, inp.run_id, agent="synthesis")],
-            )
+            synthesis = build_synthesis(inp, led, s, as_of, memory)
             enabled = [(a.agent, REGISTRY[a.agent]) for a in plan.enabled_agents]
             subject = inp.request.user_message or inp.request.task
             g = run_graph(enabled, subject, inp.portfolio_weights, None,
-                          synthesis, ledger=led, run_id=inp.run_id)
+                          synthesis, ledger=led, run_id=inp.run_id, brief=compose_user_message(inp, as_of))
             return OrchestratorOutput(
                 run_id=inp.run_id, status="DONE", language=inp.language, summary=g["summary"], as_of=as_of,
                 memory=memory.info(), evidence_ids=led.evidence_ids(inp.run_id),

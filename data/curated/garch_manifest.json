@@ -1,0 +1,46 @@
+{
+  "as_of": "2026-11-12",
+  "created_at": "2026-11-15T20:29:33+00:00",
+  "job_name": "local-20261115T202913Z",
+  "input_file": "returns_daily_cad.csv",
+  "input_sha256": "90e79bf9798a74a7568afb7c2b03a189274d7bea84c1da0ee959d990e64cedf0",
+  "input_files": {
+    "returns_daily_cad.csv": "90e79bf9798a74a7568afb7c2b03a189274d7bea84c1da0ee959d990e64cedf0",
+    "returns_daily_cad_ext.csv": "757f526a96abe19c3bd0b4c6f06fd4a850348dd645d2777e9c42a92a776d3b77"
+  },
+  "input_last_date": "2026-11-12",
+  "tickers": 520,
+  "tickers_curated": 31,
+  "tickers_extension": 489,
+  "models": {
+    "garch": 481,
+    "ewma": 39,
+    "error": 0
+  },
+  "ewma_lambda": 0.94,
+  "min_obs": 500,
+  "horizons": [
+    1,
+    21,
+    63,
+    252
+  ],
+  "forecast_vol": "annualized average volatility over the next 21 trading days",
+  "trading_days_per_year": 252,
+  "versions": {
+    "python": "3.13.5",
+    "arch": "9.0.0",
+    "numpy": "2.5.4",
+    "pandas": "3.1.1",
+    "scipy": "1.18.1"
+  },
+  "note": "Volatility (risk) forecast only. No return is forecast.",
+  "backtest": {
+    "tickers": 520,
+    "garch_better": 327,
+    "garch_better_rmse": 351,
+    "horizon": 21,
+    "criterion": "QLIKE on the next-21-day realized variance (lower is better)",
+    "scope": "all tickers"
+  }
+}

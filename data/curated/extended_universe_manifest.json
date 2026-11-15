@@ -1,0 +1,36 @@
+{
+  "source": "Yahoo Finance via yfinance (unofficial API, delayed quotes, not licensed for commercial use)",
+  "retrieved": "2026-11-15",
+  "constituents": "SPY holdings of 2026-11-12 (curated/etf_holdings.csv, State Street)",
+  "window": "2021-11-15/2026-11-12",
+  "processing": "adj_close (total return) on calendar.csv, carried forward on US holidays after the first quote, converted to CAD with fx_usdcad_filled.csv (Bank of Canada); simple daily returns.",
+  "tickers_requested": 492,
+  "tickers_kept": 489,
+  "dropped": {
+    "FDXF": "only 120 daily returns in the window (< 252): recent listing",
+    "HONA": "only 107 daily returns in the window (< 252): recent listing",
+    "VYLR": "only 30 daily returns in the window (< 252): recent listing"
+  },
+  "quality_warnings": [
+    "APP: one-day adjusted move of 46% on 2024-11-07 (split or bad tick?)",
+    "BE: one-day adjusted move of 59% on 2024-11-15 (split or bad tick?)",
+    "CNC: one-day adjusted move of 40% on 2025-07-02 (split or bad tick?)",
+    "CVNA: one-day adjusted move of 40% on 2022-08-05 (split or bad tick?)",
+    "CVNA: one-day adjusted move of 43% on 2022-12-07 (split or bad tick?)",
+    "CVNA: one-day adjusted move of 46% on 2023-01-12 (split or bad tick?)",
+    "CVNA: one-day adjusted move of 56% on 2023-06-08 (split or bad tick?)",
+    "CVNA: one-day adjusted move of 40% on 2023-07-19 (split or bad tick?)",
+    "DXCM: one-day adjusted move of 41% on 2024-07-26 (split or bad tick?)",
+    "ECHO: one-day adjusted move of 49% on 2025-06-16 (split or bad tick?)",
+    "ECHO: one-day adjusted move of 70% on 2025-08-26 (split or bad tick?)",
+    "FISV: one-day adjusted move of 44% on 2025-10-29 (split or bad tick?)",
+    "GL: one-day adjusted move of 53% on 2024-04-11 (split or bad tick?)",
+    "MRNA: one-day adjusted move of 177% on 2026-08-19 (split or bad tick?)",
+    "RDDT: one-day adjusted move of 42% on 2024-10-30 (split or bad tick?)"
+  ],
+  "limitations": [
+    "Yahoo Finance is an unofficial, unlicensed source: fine for a datathon prototype, not for production.",
+    "Current constituents only: companies removed from the index since 2021 are absent (survivorship bias).",
+    "No fundamentals, ESG detail, 10-K excerpts or rate sensitivity for these tickers."
+  ]
+}

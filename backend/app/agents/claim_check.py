@@ -3,7 +3,12 @@
 For every text the Explainer wrote:
 1. each cited id must exist in the run's evidence catalogue (unknown ids are dropped and counted);
 2. each number it states must match a number of the evidence it cites, or of the reader's own profile and
-   question (context), allowing only rounding and sign ("lost 24%" for a -0.2418 drawdown);
+   question (context), allowing only rounding and sign ("lost 24%" for a -0.2418 drawdown):
+   - the match uses what the Explainer was SHOWN of each item (say, facts, weights: EvidenceItem.numbers), not
+     every number buried in the raw envelope, so a large item (a correlation matrix) cannot back any figure;
+   - the tolerance follows the stated precision: "24%" allows +/-0.6 point, "24.2%" +/-0.06;
+   - a figure stated as a gain ("+5%", "gained 5%", "rose 5%") is not backed by negative values only. The reverse
+     is allowed: losses are stored either signed (drawdown -0.24) or as positive amounts (VaR 0.021);
 3. a governance check must state the verdict its cited governance evidence returned.
 
 Years, ISO dates, evidence ids and small counts ("3 checks", "2 sub-agents") are not treated as claims.
@@ -20,10 +25,13 @@ from app.schemas.run_result import AnswerCheck, AnswerPoint, ExplainerDraft
 _ID = re.compile(r"\b(?:ev-[0-9a-f]{6,}|E-\d{3})\b")
 _DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b|\b\d{4}-\d{2}\b")
 _NUM = re.compile(
-    r"(?P<sign>[-−–])?\s?(?P<cur>\$|CAD\s?|C\$)?\s?(?P<num>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
+    r"(?P<sign>[-−–+])?\s?(?P<cur>\$|CAD\s?|C\$)?\s?(?P<num>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
     r"\s?(?P<unit>%|percent\b|pp\b|k\b|K\b|thousand\b|m\b|M\b|million\b|bn\b|billion\b)?"
 )
 _MULT = {"k": 1e3, "thousand": 1e3, "m": 1e6, "million": 1e6, "bn": 1e9, "billion": 1e9}
+# A gain word just before a figure ("rose 5%", "up 12%", but not "up to 15%").
+_GAIN_BEFORE = re.compile(r"\b(?:gain(?:ed|s)?|rose|rise[sn]?|rising|up(?!\s+to\b)|increase[sd]?|grew|grow(?:n|s|th)?|"
+                          r"rall(?:ied|ies|y)|climb(?:ed|s)?|jump(?:ed|s)?|advance[sd]?)\b[^.\d]{0,20}$", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -39,40 +47,49 @@ class Stated:
     raw: str
     value: float
     kind: str  # "pct" | "money" | "plain"
+    decimals: int = 0      # digits after the point as written: sets the rounding tolerance
+    gain: bool = False     # written as a gain ("+5%", "rose 5%"): needs a non-negative value
 
 
 def stated_numbers(text: str) -> list[Stated]:
     clean = _DATE.sub(" ", _ID.sub(" ", text))
     out = []
     for m in _NUM.finditer(clean):
-        num = float(m.group("num").replace(",", ""))
+        raw_num = m.group("num")
+        num = float(raw_num.replace(",", ""))
+        decimals = len(raw_num.split(".")[1]) if "." in raw_num else 0
+        gain = m.group("sign") == "+" or bool(_GAIN_BEFORE.search(clean[:m.start()]))
         unit = (m.group("unit") or "").lower()
         cur = m.group("cur")
         if unit in ("%", "percent", "pp"):
-            out.append(Stated(m.group(0).strip(), num, "pct"))
+            out.append(Stated(m.group(0).strip(), num, "pct", decimals, gain))
         elif cur or unit in _MULT:
-            out.append(Stated(m.group(0).strip(), num * _MULT.get(unit, 1.0), "money"))
+            out.append(Stated(m.group(0).strip(), num * _MULT.get(unit, 1.0), "money", decimals))
         else:
             if (1900 <= num <= 2100 and num == int(num)) or (num == int(num) and num <= 12):
                 continue  # a year, or a small count ("3 checks", "5 years" is checked via context anyway)
-            out.append(Stated(m.group(0).strip(), num, "plain"))
+            out.append(Stated(m.group(0).strip(), num, "plain", decimals, gain))
     return out
 
 
 def _supported(s: Stated, pool: set[tuple[str, float]]) -> bool:
     """A percentage needs a fraction from a data field (0.242 for "24%") or a percentage written as such in a text
-    ("51%"): never a count or a plain number, so an invented "up 100%" is not backed by a stray "1"."""
+    ("51%"): never a count or a plain number, so an invented "up 100%" is not backed by a stray "1".
+    Rounding tolerance: 0.6 unit of the last digit written ("24%" +/-0.6 point, "24.2%" +/-0.06)."""
     t = abs(s.value)
+    tol = 0.6 * 10 ** -s.decimals
     for kind, c in pool:
+        if s.gain and c < 0:              # a gain is never backed by a loss
+            continue
         a = abs(c)
         if s.kind == "pct":
-            if (kind == "frac" and abs(a - t / 100) <= 0.006) or (kind == "pct_text" and abs(a - t) <= 0.6):
+            if (kind == "frac" and abs(a * 100 - t) <= tol) or (kind == "pct_text" and abs(a - t) <= tol):
                 return True
         elif s.kind == "money":
             if kind != "pct_text" and t and abs(a - t) <= max(0.02 * t, 1.0):  # "$97k" for 96,712; "$400,000"
                 return True
         else:
-            if abs(a - t) <= max(0.6, 0.02 * t) or (kind == "frac" and abs(a * 100 - t) <= 0.6):
+            if abs(a - t) <= max(tol, 0.02 * t) or (kind == "frac" and abs(a * 100 - t) <= tol):
                 return True
     return False
 

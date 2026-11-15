@@ -36,12 +36,8 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-BUILD = ROOT / "build"
-sys.path.insert(0, str(ROOT / "scripts"))
-
-from deploy_context_lambda import load_dotenv  # noqa: E402
-from deploy_quant_gateway import LAMBDA_TRUST, ensure_role  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _aws import BUILD, LAMBDA_TRUST, ROOT, ensure_bucket, ensure_role, load_dotenv, trust_policy  # noqa: E402
 
 NAME = "alphaforge-api"
 LAMBDA_ROLE, BUILD_ROLE = f"{NAME}-lambda", f"{NAME}-codebuild"
@@ -49,8 +45,7 @@ TAGS = {"project": "alphaforge", "component": "api"}
 STATE = BUILD / "api.json"
 DATA_LAYER = BUILD / "data_layer.json"
 DATA_DIRS = ["data/curated", "data/external", "data/market"]   # read by the agents and tools (no data/raw, data/runs)
-CODEBUILD_TRUST = {"Version": "2012-10-17", "Statement": [{
-    "Effect": "Allow", "Principal": {"Service": "codebuild.amazonaws.com"}, "Action": "sts:AssumeRole"}]}
+CODEBUILD_TRUST = trust_policy("codebuild.amazonaws.com")
 
 DOCKERFILE = """FROM public.ecr.aws/lambda/python:3.12
 COPY requirements.txt .
@@ -98,21 +93,6 @@ def source_zip() -> bytes:
 
 # ---------- build: S3 -> CodeBuild -> ECR ----------
 
-def ensure_bucket(s3, bucket: str, region: str) -> None:
-    try:
-        s3.head_bucket(Bucket=bucket)
-        return
-    except Exception:
-        pass
-    kw = {} if region == "us-east-1" else {"CreateBucketConfiguration": {"LocationConstraint": region}}
-    s3.create_bucket(Bucket=bucket, **kw)
-    s3.put_public_access_block(Bucket=bucket, PublicAccessBlockConfiguration={
-        "BlockPublicAcls": True, "IgnorePublicAcls": True, "BlockPublicPolicy": True, "RestrictPublicBuckets": True})
-    s3.put_bucket_encryption(Bucket=bucket, ServerSideEncryptionConfiguration={
-        "Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]})
-    print(f"• Bucket created: {bucket}")
-
-
 def ensure_repo(ecr) -> str:
     try:
         repo = ecr.describe_repositories(repositoryNames=[NAME])["repositories"][0]
@@ -130,13 +110,13 @@ def ensure_repo(ecr) -> str:
 def build_image(session, account: str, region: str) -> str:
     s3, ecr, cb, iam = (session.client(s) for s in ("s3", "ecr", "codebuild", "iam"))
     bucket = f"alphaforge-build-{account}-{region}"
-    ensure_bucket(s3, bucket, region)
+    ensure_bucket(s3, bucket, region, TAGS)
     data = source_zip()
     s3.put_object(Bucket=bucket, Key=f"{NAME}/source.zip", Body=data)
     print(f"• Build context uploaded: s3://{bucket}/{NAME}/source.zip ({len(data) / 1e6:.1f} MB)")
     uri = ensure_repo(ecr)
 
-    role_arn, new = ensure_role(iam, BUILD_ROLE, CODEBUILD_TRUST, "AlphaForge API image build (CodeBuild)")
+    role_arn, new = ensure_role(iam, BUILD_ROLE, CODEBUILD_TRUST, "AlphaForge API image build (CodeBuild)", TAGS)
     iam.put_role_policy(RoleName=BUILD_ROLE, PolicyName="build", PolicyDocument=json.dumps({
         "Version": "2012-10-17", "Statement": [
             {"Effect": "Allow", "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
@@ -333,7 +313,7 @@ def main() -> None:
     table = json.loads(DATA_LAYER.read_text())["table"] if DATA_LAYER.exists() else "alphaforge"
     image = build_image(session, account, region)
     iam = session.client("iam")
-    role_arn, _ = ensure_role(iam, LAMBDA_ROLE, LAMBDA_TRUST, "AlphaForge API Lambda (box 2 + box 5 agents)")
+    role_arn, _ = ensure_role(iam, LAMBDA_ROLE, LAMBDA_TRUST, "AlphaForge API Lambda (box 2 + box 5 agents)", TAGS)
     iam.put_role_policy(RoleName=LAMBDA_ROLE, PolicyName="api",
                         PolicyDocument=json.dumps(lambda_policy(account, region, table)))
     url = deploy_lambda(session.client("lambda"), image, role_arn, lambda_env(table))

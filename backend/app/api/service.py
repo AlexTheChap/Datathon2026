@@ -3,6 +3,7 @@
 POST /v1/runs (links L2 → L6), synchronous part (a few seconds, well under API Gateway's 30 s):
   1. ③ Intake with the stored profile (the profile is saved, toggles said in chat included);
   2. Intake "needs_clarification"           → 200 {"kind": "question"}  (no run)
+     Intake "profile_updated"                → 200 {"kind": "message"}   (settings saved and confirmed, no run)
   3. ④ Context on "ready" / "out_of_scope":
        "profile_required"                    → 200 {"kind": "message"}   (no run)
        "planned"                             → run saved as QUEUED, handed to the dispatcher → 202 {"kind": "run"}
@@ -13,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal, Optional, Protocol
 
@@ -37,10 +39,15 @@ from app.schemas import PortfolioRef, Profile
 from app.schemas.models import profile_from_persona
 from app.schemas.profile import AgentToggles
 from app.store.profiles import InMemoryProfileStore, ProfileStore
-from app.store.runs import InMemoryRunStore, RunRecord, RunStore, new_run_id, new_session_id
+from app.store.runs import InMemoryRunStore, RunRecord, RunStore, _now, new_run_id, new_session_id
 
 MAX_TEXT_CHARS = 4000
 MAX_PREFERENCES_TEXT = 2000   # = Profile.preferences_text max_length (checked in tests)
+# A run still RUNNING this long after its last update is dead: on AWS the analysis runs in a Lambda invocation
+# capped at 15 minutes, and a timed-out invocation cannot write its own outcome (AF_RUN_STALE_MINUTES overrides).
+RUN_STALE_AFTER = timedelta(minutes=float(os.environ.get("AF_RUN_STALE_MINUTES") or 20))
+STALE_RUN_ERROR = ("The analysis stopped before it finished (time limit reached) and was marked as failed. "
+                   "Ask again to start a new one.")
 PERSONAS_PATH = Path(__file__).resolve().parents[1] / "core" / "personas.json"
 
 
@@ -107,6 +114,35 @@ class MessageOut(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class RateExposureIn(BaseModel):
+    """POST /v1/rate-exposure: ad-hoc weights; default is the saved portfolio."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    weights: dict[str, float] | None = Field(default=None, description="Default: the saved portfolio.")
+
+
+class FitScoreIn(BaseModel):
+    """POST /v1/fit-score: how well these weights fit the caller's saved profile; default is the saved portfolio."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    weights: dict[str, float] | None = Field(default=None, description="Default: the saved portfolio.")
+
+
+class ProjectionIn(BaseModel):
+    """POST /v1/projection: ad-hoc weights. Missing start_value / horizon_years come from the caller's profile
+    (simulated capital; horizon upper bound). n_paths is capped server-side."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    weights: dict[str, float] | None = Field(default=None, description="Default: the saved portfolio.")
+    start_value: float | None = Field(default=None, gt=0, le=1e10)
+    horizon_years: int | None = Field(default=None, ge=1, le=50)
+    monthly_contribution: float = Field(default=0.0, ge=0, le=1e7)
+    n_paths: int | None = Field(default=None, ge=100)
+
+
 class ApiError(Exception):
     def __init__(self, status: int, detail: Any):
         super().__init__(str(detail))
@@ -153,6 +189,8 @@ class ApiService:
         if res.status == "needs_clarification":
             return 200, MessageOut(kind="question", question=res.clarification_question,
                                    missing_fields=res.missing_fields, **common)
+        if res.status == "profile_updated":  # only settings changed (saved by the Intake): confirm, run nothing
+            return 200, MessageOut(kind="message", message=res.message, **common)
         if res.request is None:  # input refused (e.g. guardrail): nothing to plan
             return 200, MessageOut(kind="message", message="This request cannot be processed. AlphaForge is a "
                                    "simulation tool for investment analysis.", **common)
@@ -187,11 +225,28 @@ class ApiService:
         run = self.runs.get(run_id)
         if run is None or run.actor_id != actor_id:  # never reveal another user's run
             raise ApiError(404, "Run not found.")
+        return self._expire_if_stale(run)
+
+    def _expire_if_stale(self, run: RunRecord, now: Optional[datetime] = None) -> RunRecord:
+        """A RUNNING run whose worker died (Lambda timeout, crash, restart) would poll forever: past
+        RUN_STALE_AFTER without an update it is saved as FAILED with a plain explanation."""
+        if run.status != "RUNNING":
+            return run
+        try:
+            updated = datetime.fromisoformat(run.updated_at)
+        except (TypeError, ValueError):
+            return run
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+        if (now or datetime.now(timezone.utc)) - updated < RUN_STALE_AFTER:
+            return run
+        run = run.model_copy(update={"status": "FAILED", "error": STALE_RUN_ERROR, "updated_at": _now()})
+        self.runs.put(run)
         return run
 
     # ----- GET /v1/runs (history for the dashboard) -----
     def list_runs(self, actor_id: str, limit: int = 50) -> list[RunSummary]:
-        return [RunSummary.from_run(r) for r in self.runs.list_for_actor(actor_id, limit)]
+        return [RunSummary.from_run(self._expire_if_stale(r)) for r in self.runs.list_for_actor(actor_id, limit)]
 
     # ----- GET /v1/runs/{run_id}/replay (dashboard "if 2022 happened again" chart) -----
     def get_replay(self, actor_id: str, run_id: str) -> dict[str, Any]:
@@ -266,6 +321,92 @@ class ApiService:
         return profile
 
 
+    # ----- POST /v1/projection, GET /v1/vol-forecast (app.quant, box ⑥) -----
+    def projection(self, actor_id: str, body: ProjectionIn) -> dict[str, Any]:
+        """Range of possible values under the planning guidelines. Percentiles only, never raw paths."""
+        from app.quant.projection import MAX_PATHS
+        from app.tools.context import default_as_of
+        from app.tools.projection_tool import (
+            DEFAULT_PATHS,
+            horizon_from_profile,
+            run_projection,
+        )
+
+        profile = self.profiles.get(actor_id)
+        weights = body.weights or (profile.portfolio if profile else None)
+        if not weights:
+            raise ApiError(422, "Give weights, or save a portfolio first.")
+        start = body.start_value or (profile.capital if profile else None)
+        if not start:
+            raise ApiError(422, "Give start_value, or set a simulated capital in the profile.")
+        note = None
+        horizon = body.horizon_years
+        if horizon is None:
+            horizon, note = horizon_from_profile(profile.horizon_years.model_dump() if profile else None)
+            if horizon is None:
+                raise ApiError(422, "Give horizon_years, or set a horizon in the profile.")
+        try:
+            ev = run_projection(weights, float(start), int(horizon), default_as_of(),
+                                monthly_contribution=body.monthly_contribution,
+                                n_paths=min(body.n_paths or DEFAULT_PATHS, MAX_PATHS),
+                                risk_band=profile.risk_band if profile else None, horizon_note=note)
+        except (KeyError, ValueError) as e:
+            raise ApiError(422, str(e).strip("'\"")) from e
+        return {"evidence_id": ev["evidence_id"], "say": ev["say"], "as_of": ev["as_of"], "inputs": ev["inputs"],
+                "method": ev["method"], **ev["output"], **({"garch_job": ev["garch_job"]} if "garch_job" in ev else {})}
+
+    def rate_exposure(self, actor_id: str, body: RateExposureIn) -> dict[str, Any]:
+        """How the holdings have reacted to interest rates, with the current rates (deterministic, no LLM)."""
+        from app.core.config import get_settings
+        from app.tools.context import default_as_of
+        from app.tools.rate_exposure_tool import run_rate_exposure
+        profile = self.profiles.get(actor_id)
+        weights = body.weights or (profile.portfolio if profile else None)
+        if not weights:
+            raise ApiError(422, "Give weights, or save a portfolio first.")
+        settings = get_settings()
+        try:
+            ev = run_rate_exposure(weights, default_as_of(), settings.abs_path(settings.curated_dir))
+        except (KeyError, ValueError) as e:
+            raise ApiError(422, str(e).strip("'\"")) from e
+        return {"evidence_id": ev["evidence_id"], "say": ev["say"], "as_of": ev["as_of"], "inputs": ev["inputs"],
+                "method": ev["method"], "assumptions": ev["assumptions"], "data_sources": ev["data_sources"],
+                **ev["output"]}
+    def fit_score(self, actor_id: str, body: FitScoreIn) -> dict[str, Any]:
+        """How well the weights fit the saved profile, out of 100 (deterministic, no LLM; rules.yaml fit_score)."""
+        from app.agents.governance.fit_score import fit_score
+        from app.core.config import get_settings
+        from app.tools.context import default_as_of
+        from app.tools.risk_tools import RiskTools
+        profile = self.profiles.get(actor_id)
+        if profile is None:
+            raise ApiError(404, "Save your profile first.")
+        weights = body.weights or profile.portfolio
+        if not weights:
+            raise ApiError(422, "Give weights, or save a portfolio first.")
+        settings = get_settings()
+        as_of = default_as_of()
+        try:
+            rt = RiskTools(settings.abs_path(settings.curated_dir)).at(as_of)
+            out = fit_score(weights, profile.model_dump(mode="json"), settings.abs_path(settings.rules_path), rt,
+                            str(settings.abs_path(settings.curated_dir).parent))
+        except (KeyError, ValueError) as e:
+            raise ApiError(422, str(e).strip("'\"")) from e
+        return {"as_of": as_of, **out}
+
+    def vol_forecast(self, actor_id: str, tickers: list[str]) -> dict[str, Any]:
+        from app.tools.context import default_as_of
+        from app.tools.vol_forecast_tool import vol_forecast
+
+        tickers = [t.strip() for t in tickers if t and t.strip()]
+        if not tickers or len(tickers) > 50:
+            raise ApiError(422, "Give between 1 and 50 tickers.")
+        try:
+            ev = vol_forecast(tickers, default_as_of())
+        except (KeyError, ValueError) as e:
+            raise ApiError(422, str(e).strip("'\"")) from e
+        return {"evidence_id": ev["evidence_id"], "say": ev["say"], "as_of": ev["as_of"], **ev["output"]}
+
     def _derive_preferences(self, stored: Optional[Profile], form: dict[str, Any], data: dict[str, Any]) -> None:
         """"Preferences and constraints" free text: when it changed, `preferences` and `constraints` are derived
         from it with the intake backend (what the form sends for those two lists is ignored). The text itself
@@ -313,9 +454,13 @@ class ApiService:
         return notify_view(c)
 
     # ----- DELETE /v1/account (My profile settings > Delete account) -----
-    def delete_account(self, actor_id: str) -> dict[str, Any]:
+    def delete_account(self, actor_id: str, demo_persona: Optional[str] = None) -> dict[str, Any]:
         """Erase what AlphaForge keeps about the person: profile, notification choice (phone, email, texts sent),
-        analyses and their evidence. The sign-in account itself is deleted by the page (Cognito DeleteUser)."""
+        analyses and their evidence. The sign-in account itself is deleted by the page (Cognito DeleteUser).
+        A shared demo account (amira/mateo/robert.demo@…) is refused: its password is public, so one visitor must
+        not be able to remove it for everyone."""
+        if demo_persona:
+            raise ApiError(403, "This is a shared demo account: it can't be deleted.")
         run_ids = self.runs.delete_for_actor(actor_id)
         ledger = self._ledger()
         for run_id in run_ids:
@@ -347,7 +492,7 @@ def notify_view(c: SmsContact | None) -> dict[str, Any]:
 def sms_view(opt_in: bool, phone: Optional[str], consent_at: Optional[str]) -> dict[str, Any]:
     """The owner's own preferences (the phone is shown back to them so the form can be edited)."""
     return {"opt_in": opt_in, "phone": phone, "phone_masked": mask(phone), "consent_at": consent_at,
-            "what": "News on the stocks you hold (SEC filings), at most one text a day. Information only."}
+            "what": "News on the stocks you hold (SEC filings), one text per new filing batch, never the same news twice. Information only."}
 
 
 def example_personas(path: Path = PERSONAS_PATH) -> list[dict[str, Any]]:
@@ -416,7 +561,6 @@ def service_from_env(env: Optional[dict[str, str]] = None) -> ApiService:
                           dispatcher=_dispatcher(runs, dispatch), contacts=JsonFileContactStore(root / "contacts"))
     if kind == "dynamodb":
         import boto3
-
         from app.store.profiles import DynamoDBProfileStore
         from app.store.runs import DynamoDBRunStore
 

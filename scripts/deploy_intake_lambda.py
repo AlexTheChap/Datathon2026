@@ -19,21 +19,20 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-import subprocess
 import sys
 import time
-import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-BUILD = ROOT / "build"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _aws import (  # noqa: E402
+    BASIC_EXECUTION, BUILD, LAMBDA_TRUST, ROOT, ensure_role, load_dotenv, pip_install_linux, zip_dir,
+)
+
 FUNCTION = "alphaforge-intake"
 ROLE = "alphaforge-intake-lambda"
 RUNTIME = "python3.12"
 DEPS = ["pydantic>=2.7", "anthropic>=2.0"]
-
-TRUST = {"Version": "2012-10-17", "Statement": [
-    {"Effect": "Allow", "Principal": {"Service": "lambda.amazonaws.com"}, "Action": "sts:AssumeRole"}]}
+TAGS = {"project": "alphaforge", "component": "intake"}
 BEDROCK_POLICY = {"Version": "2012-10-17", "Statement": [{
     "Effect": "Allow",
     "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
@@ -51,36 +50,23 @@ def build_zip() -> Path:
     pkg = BUILD / "intake_pkg"
     shutil.rmtree(pkg, ignore_errors=True)
     pkg.mkdir(parents=True)
-    print("• Installing dependencies (Linux wheels, Python 3.12)...")
-    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--target", str(pkg),
-                    "--platform", "manylinux2014_x86_64", "--implementation", "cp", "--python-version", "3.12",
-                    "--only-binary=:all:", *DEPS], check=True)
+    pip_install_linux(pkg, DEPS)
     shutil.copytree(ROOT / "backend" / "app", pkg / "app",
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".gitkeep"))
     (pkg / "data").mkdir()
     shutil.copy(ROOT / "data" / "curated" / "assets_universe.csv", pkg / "data" / "assets_universe.csv")
+    ext = ROOT / "data" / "curated" / "assets_universe_ext.csv"   # S&P 500 extension, read next to it
+    if ext.exists():
+        shutil.copy(ext, pkg / "data" / ext.name)
 
-    zip_path = BUILD / "intake_lambda.zip"
-    zip_path.unlink(missing_ok=True)
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in pkg.rglob("*"):
-            if f.is_file() and "__pycache__" not in f.parts:
-                z.write(f, f.relative_to(pkg).as_posix())
-    print(f"• Package: {zip_path} ({zip_path.stat().st_size / 1e6:.1f} MB)")
-    return zip_path
+    return zip_dir(pkg, BUILD / "intake_lambda.zip")
 
 
-def ensure_role(iam) -> str:
-    try:
-        arn = iam.get_role(RoleName=ROLE)["Role"]["Arn"]
-        print(f"• Existing role: {arn}")
-    except iam.exceptions.NoSuchEntityException:
-        arn = iam.create_role(RoleName=ROLE, AssumeRolePolicyDocument=json.dumps(TRUST),
-                              Description="AlphaForge Intake Lambda (box 3)")["Role"]["Arn"]
-        print(f"• Role created: {arn}")
+def ensure_intake_role(iam) -> str:
+    arn, created = ensure_role(iam, ROLE, LAMBDA_TRUST, "AlphaForge Intake Lambda (box 3)", TAGS)
+    if created:
         time.sleep(10)  # IAM propagation before Lambda can assume it
-    iam.attach_role_policy(RoleName=ROLE,
-                           PolicyArn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole")
+    iam.attach_role_policy(RoleName=ROLE, PolicyArn=BASIC_EXECUTION)
     iam.put_role_policy(RoleName=ROLE, PolicyName="bedrock-invoke-haiku", PolicyDocument=json.dumps(BEDROCK_POLICY))
     return arn
 
@@ -148,8 +134,6 @@ def main() -> None:
     except ImportError:
         pass
     if not args.profile:
-        from deploy_context_lambda import load_dotenv  # AWS_* from the git-ignored .env, never overrides
-
         load_dotenv()
     import boto3
 
@@ -158,7 +142,7 @@ def main() -> None:
     lam = session.client("lambda")
     if not args.test_only:
         zip_path = build_zip()
-        role_arn = args.role_arn or ensure_role(session.client("iam"))
+        role_arn = args.role_arn or ensure_intake_role(session.client("iam"))
         deploy(lam, zip_path, role_arn, args.region)
     if args.test or args.test_only:
         test(lam)

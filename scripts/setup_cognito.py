@@ -11,6 +11,8 @@ What it sets up:
   refresh, user-existence errors hidden, ID/access tokens valid 1 hour, refresh 7 days;
 - demo accounts amira/mateo/robert.demo@alphaforge.example (a reserved domain, never a real mailbox), with one
   shared random password. The API gives each one its persona's profile on first sign-in.
+  Re-running the script resets them (password, email): a visitor may have changed them, since the password is
+  public. The web app and the API refuse email / password changes and deletion for these accounts.
 
 Writes:
 - backend/app/core/signin.json (TRACKED in git): region, user pool id, web client id. The app reads it by default,
@@ -40,7 +42,7 @@ DEMO_DOMAIN = "alphaforge.example"  # RFC 2606: reserved, can never receive mail
 TAGS = {"project": "alphaforge", "component": "sign-in"}
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from deploy_context_lambda import load_dotenv  # noqa: E402  (same .env reader as the other deploy scripts)
+from _aws import load_dotenv  # noqa: E402  (same .env reader as the other deploy scripts)
 
 
 def upsert_env(values: dict[str, str | None]) -> None:
@@ -144,6 +146,10 @@ def ensure_demo_users(idp, pool_id: str, password: str) -> list[dict]:
             state = "created"
         except idp.exceptions.UsernameExistsException:
             state = "exists"
+            # Reset what a visitor may have changed (the password is public): the email is the demo marker.
+            idp.admin_update_user_attributes(UserPoolId=pool_id, Username=email,
+                                             UserAttributes=[{"Name": "email", "Value": email},
+                                                             {"Name": "email_verified", "Value": "true"}])
         idp.admin_set_user_password(UserPoolId=pool_id, Username=email, Password=password, Permanent=True)
         accounts.append({"persona": p["id"], "name": p["id"].capitalize(), "email": email,
                          "summary": f"{p['profile_type']} investor, {p['age']}, {p['occupation'].lower()}."})

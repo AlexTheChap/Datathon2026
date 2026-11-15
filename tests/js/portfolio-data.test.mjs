@@ -52,8 +52,15 @@ test("checks in plain words, fit score and detail level", () => {
   assert.equal(d.checkName("SINGLE_POSITION"), "No single company is too big");
   assert.equal(d.checkName("EXCLUSION_ESG_FOSSIL_FUELS", true), "Exclusion: fossil fuels");
   assert.equal(d.checkValue({ value: 0.0339, limit: 0.1 }), "3.4% (limit 10%)");
-  const fit = d.fitScore({ checks: [{ id: "SECTOR", status: "WARN" }, { id: "CRYPTO", status: "BLOCK" }] }, null);
-  assert.equal(fit.score, 7); assert.equal(fit.band, "Acceptable fit"); assert.equal(fit.why.length, 2);
+  const fit = { score: 42, parts: [
+    { key: "rules", title: "Your profile's rules", points: 11, max: 30, items: [
+      { id: "CRYPTO", status: "BLOCK", why: "broken", lost: 11.67 }, { id: "SECTOR", status: "PASS", why: "respected", lost: 0 }] },
+    { key: "risk_level", title: "Risk level", points: 20, max: 20, items: [{ id: "VOLATILITY", why: "15% a year, inside", lost: 0 }] }] };
+  assert.deepEqual(d.fitLines(fit, "simple").map((l) => l.key), ["rules"]);           // only what lost points
+  assert.deepEqual(d.fitLines(fit, "simple")[0].reasons, ["Crypto stays within your limit: broken"]);
+  assert.equal(d.fitLines(fit, "standard").length, 2);
+  assert.deepEqual(d.fitLines(fit, "detailed")[0].reasons, ["Crypto weight: broken", "Largest sector: respected"]);
+  assert.equal(d.fitTone(42), "bad"); assert.equal(d.fitTone(90), "good");
   assert.equal(d.levelFor({ experience: "beginner" }), "simple");
   assert.equal(d.levelFor({ experience: "beginner" }, "detailed"), "detailed");
 });

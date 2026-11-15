@@ -14,6 +14,7 @@ Task = Literal[
     "esg_screen",           # ESG agent
     "fundamentals_review",  # Fundamentals agent
     "news_review",          # News agent
+    "projection",           # Risk agent: Monte Carlo range under the planning guidelines (not a forecast)
     "out_of_scope",         # request outside the simulation (real trade, personalized advice...)
 ]
 Benchmark = Literal["SPY", "XIU.TO", "QQQ", "XBB.TO", "AGG"]

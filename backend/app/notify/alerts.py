@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -31,6 +32,7 @@ from app.notify.messages import AdviceWordingError, compose
 from app.notify.news import CorpusNewsSource, NewsSource, SecFilingsSource
 
 TZ = ZoneInfo("America/Toronto")
+log = logging.getLogger(__name__)
 
 
 class Sender(Protocol):
@@ -87,7 +89,7 @@ def run_alerts(contacts: ContactStore, profiles, source: NewsSource, sender: Sen
     events = source.events(universe, since, until) if universe else []
 
     report: dict[str, Any] = {"window": [since, until], "opted_in": len(people), "tickers_checked": len(universe),
-                              "news_found": len(events), "texts_sent": 0, "people": []}
+                              "news_found": len(events), "texts_sent": 0, "texts_failed": 0, "people": []}
     for c, held in people:
         mine = [e for e in events if e.ticker in held and not contacts.was_sent(c.actor_id, e.event_id)]
         line: dict[str, Any] = {"actor_id": c.actor_id, "phone": mask(c.phone), "held": len(held)}
@@ -102,7 +104,15 @@ def run_alerts(contacts: ContactStore, profiles, source: NewsSource, sender: Sen
                 line["skipped"] = str(e)
                 report["people"].append(line)
                 continue
-            line["message_id"] = sender.send(c.phone, text)
+            try:
+                line["message_id"] = sender.send(c.phone, text)
+            except Exception as e:  # noqa: BLE001  one bad number or an SNS error must not stop everyone else's
+                # Nothing is marked as sent: the next run (15 min later) tries this person again.
+                log.warning("alert text to %s failed: %s", mask(c.phone), e)
+                line["error"] = f"{type(e).__name__}: {e}"
+                report["texts_failed"] += 1
+                report["people"].append(line)
+                continue
             line["news"] = [f"{e.ticker} {e.published_at}" for e in mine]
             line["text"] = text
             sent_at = now_iso()

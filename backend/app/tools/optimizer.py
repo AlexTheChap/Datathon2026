@@ -6,7 +6,7 @@ current holdings) that satisfies every rule of the profile. It never maximizes e
 
     minimize   ||w - w0||^2 + risk_aversion * w' Sigma w
     subject to sum(w) = 1, w >= 0 and the rules read from rules.yaml and the profile:
-               single position, sector, crypto, asset-class exclusions and short-horizon rules.
+               single position, sector, crypto, asset-class and controversy exclusions and short-horizon rules.
 
 Every threshold comes from the profile and rules.yaml (never hard-coded here). The solution is then
 VERIFIED with the exact tool (`governance_check.check`). If no verified solution exists the result is
@@ -61,6 +61,18 @@ STATUS_INFEASIBLE = "infeasible"
 
 
 # ---------------------------------------------------------------- helpers
+
+_SEVERITY_RANK = {"minor": 1, "moderate": 2, "major": 3}
+
+
+def _flagged_controversies(data_dir: Path, min_severity: str) -> set[str]:
+    """Tickers with a human-VERIFIED controversy at least as severe as `min_severity` (same rule as governance)."""
+    path = data_dir / "curated" / "controversies.csv"
+    if not path.exists():
+        return set()
+    df = pd.read_csv(path, dtype=str).fillna("")
+    rank = df["severity"].map(_SEVERITY_RANK).fillna(0)
+    return set(df[(df["status"] == "verified") & (rank >= _SEVERITY_RANK.get(min_severity, 3))]["ticker"])
 
 def _load_check() -> Callable:
     """The governance check. Imported lazily: the optimizer works without it until it has to verify."""
@@ -270,6 +282,15 @@ def optimize(rt: RiskTools, w0: dict, profile: dict, rules_path: str | Path = DE
                 rows.add("exclusion", f"exclusion:{ex['value']}", mask, 0.0,
                          f"the exclusion of {ex['value']} assets")
 
+    # A "no controversies" profile never holds a directly held company with a VERIFIED controversy of that severity:
+    # the optimizer sets its weight to 0 instead of failing at the governance check (ETF look-through stays a WARN).
+    for ex in profile.get("exclusions", []):
+        if ex.get("type") == "controversy":
+            hit = _flagged_controversies(Path(data_dir), ex.get("min_severity", "major"))
+            mask = np.array([1.0 if (c in hit and cls[i] == "equity") else 0.0 for i, c in enumerate(cands)])
+            if mask.any():
+                rows.add("exclusion", "exclusion:controversy", mask, 0.0,
+                         "the exclusion of companies with a verified controversy")
     for hr in rules.get("horizon_rules", []):
         if horizon_min is not None and horizon_min < hr["when"]["horizon_years_max_lt"]:
             if "max_weight_high_vol_assets" in hr:
@@ -344,7 +365,7 @@ def optimize(rt: RiskTools, w0: dict, profile: dict, rules_path: str | Path = DE
             "Historical covariance of daily CAD returns (x252) up to as_of.",
             "ETF holdings are the CURRENT composition applied to all dates.",
             "Thresholds come from rules.yaml and are team assumptions, not regulatory standards.",
-            "Controversy and ESG-activity exclusions are not modelled: the governance verdict reports them.",
+            "Directly held companies with a verified controversy get weight 0. ESG-activity exclusions and controversial companies held through ETFs are not modelled: the governance verdict reports them.",
             f"Numerical margin of {EPS} inside every cap; weights rounded to 4 decimals.",
             "Past performance does not predict future results.",
         ],

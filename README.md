@@ -48,7 +48,7 @@ cd backend && AF_INTAKE_MODE=mock ../.venv/bin/python -m uvicorn app.api.app:app
 ```
 
 Open http://127.0.0.1:8000. The first log line says which sign-in mode the API runs in, and the page follows it.
-A new user sets up the profile one question at a time (or fills it from a PDF / Word file AlphaForge reads), and
+A new user sets up the profile one question at a time , and
 asks questions in a chat. The home page is **My portfolio**: once a profile is saved, AlphaForge builds a simulated portfolio from it (about a
 minute) and shows it as a dashboard whose level of detail follows the user's experience.
 `AF_INTAKE_MODE=bedrock` (with the `.env` keys) uses the real Claude Haiku intake. Each question runs the
@@ -74,8 +74,8 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev,bedrock,api]"
 .venv/bin/python -m app.entrypoint                      # AgentCore Runtime entrypoint on :8080
 .venv/bin/python scripts/show_run.py                    # pipeline trace of the latest run
 
-# Optional long-term memory (L17): create once, then export AF_MEMORY_ID=<id>
-.venv/bin/python scripts/setup_memory.py
+# Optional long-term memory (L17): create once (idempotent); --write-env puts AF_MEMORY_ID in .env
+.venv/bin/python scripts/agentcore_memory.py create --write-env
 ```
 
 Every tool call the agent makes is recorded as evidence in `data/runs/<run_id>.jsonl`
@@ -122,6 +122,22 @@ python -m app.market.refresh --mode midday --system-certs       # Windows behind
   graph is built in memory, from `data/market/` or, failing that, from the curated metrics.
 - **Source**: Yahoo Finance via yfinance, an unofficial and unlicensed feed (prototype only); it is isolated in
   `app.market.refresh.download`, to be swapped for a licensed feed in production.
+
+## Projections and volatility forecasts (box ⑥)
+
+- **Range of outcomes, not a forecast**: `app/quant/projection.py` simulates monthly paths of a portfolio with the
+  expected returns of the FP Canada / Institute of Financial Planning **2026 Projection Assumption Guidelines**
+  (`backend/app/core/projection_assumptions.yaml`; gold and crypto use labelled team assumptions) and reports the
+  P10–P90 range, nominal and after inflation, the chance of ending below the start and the drawdowns. Questions like
+  "how much could my portfolio be worth in 5 years?" route to the `projection` task (risk sub-agent).
+- **Risk forecast**: a GARCH(1,1) batch job on SageMaker AI Processing (`docs/garch_job.md`) forecasts each asset's
+  volatility; the projection uses it for year 1 and `vol_forecast` says whether risk is rising, stable or easing.
+
+```bash
+.venv/bin/python scripts/run_garch_sagemaker.py --local --run-backtest     # data/curated/vol_forecast.csv
+curl -X POST localhost:8000/v1/projection -H 'X-Actor-Id: robert' -H 'content-type: application/json' \
+     -d '{"weights": {"XIU.TO": 0.6, "XBB.TO": 0.4}, "start_value": 100000, "horizon_years": 10}'   # AF_AUTH_MODE=dev
+```
 
 ## News alerts by text message (Amazon SNS)
 
