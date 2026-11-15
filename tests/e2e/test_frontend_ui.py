@@ -381,9 +381,12 @@ def test_detail_level_follows_experience_and_can_be_changed(page, base_url):
     assert max(off) < 1.5                                                         # each label centred in its cell
     assert page.locator("text=500 large US companies").count() >= 1             # plain words for a beginner
     assert page.locator("text=Each holding's history").count() == 0
+    simple = page.inner_text(".hero-card__answer")
+    assert simple.startswith("Your money is spread over 4 investments") and "SPY" not in simple
     page.click("label.seg-control__option:has-text('Detailed')")
     page.wait_for_selector("text=Each holding's history")
     assert page.locator("text=Largest single position").count() == 1             # technical names when detailed
+    assert page.inner_text(".hero-card__answer").startswith("Weights: SPY 34.8%")   # the summary follows the level
     page.click("a.nav__link:has-text('Ask a question')")
     page.click("a.nav__link:has-text('My portfolio')")
     page.wait_for_selector(".hero-card")

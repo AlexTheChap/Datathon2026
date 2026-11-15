@@ -65,3 +65,27 @@ test("a run QUEUED for minutes is a plan-only server, not a run in progress", ()
   assert.equal(d.inProgress({ status: "QUEUED", created_at: "2026-11-15T11:50:00Z" }, now), false);
   assert.equal(d.inProgress({ status: "DONE", created_at: "2026-11-15T11:59:59Z" }, now), false);
 });
+
+test("the summary at the top is written for the level, and explains the idea when the person wants to learn", () => {
+  const p = d.extractPortfolio(run, records);
+  const base = { weights: p.weights, universe, governance: p.governance, vol: 0.091, profile: { risk_band: "moderate", horizon_years: 10 } };
+  const simple = d.heroSummary({ ...base, level: "simple" });
+  const standard = d.heroSummary({ ...base, level: "standard" });
+  const detailed = d.heroSummary({ ...base, level: "detailed" });
+  assert.match(simple.text, /500 large US companies \(35%\)/);           // plain names, no tickers
+  assert.doesNotMatch(simple.text, /SPY|volatility|PASS/);
+  assert.match(standard.text, /largest is SPY .* 34\.8%/i);
+  assert.match(detailed.text, /SPY 34\.8%, XBB\.TO 30\.5%/);
+  assert.match(detailed.text, /Governance verdict: PASS/);
+  assert.equal(new Set([simple.text, standard.text, detailed.text]).size, 3);
+  for (const s of [simple, standard, detailed]) assert.match(s.text, /simulation, not advice/);
+  assert.equal(simple.learn, null);
+  assert.match(d.heroSummary({ ...base, level: "simple", learn: true }).learn, /bonds/);
+});
+
+test("a warning in the summary names the rule, in the level's words", () => {
+  const governance = { verdict: "WARN", checks: [{ id: "EXCLUSION_CONTROVERSY", status: "WARN" }, { id: "CRYPTO", status: "PASS" }] };
+  const args = { weights: { SPY: 0.6, "XBB.TO": 0.4 }, universe, governance };
+  assert.match(d.heroSummary({ ...args, level: "simple" }).text, /one point to keep an eye on: no company with a major controversy/);
+  assert.match(d.heroSummary({ ...args, level: "detailed" }).text, /Controversy exclusion: WARN/);
+});

@@ -242,6 +242,66 @@ export function fitScore(governance, contribution) {
   return { score, band, why };
 }
 
+/* ---------- The summary at the top, in the words of each level ---------- */
+
+const RISK_WORDS = { low: "low", low_moderate: "low-to-moderate", moderate: "moderate", high: "high" };
+const pctText = (v, digits = 0) => `${(v * 100).toFixed(digits).replace(/\.0$/, "")}%`;
+const listText = (xs) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
+
+/**
+ * The portfolio told in a few sentences, written here from the same numbers as the charts, so it follows the level
+ * (simple, standard, detailed) the moment it changes. The Explainer's text, written once at build time, can't.
+ * `learn` (wants to learn, not detailed) adds one sentence that explains the idea behind the numbers.
+ * Returns { text, learn }: learn is null when the person didn't ask to learn.
+ */
+export function heroSummary({ level, learn = false, weights, universe = {}, governance, vol = null, profile = {} }) {
+  const holdings = sortedWeights(weights);
+  const split = Object.fromEntries(classSplit(weights, universe).map((g) => [g.key, g.value]));
+  const stocks = split.stocks || 0; const bonds = split.bonds || 0;
+  const plain = (t) => (universe[t] || {}).plain || t;
+  const verdict = (governance && governance.verdict) || "UNVERIFIED";
+  const flagged = ((governance && governance.checks) || []).filter((c) => c.status === "WARN" || c.status === "BLOCK" || c.status === "UNVERIFIED");
+  const risk = RISK_WORDS[profile.risk_band];
+  const years = Number(profile.horizon_years) || null;
+  const out = [];
+
+  if (level === "simple") {
+    const top = holdings.slice(0, 2).map(([t, w]) => `${plain(t)} (${pctText(w)})`);
+    out.push(`Your money is spread over ${holdings.length} investment${holdings.length === 1 ? "" : "s"}, mostly ${listText(top)}.`);
+    if (stocks || bonds) out.push(`About ${pctText(stocks)} is in stocks and ${pctText(bonds)} in bonds${risk ? `, a mix chosen for your ${risk} risk level` : ""}.`);
+    if (vol) out.push(`In a typical year, its value could go up or down by about ${pctText(vol)}.`);
+    out.push({ PASS: "It respects every rule in your profile.",
+      WARN: `It fits your profile, with ${flagged.length === 1 ? "one point" : "a few points"} to keep an eye on: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
+      BLOCK: `It breaks a rule of your profile: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
+    }[verdict] || "Some rules of your profile couldn't be checked.");
+  } else if (level === "standard") {
+    const [t0, w0] = holdings[0] || [];
+    out.push(`${holdings.length} holding${holdings.length === 1 ? "" : "s"}: ${pctText(stocks)} stocks and ${pctText(bonds)} bonds`
+      + `${risk ? `, for a ${risk} risk level` : ""}${years ? ` over ${years} year${years === 1 ? "" : "s"}` : ""}.`);
+    if (t0) out.push(`The largest is ${t0} (${plain(t0)}), at ${pctText(w0, 1)}.`);
+    if (vol) out.push(`Volatility: about ${pctText(vol, 1)} a year, measured on the last 5 years.`);
+    out.push({ PASS: "It passes every check of your profile.",
+      WARN: `It passes, with a warning on: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
+      BLOCK: `It is blocked by: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`,
+    }[verdict] || `Not every check could be run: ${listText(flagged.map((c) => checkName(c.id).toLowerCase()))}.`);
+  } else {
+    out.push(`Weights: ${holdings.map(([t, w]) => `${t} ${pctText(w, 1)}`).join(", ")}.`);
+    out.push(`Asset classes: ${pctText(stocks, 1)} equity, ${pctText(bonds, 1)} fixed income`
+      + `${risk ? `; risk band ${risk}` : ""}${years ? `, horizon ${years} y` : ""}.`);
+    if (vol) out.push(`Annualised volatility ${pctText(vol, 1)} (5 years of daily returns, CAD).`);
+    const n = ((governance && governance.checks) || []).length;
+    out.push(`Governance verdict: ${verdict}${n ? ` on ${n} check${n === 1 ? "" : "s"}` : ""}`
+      + `${flagged.length ? ` (${flagged.map((c) => `${checkName(c.id, true)}: ${c.status}`).join("; ")})` : ""}.`);
+  }
+  out.push("This is a simulation, not advice.");
+
+  const why = !learn ? null
+    : bonds >= 0.05 && stocks >= 0.05 ? "stocks can grow more over time but swing more; bonds grow slowly and steady the whole. The more risk you accept, the bigger the share of stocks."
+    : stocks >= 0.95 ? "this portfolio is almost all stocks: it can grow more over time, but its value can drop a lot in a bad year."
+    : "bonds grow slowly but move little, so they protect your money more than stocks do.";
+  return { text: out.join(" "), learn: why };
+}
+
 /* ---------- How much detail ---------- */
 
 export const LEVELS = ["simple", "standard", "detailed"];
