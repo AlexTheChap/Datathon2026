@@ -85,7 +85,7 @@ The full table, with retrieval dates, coverage, processing, limitations and term
 | S&P 500 extension (~490 companies, prices only) | Yahoo Finance, current SPY constituents | More investable companies (strong survivorship bias) |
 | ETF holdings (SPY, XIU.TO, QQQ, ESGV) | State Street, iShares Canada, SEC N-PORT | Looking inside funds (concentration, sectors, exclusions) |
 | ESG index screen | Derived from ETF holdings: SPY vs ESGV, XIU vs XCSR / XESG | ESG preference signal |
-| Exclusion list | NBIM, observation and exclusion of companies (via the OpenSanctions dataset `no_nbim_exclusions`), plus manual additions with their own public source (e.g. ExxonMobil's 2025 10-K, Note 7) | `esg_flags.json`: shown in the chat, and excluded for profiles with an ESG limit |
+| Exclusion list | NBIM, observation and exclusion of companies (via the OpenSanctions dataset `no_nbim_exclusions` | `esg_flags.json` |
 | Controversies | NBIM conduct criteria; 10-K excerpts checked word for word, then human-reviewed | Controversy exclusion rule |
 | Company financials | SEC EDGAR XBRL company facts (10-K, 10-Q, 40-F) | Fundamentals sub-agent |
 | News | SEC 8-K filings and central bank rate decisions | News sub-agent and SMS alerts |
