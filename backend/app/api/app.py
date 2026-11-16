@@ -6,7 +6,6 @@
     GET  /v1/runs/{run_id}/evidence → the run's evidence ledger (every tool call: inputs, output, source)
     GET  /v1/runs/{run_id}/evidence/catalog → what the answer can cite, as the page shows it (id, plain
                             title, say, readable period and sources, assumptions); profile-rule verdicts left out
-    GET  /v1/runs/{run_id}/replay   → the run's portfolios replayed day by day over the 2022 crisis (dashboard)
     GET  /v1/profile        → the stored profile
     POST /v1/profile/draft[/file] → profile fields read from the person's text or a PDF / Word file (onboarding)
     PUT  /v1/profile        → save the profile form
@@ -150,9 +149,6 @@ def create_app(service: Optional[ApiService] = None) -> FastAPI:
     def list_runs(limit: int = 50, actor_id: str = Depends(actor_id_from)) -> list[RunSummary]:
         return svc.list_runs(actor_id, max(1, min(limit, 200)))
 
-    @api.get("/v1/runs/{run_id}/replay")
-    def get_replay(run_id: str, actor_id: str = Depends(actor_id_from)) -> dict[str, Any]:
-        return svc.get_replay(actor_id, run_id)
 
     @api.get("/v1/runs/{run_id}/evidence")
     def get_evidence(run_id: str, actor_id: str = Depends(actor_id_from)) -> list[dict[str, Any]]:

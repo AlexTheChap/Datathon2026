@@ -291,6 +291,12 @@ def optimize(rt: RiskTools, w0: dict, profile: dict, rules_path: str | Path = DE
             if mask.any():
                 rows.add("exclusion", "exclusion:controversy", mask, 0.0,
                          "the exclusion of companies with a verified controversy")
+    # Same profile, same rule as governance (app.tools.esg_flags): every ticker on an exclusion list gets weight 0.
+    from app.tools.esg_flags import esg_exclusion_applies, excluded_by_flags
+    esg_excluded = excluded_by_flags(cands, data_dir) if esg_exclusion_applies(profile) else {}
+    if esg_excluded:
+        mask = np.array([1.0 if c in esg_excluded else 0.0 for c in cands])
+        rows.add("exclusion", "exclusion:esg_flags", mask, 0.0, "the exclusion of companies on an exclusion list")
     for hr in rules.get("horizon_rules", []):
         if horizon_min is not None and horizon_min < hr["when"]["horizon_years_max_lt"]:
             if "max_weight_high_vol_assets" in hr:
@@ -346,6 +352,8 @@ def optimize(rt: RiskTools, w0: dict, profile: dict, rules_path: str | Path = DE
         moves = ", ".join(f"{c} {w0n.get(c, 0.0):.1%} -> {ordered.get(c, 0.0):.1%}" for c in biggest)
         say = ("Smallest adjustment found that satisfies the profile's rules: "
                + (moves if moves else "no change needed") + ".")
+        if esg_excluded:
+            say += f" Left out because of your ESG limit: {', '.join(esg_excluded)}."
         output = {"status": STATUS_OK, "weights": ordered, "requested_weights": w0n, "changes": changes,
                   "active_constraints": _active(rows, last_x), "verification": verification}
     else:
@@ -353,8 +361,14 @@ def optimize(rt: RiskTools, w0: dict, profile: dict, rules_path: str | Path = DE
         output = {"status": STATUS_INFEASIBLE, "weights": {}, "requested_weights": w0n, "changes": {},
                   "active_constraints": [], "verification": verification,
                   "reason": failure, "explanation": message, "conflicting_constraints": conflicts}
+    # Each ticker removed by the ESG limit, with its reason and source number (dashboard and Explainer say why).
+    output["esg_excluded"] = [{"ticker": t, "reason": f["reason"], "source": f["source"], "source_name": f["source_name"],
+                               **({"since": f["since"]} if f.get("since") else {})}
+                              for t, fl in esg_excluded.items() for f in fl]
     idx = view.rets.index
     sources = SOURCES + ["assets_universe.csv"] + (["etf_holdings.csv"] if view.holdings else [])
+    if esg_excluded:
+        sources = sources + ["esg_flags.json (exclusion list)"]
     return {
         "evidence_id": _eid("optimize", inputs), "tool": "optimize", "inputs": inputs, "output": output,
         "say": say, "currency": "CAD",
@@ -367,8 +381,9 @@ def optimize(rt: RiskTools, w0: dict, profile: dict, rules_path: str | Path = DE
             "Risk comes from how the holdings moved together in the past, in Canadian dollars, up to the analysis date.",
             "Funds are looked at through the companies they hold today.",
             "These limits are guidelines to help keep your portfolio diversified. They are not regulatory requirements.",
-            "Companies you hold directly that have a confirmed controversy are left out. Excluded activities and "
-            "controversial companies held inside funds are not removed here: the profile check reports them.",
+            "Companies you hold directly that have a confirmed controversy are left out. With an ESG limit, every "
+            "company on an exclusion list is left out too. Excluded activities and controversial companies held "
+            "inside funds are not removed here: the profile check reports them.",
             "Weights stay slightly inside every limit and are rounded to 0.01%.",
             "Past performance does not predict future results.",
         ],

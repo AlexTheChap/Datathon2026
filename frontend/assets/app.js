@@ -26,7 +26,7 @@ const AGENT_ORDER = ["risk", "macro_scenarios", "esg", "fundamentals", "news", "
 
 const TASKS = {
   risk_review: "risk review",
-  scenario_analysis: "scenario question",
+  scenario_analysis: "interest-rate question",
   allocation_proposal: "allocation proposal",
   esg_screen: "ESG screen",
   fundamentals_review: "fundamentals review",
@@ -572,7 +572,7 @@ function renderAsk(main) {
   }
 
   const welcome = () => h("div", { class: "chat__welcome" },
-    h("span", { class: "msg__avatar msg__avatar--lg", "aria-hidden": "true" }, "A"),
+    h("span", { class: "msg__avatar msg__avatar--lg", "aria-hidden": "true" }, h("img", { src: "assets/fitfolio-logo-circle.svg", alt: "", width: 32, height: 32 })),
     h("h2", null, "What would you like to know?"),
     h("p", { class: "lede" }, "Ask in your own words. Fitfolio picks the analyses, checks the result against your profile, and shows every source."),
     h("div", { class: "examples", role: "group", "aria-label": "Example questions. Picking one fills the box; nothing is sent until you press Ask." },
@@ -640,7 +640,7 @@ function renderAsk(main) {
   const you = (text) => h("div", { class: "msg msg--user" },
     h("div", { class: "msg__bubble" }, h("span", { class: "visually-hidden" }, "You asked: "), text));
   const ai = (...content) => h("div", { class: "msg msg--ai" },
-    h("span", { class: "msg__avatar", "aria-hidden": "true" }, "A"),
+    h("span", { class: "msg__avatar", "aria-hidden": "true" }, h("img", { src: "assets/fitfolio-logo-circle.svg", alt: "", width: 32, height: 32 })),
     h("div", { class: "msg__body" }, h("span", { class: "visually-hidden" }, "Fitfolio: "), content));
 
   function renderTurn(turn) {

@@ -122,7 +122,7 @@ def optimize(weights: dict[str, float], candidates: list[str] | None = None) -> 
 @tool
 def governance_check(weights: dict[str, float]) -> dict:
     """Checks an allocation against the investor's profile and the documented
-    rules (rules.yaml): crisis-scenario loss limits, single position, sector,
+    rules (rules.yaml): single position, sector,
     crypto, horizon, exclusions (ESG, controversies).
     Returns an overall PASS / WARN / BLOCK verdict with every check detailed.
     Args:

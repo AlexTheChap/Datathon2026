@@ -291,7 +291,7 @@ def test_answer_with_checks_evidence_and_glossary(page, base_url):
     first_chip = page.locator(".answer__short .chip").first
     first_chip.click()
     target = page.locator(".evidence-item.is-focus")
-    assert target.count() == 1 and "In 2022" in target.inner_text()           # chip 1 = the 2022 replay
+    assert target.count() == 1 and "NVDA makes up 20%" in target.inner_text()  # chip 1 = the risk contribution
     assert page.locator("text=Everything else this analysis measured").count() == 1
     assert "ev-" not in page.locator("#evidence-section").inner_text()            # ids are never printed
     assert page.errors == []
@@ -429,7 +429,7 @@ def test_what_if_sliders_rescore_the_mix_live_and_keep_100_percent(page, base_ur
     assert "−" in text and ("Risk level" in text or "Stocks and bonds" in text)
     # Improve my score: a closer fit, each change said; "Try this mix" loads it into the sliders.
     low = int(page.inner_text(".whatif__result .hero-card__figure").rstrip("%"))
-    page.click("button:has-text('Improve my score')")
+    page.click(".whatif__result button:has-text('Improve my score')")
     page.wait_for_selector(".whatif__suggest >> text=A closer fit to your profile")
     jump = page.inner_text(".whatif__jump")
     assert jump.startswith(f"{low}%") and "Moved the share in stocks" in page.inner_text(".whatif__suggest")
@@ -480,7 +480,8 @@ def test_a_better_mix_from_the_what_if_becomes_my_portfolio(page, base_url):
     page.wait_for_selector("text=The portfolio you have", timeout=15000)
     page.wait_for_selector(".whatif__result .hero-card__figure")
     assert page.locator("button:has-text('Make this my portfolio')").count() == 0     # same mix: nothing to adopt
-    page.click("button:has-text('Improve my score')")
+    page.click(".page-head__actions button:has-text('Improve my score')")             # the top button: no AI run,
+    page.wait_for_selector(".whatif__suggest >> text=A closer fit to your profile")  # the what-if's suggestion
     page.click("button:has-text('Try this mix')")
     note = page.locator(".whatif__note >> text=The suggested mix is in the sliders")
     note.wait_for()
@@ -491,6 +492,16 @@ def test_a_better_mix_from_the_what_if_becomes_my_portfolio(page, base_url):
     actor = page.evaluate("JSON.parse(localStorage.getItem('af.actor'))")
     saved = SERVICE.get_profile(actor)
     assert saved.portfolio_run_id.startswith("chosen:") and saved.portfolio != saved.holdings == {"QQQ": 1.0}
+    chosen = dict(saved.portfolio)
+    # Improving again only suggests: the chosen mix stays the portfolio until "Make this my portfolio".
+    page.click(".page-head__actions button:has-text('Improve my score')")
+    page.wait_for_selector(".whatif__suggest:not(:empty)")
+    page.click("a.nav__link:has-text('Ask a question')")                             # leave and come back
+    page.click("a.nav__link:has-text('My portfolio')")
+    page.wait_for_selector("text=The mix you chose", timeout=15000)
+    assert SERVICE.get_profile(actor).portfolio == chosen
+    assert not any(r.request.user_message.startswith("Rebalance my portfolio")      # no "Optimize" AI run was started
+                   for r in SERVICE.runs.list_for_actor(actor))
     # What they actually hold is one click away.
     page.click("label:has-text('My actual portfolio')")
     page.wait_for_selector("text=The portfolio you have")
@@ -565,7 +576,8 @@ def test_i_already_have_a_portfolio(page, base_url):
     assert "Total: 100%" in dialog.inner_text()
     page.click("dialog button:has-text('Generate portfolio')")
     page.wait_for_selector("text=The portfolio you have", timeout=15000)          # analysed as is, nothing built
-    assert page.locator("button:has-text('Optimize my portfolio')").count() == 1
+    assert page.locator(".page-head__actions button:has-text('Improve my score')").count() == 1
+    assert page.locator("button:has-text('Optimize my portfolio')").count() == 0
     assert page.locator("dialog[open]").count() == 0
     actor = page.evaluate("JSON.parse(localStorage.getItem('af.actor'))")
     assert SERVICE.get_profile(actor).holdings == {"XIU.TO": 0.6, "XBB.TO": 0.4}

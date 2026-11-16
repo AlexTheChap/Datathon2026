@@ -39,13 +39,13 @@ def make_run(make_profile, task="allocation_proposal", **profile_overrides):
 
 
 GOOD = {
-    "short_answer": "A 20% Nvidia position is blocked: the 2022 replay's worst point is -24.2%, past the -15% limit.",
-    "short_answer_evidence": ["ev-c5f01b9379", "ev-9de6c73e44"],
+    "short_answer": "A 20% Nvidia position is blocked: Nvidia would be 20% of the money but about 78% of the risk.",
+    "short_answer_evidence": ["ev-4a54cab2ec", "ev-5f0c1a9d27"],
     "key_points": [{"text": "Nvidia is 20% of the weight but about 78% of the risk.", "evidence": ["ev-4a54cab2ec"]},
-                   {"text": "That mix would have lost about $96,712 on $400,000 at its worst point.", "evidence": ["ev-c5f01b9379"]}],
-    "checks": [{"allocation": "Your idea: Nvidia at 20%", "verdict": "BLOCK", "text": "Stress loss -21.1% vs -15%.",
-                "evidence": ["ev-9de6c73e44"]}],
-    "limitations": [{"text": "Only one crisis, 2022, is in the data.", "evidence": []}],
+                   {"text": "Its worst drop was -63.5%, for a volatility of about 51% a year.", "evidence": ["ev-0f122ab549"]}],
+    "checks": [{"allocation": "Your idea: Nvidia at 20%", "verdict": "BLOCK", "text": "High-volatility holdings 20% vs a 5% limit.",
+                "evidence": ["ev-5f0c1a9d27"]}],
+    "limitations": [{"text": "Past results do not predict future returns.", "evidence": []}],
     "glossary": [{"term": "Maximum drawdown", "meaning": "The biggest fall from a peak."}],
     "clarifying_question": None,
 }
@@ -80,15 +80,15 @@ def run_explain(run, client, orchestrator=None, records=LEDGER):
 # ---------- Evidence catalogue ----------
 
 def test_catalogue_finds_nested_ids_the_ledger_list_misses(catalog):
-    for cited in ("ev-9de6c73e44", "ev-aae1dc8931", "ev-5173e5ad06"):  # cited by the real answer, only nested
-        assert cited in catalog and "MAX_STRESS_LOSS" in catalog[cited].say
-    assert catalog["ev-9de6c73e44"].parent == "E-015" or catalog["ev-9de6c73e44"].parent  # linked to its verdict
+    cited = "ev-5f0c1a9d27"                     # the evidence behind one check: only nested in the verdicts
+    assert cited in catalog and "SHORT_HORIZON_VOLATILITY" in catalog[cited].say
+    assert catalog[cited].parent in ("E-002", "E-015")                      # linked to its verdict
     assert {g.verdict for g in governance_items(catalog)} >= {"BLOCK", "PASS"}
 
 
 def test_model_view_has_no_raw_series(catalog):
     view = json.dumps([i.for_model() for i in catalog.values()])
-    assert len(view) < 40_000 and "ev-c5f01b9379" in view
+    assert len(view) < 40_000 and "ev-4a54cab2ec" in view
 
 
 # ---------- Claim check ----------
@@ -102,21 +102,21 @@ def test_backed_claims_pass_and_invented_ones_fail(catalog):
     ctx = context_numbers({"capital": 400000}, {"user_message": "20% in Nvidia"})
     issues, unknown = check(draft(), catalog, ctx)
     assert issues == [] and unknown == 0
-    bad = draft(key_points=[{"text": "Nvidia returned +35% in 2022.", "evidence": ["ev-c5f01b9379"]}])
+    bad = draft(key_points=[{"text": "Nvidia returned +35% last year.", "evidence": ["ev-0f122ab549"]}])
     issues, _ = check(bad, catalog, ctx)
     assert [i.section for i in issues] == ["key_points"] and "35%" in issues[0].reason
 
 
 def test_unknown_ids_and_wrong_verdicts_are_caught(catalog):
     d = draft(key_points=[{"text": "Volatility is 51% a year.", "evidence": ["ev-0000000000"]}],
-              checks=[{"allocation": "Your idea", "verdict": "PASS", "text": "Fine.", "evidence": ["ev-9de6c73e44"]}])
+              checks=[{"allocation": "Your idea", "verdict": "PASS", "text": "Fine.", "evidence": ["ev-5f0c1a9d27"]}])
     issues, unknown = check(d, catalog, set())
     reasons = " | ".join(i.reason for i in issues)
     assert unknown == 1 and "does not exist" in reasons and "51%" in reasons and "says PASS" in reasons
 
 
 def test_a_check_citing_a_detail_inherits_its_verdict(catalog):
-    """Citing the stress check inside a governance result counts as citing that result's verdict."""
+    """Citing one check inside a governance result counts as citing that result's verdict."""
     issues, _ = check(draft(), catalog, set())
     assert not [i for i in issues if i.section == "checks"]
 
@@ -158,7 +158,7 @@ def test_request_sent_to_bedrock(make_profile):
 
 
 def test_retry_reuses_the_cached_payload_unchanged(make_profile):
-    bad = draft(key_points=[{"text": "Nvidia returned +35% in 2022.", "evidence": ["ev-c5f01b9379"]}])
+    bad = draft(key_points=[{"text": "Nvidia returned +35% last year.", "evidence": ["ev-0f122ab549"]}])
     client = FakeClient(bad, draft())
     run_explain(make_run(make_profile), client)
     assert client.calls[0]["messages"][0]["content"] == client.calls[1]["messages"][0]["content"]
@@ -166,7 +166,7 @@ def test_retry_reuses_the_cached_payload_unchanged(make_profile):
 
 
 def test_retry_fixes_the_answer(make_profile):
-    bad = draft(key_points=[{"text": "Nvidia returned +35% in 2022.", "evidence": ["ev-c5f01b9379"]}])
+    bad = draft(key_points=[{"text": "Nvidia returned +35% last year.", "evidence": ["ev-0f122ab549"]}])
     client = FakeClient(bad, draft())
     answer = run_explain(make_run(make_profile), client)
     assert len(client.calls) == 2 and answer.verification.retried and answer.verification.removed == []
@@ -175,8 +175,8 @@ def test_retry_fixes_the_answer(make_profile):
 
 
 def test_what_still_fails_after_the_retry_is_removed(make_profile):
-    bad = draft(short_answer="Nvidia soared in 2022, up 312%.",
-                key_points=GOOD["key_points"] + [{"text": "It returned +35%.", "evidence": ["ev-c5f01b9379"]}])
+    bad = draft(short_answer="Nvidia soared, up 312%.",
+                key_points=GOOD["key_points"] + [{"text": "It returned +35%.", "evidence": ["ev-0f122ab549"]}])
     answer = run_explain(make_run(make_profile), FakeClient(bad, bad))
     assert answer.short_answer == SHORT_ANSWER_REMOVED
     assert [p.text for p in answer.key_points] == [p["text"] for p in GOOD["key_points"]]
@@ -185,15 +185,15 @@ def test_what_still_fails_after_the_retry_is_removed(make_profile):
 
 def test_verdicts_never_disappear(make_profile):
     """If every written check fails, the verdicts come straight from the governance evidence."""
-    bad = draft(checks=[{"allocation": "x", "verdict": "PASS", "text": "Fine.", "evidence": ["ev-9de6c73e44"]}])
+    bad = draft(checks=[{"allocation": "x", "verdict": "PASS", "text": "Fine.", "evidence": ["ev-5f0c1a9d27"]}])
     answer = run_explain(make_run(make_profile), FakeClient(bad, bad))
     assert {c.verdict for c in answer.checks} == {"BLOCK", "PASS"}
 
 
 def test_inline_ids_are_moved_out_of_the_text(make_profile):
-    d = draft(short_answer="Blocked: worst point -24.2% vs -15% [ev-c5f01b9379] (ev-9de6c73e44).")
+    d = draft(short_answer="Blocked: high-volatility holdings 20% vs 5% [ev-4a54cab2ec] (ev-5f0c1a9d27).")
     answer = run_explain(make_run(make_profile), FakeClient(d))
-    assert answer.short_answer == "Blocked: worst point -24.2% vs -15%."
+    assert answer.short_answer == "Blocked: high-volatility holdings 20% vs 5%."
 
 
 @pytest.mark.parametrize("failure", [RuntimeError("bedrock down"), "refusal"])
@@ -257,7 +257,7 @@ def test_an_invented_percentage_is_not_backed_by_a_stray_number(catalog):
     """A plain "1" or "-1" somewhere in the evidence text used to back "up 100%"; only fractions in data fields
     and percentages written as such can back a percentage now."""
     ctx = context_numbers({"capital": 400000}, {"user_message": "20% in Nvidia"})
-    invented = draft(key_points=[{"text": "Nvidia was up 100% in that period.", "evidence": ["ev-c5f01b9379"]}])
+    invented = draft(key_points=[{"text": "Nvidia was up 100% in that period.", "evidence": ["ev-0f122ab549"]}])
     issues, _ = check(invented, catalog, ctx)
     assert [i.section for i in issues] == ["key_points"] and "100%" in issues[0].reason
     issues, _ = check(draft(), catalog, ctx)  # the real figures (fractions and "% in text") still pass

@@ -14,9 +14,8 @@ Outputs (CSV, in --out):
     returns_daily_local.csv   daily simple returns in listing currency
     macro_pit.csv             macro in long format + available_from column (point-in-time)
     macro_daily_asof.csv      macro in wide format, each value placed at its availability date
-    asset_risk_metrics.csv    per-asset risk metrics (full period and 2022)
+    asset_risk_metrics.csv    per-asset risk metrics (full period)
     correlation_full.csv      correlations of daily CAD returns, full period
-    correlation_2022.csv      2022-only correlations
     rate_sensitivity.csv      empirical rate sensitivity vs official duration
     quality_report.json       quality checks + processing decisions
 
@@ -218,8 +217,7 @@ def main():
 
     bench = {"spy": "SPY", "xiu": "XIU.TO"}
     met_full = asset_metrics(r_cad, bench, "2021-11-12_2026-11-12")
-    met_2022 = asset_metrics(r_cad.loc["2022-01-01":"2022-12-31"], bench, "2022")
-    metrics = pd.concat([met_full, met_2022], ignore_index=True)
+    metrics = met_full
     metrics.insert(2, "currency", "CAD")
     meta = uni.set_index("ticker")[["name", "asset_class", "sector", "currency"]] \
               .rename(columns={"currency": "listing_currency"})
@@ -245,7 +243,6 @@ def main():
     m_asof.to_csv(out / "macro_daily_asof.csv", index_label="date")
     metrics.round(6).to_csv(out / "asset_risk_metrics.csv", index=False)
     r_cad.corr().round(4).to_csv(out / "correlation_full.csv", index_label="ticker")
-    r_cad.loc["2022"].corr().round(4).to_csv(out / "correlation_2022.csv", index_label="ticker")
     rs.round(4).to_csv(out / "rate_sensitivity.csv", index=False)
     with open(out / "quality_report.json", "w", encoding="utf-8") as f:
         json.dump(quality_report(px, cal, filled, fx_out, m_pit, cnq), f,

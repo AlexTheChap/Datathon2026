@@ -248,16 +248,6 @@ class ApiService:
     def list_runs(self, actor_id: str, limit: int = 50) -> list[RunSummary]:
         return [RunSummary.from_run(self._expire_if_stale(r)) for r in self.runs.list_for_actor(actor_id, limit)]
 
-    # ----- GET /v1/runs/{run_id}/replay (dashboard "if 2022 happened again" chart) -----
-    def get_replay(self, actor_id: str, run_id: str) -> dict[str, Any]:
-        run = self.get_run(actor_id, run_id)
-        from app.api.replay import replay
-        from app.tools.quant_gateway import tools
-
-        capital = run.request.capital or run.profile.capital
-        return replay(self._ledger().records(run_id), capital, tools(),
-                      start="2022-01-03", end="2022-12-30")
-
     # ----- GET /v1/runs/{run_id}/evidence (ledger L15/L16: what the dashboard charts) -----
     def get_evidence(self, actor_id: str, run_id: str) -> list[dict[str, Any]]:
         self.get_run(actor_id, run_id)  # same ownership check: 404 for someone else's run

@@ -273,6 +273,7 @@ const CHECK_NAMES = {
   SHORT_HORIZON_VOLATILITY: { plain: "Not too many big-swing assets for your horizon", tech: "High-volatility weight (short horizon)" },
   SHORT_HORIZON_DEFENSIVE: { plain: "Enough steady assets for your horizon", tech: "Defensive weight (short horizon)" },
   EXCLUSION_CONTROVERSY: { plain: "No company with a major controversy", tech: "Controversy exclusion" },
+  EXCLUSION_ESG_FLAGS: { plain: "No company on an exclusion list", tech: "Exclusion lists" },
   ESG_INDEX_PREFERENCE: { plain: "Companies in an ESG index, as you prefer", tech: "ESG index preference" },
 };
 export function checkName(id, technical = false) {

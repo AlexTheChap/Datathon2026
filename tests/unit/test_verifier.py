@@ -4,8 +4,8 @@ from __future__ import annotations
 from app.agents.verifier import resolve_token, verify_answer
 
 EVIDENCE = {
-    "ev-3f2a91c0de": {"evidence_id": "ev-3f2a91c0de", "tool": "stress",
-                      "say": "In 2022, this portfolio would have returned -12.9% (worst point -21.1%).",
+    "ev-3f2a91c0de": {"evidence_id": "ev-3f2a91c0de", "tool": "metrics",
+                      "say": "Over the period, this portfolio returned -12.9% (worst drop -21.1%).",
                       "output": {"portfolio": {"total_return": -0.128, "max_drawdown": -0.2112},
                                  "loss_at_trough": -84232.4}},
     "ev-3f2a00aa11": {"evidence_id": "ev-3f2a00aa11", "tool": "governance_check", "say": "Verdict BLOCK",

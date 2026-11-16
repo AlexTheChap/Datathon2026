@@ -2,7 +2,7 @@
 
 "I'm thinking of putting 20% in Nvidia, everyone is talking about it." —
 Robert, conservative profile (low_moderate), 3-5 year horizon. The orchestrator
-must call the tools (governance, stress), identify the conflict with the profile
+must call the tools (governance, risk), identify the conflict with the profile
 and challenge the request instead of agreeing. Requires AWS credentials (Bedrock).
 
 Usage: .venv/bin/python scripts/smoke_orchestrator.py [--persona amira|mateo|robert]

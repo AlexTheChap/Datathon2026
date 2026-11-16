@@ -11,7 +11,11 @@ Source (non-commercial use only: this is a datathon prototype):
       date; the full export of the same dataset has both. If the download fails, the script says where to save
       the file by hand and stops.
 
-Refresh: re-run with --refresh. The JSON is rebuilt from the raw file every time.
+  [2..] Manual additions: data/external/esg_manual_flags.csv (maintained by hand). One row per flag: ticker, reason
+      (same wording rule), since, and the public document that supports it (source_name, source_url, source_as_of),
+      with the quoted passage in `evidence`. Each distinct document becomes the next numbered source.
+
+Refresh: re-run with --refresh. The JSON is rebuilt from the raw file and the manual additions every time.
 Names are mapped to tickers ONLY through data/external/esg_ticker_map.csv (maintained by hand, never guessed), and
 only tickers of the project universe (data/curated/assets_universe*.csv) are kept. Everything else is listed in
 data/external/esg_flags_unmapped.csv, to be resolved by hand.
@@ -33,6 +37,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw" / "esg"
 NBIM_RAW = RAW / "nbim_exclusions.ftm.json"
 MAP_CSV = ROOT / "data" / "external" / "esg_ticker_map.csv"
+MANUAL_CSV = ROOT / "data" / "external" / "esg_manual_flags.csv"
 UNMAPPED_CSV = ROOT / "data" / "external" / "esg_flags_unmapped.csv"
 OUT = ROOT / "data" / "curated" / "esg_flags.json"
 UNIVERSE = [ROOT / "data" / "curated" / "assets_universe.csv", ROOT / "data" / "curated" / "assets_universe_ext.csv"]
@@ -42,7 +47,7 @@ SOURCES = {
     "1": {"name": "NBIM – Observation and exclusion of companies", "url": "https://www.nbim.no/en/responsibility/exclusion-of-companies"},
 }
 # The reason is shown with a numbered citation ("... [1]"): it never names the source itself.
-SOURCE_TERMS = re.compile(r"norw|nbim|norges|gpfg|pension fund|sovereign wealth|opensanctions", re.I)
+SOURCE_TERMS = re.compile(r"norw|nbim|norges|gpfg|pension fund|sovereign wealth|opensanctions|10-k|form 10|annual report", re.I)
 CRITERION_FIXES = [(r"\binways\b", "in ways"), (r"\s*\bGPFG\s+", " ")]  # typo in the source; the fund's own name
 
 SUFFIXES = r"\b(the|inc|incorporated|corp|corporation|co|company|ltd|limited|plc|sa|ag|nv|se|asa|group|holdings?|cl [ab]|class [ab]|shares)\b"
@@ -115,6 +120,22 @@ def nbim_rows(path: Path) -> tuple[list[dict], str]:
     return rows, max(seen) if seen else ""
 
 
+def manual_rows(first_key: int) -> tuple[list[dict], dict]:
+    """The hand-maintained flags, each document numbered from `first_key` on. Rows already carry their ticker."""
+    if not MANUAL_CSV.is_file():
+        return [], {}
+    rows, sources, keys = [], {}, {}
+    for r in pd.read_csv(MANUAL_CSV, dtype=str, keep_default_na=False).itertuples(index=False):
+        doc = (r.source_name.strip(), r.source_url.strip())
+        if doc not in keys:
+            keys[doc] = str(first_key + len(keys))
+            sources[keys[doc]] = {"name": doc[0], "url": doc[1], "as_of": r.source_as_of.strip()}
+        rows.append({"source": keys[doc], "ticker": r.ticker.strip().upper(), "name": r.ticker.strip().upper(),
+                     "names": [], "reason": r.reason.strip(), "since": r.since.strip() or None,
+                     "detail": "manual addition"})
+    return rows, sources
+
+
 # ---------- Mapping ----------
 
 def read_map() -> dict[str, tuple[str, str]]:
@@ -138,7 +159,8 @@ def read_universe() -> dict[str, str]:
 def build(rows: list[dict], mapping: dict, universe: dict) -> tuple[dict, list[dict]]:
     companies, unmapped = {}, []
     for r in rows:
-        hit = next((mapping[norm(n)] for n in r["names"] if norm(n) in mapping), None)
+        hit = ((r["ticker"], "") if r.get("ticker")
+               else next((mapping[norm(n)] for n in r["names"] if norm(n) in mapping), None))
         if hit is None or hit[0] not in universe:
             unmapped.append({"source": r["source"], "company_name": r["name"], "detail": r["detail"],
                              "why": "no mapping" if hit is None else f"{hit[0]} is not in the project universe"})
@@ -164,9 +186,13 @@ def main() -> None:
         sys.exit(instructions())
     rows, as_of = nbim_rows(NBIM_RAW)
     sources = {"1": {**SOURCES["1"], "as_of": as_of}}
-    bad = sorted({r["reason"] for r in rows if SOURCE_TERMS.search(r["reason"])})
+    extra, extra_sources = manual_rows(first_key=2)
+    rows += extra
+    sources.update(extra_sources)
+    bad = sorted({r["reason"] for r in rows if SOURCE_TERMS.search(r["reason"])
+                  or not r["reason"].startswith(("Excluded because of ", "Under observation because of "))})
     if bad:
-        sys.exit(f"A reason names its source (fix CRITERION_FIXES): {bad}")
+        sys.exit(f"A reason breaks the wording rule (names its source, or no \"Excluded/Under observation because of\"): {bad}")
 
     companies, unmapped = build(rows, read_map(), read_universe())
     OUT.write_text(json.dumps({"generated_at": date.today().isoformat(), "sources": sources, "companies": companies},

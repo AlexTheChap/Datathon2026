@@ -52,7 +52,7 @@ flowchart TB
   %% ===== 2. API =====
   %% AWS: Lambda (container image from ECR, built by CodeBuild) + Function URL · FastAPI + Mangum.
   %%      Target: API Gateway HTTP API + Cognito JWT authorizer (not used: the API verifies tokens itself).
-  API["② API — Lambda Function URL (FastAPI, container image)<br/>POST /v1/runs → 202 run_id (or 200 question) · GET /v1/runs[/id, /evidence, /catalog, /replay]<br/>GET/PUT /v1/profile · POST /v1/profile/draft[/file] · GET/PUT /v1/notifications · DELETE /v1/account · GET /v1/me"]
+  API["② API — Lambda Function URL (FastAPI, container image)<br/>POST /v1/runs → 202 run_id (or 200 question) · GET /v1/runs[/id, /evidence, /catalog]<br/>GET/PUT /v1/profile · POST /v1/profile/draft[/file] · GET/PUT /v1/notifications · DELETE /v1/account · GET /v1/me"]
 
   %% ===== 3. Intake =====
   %% AWS: Bedrock (Claude Haiku, Converse API + structured outputs JSON Schema) · Guardrails (input) — runs in the API Lambda

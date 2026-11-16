@@ -167,6 +167,8 @@ def plain_check(c: dict) -> str:
     if cid == "SHORT_HORIZON_DEFENSIVE":
         return (f"you need the money within a few years, and only {_plain_pct(value)} is in bond funds, "
                 f"below the {_plain_pct(limit)} that steadies a short horizon")
+    if cid == "EXCLUSION_ESG_FLAGS":
+        return "it holds a company on an exclusion list, which your ESG limit rules out"
     if cid == "ESG_INDEX_PREFERENCE":
         return "some holdings are left out of a reference ESG index, which matters for your ESG preference"
     if cid.startswith("EXCLUSION"):
@@ -278,6 +280,17 @@ def check(weights: dict, profile: dict, rules_path: str | Path, rt, data_dir: st
             else:
                 add(f"EXCLUSION_{ex['type'].upper()}", "UNVERIFIED", None, None, "exclusions",
                     detail="This exclusion can't be checked yet, so it can't be confirmed.")
+
+    # 6b. Exclusion lists (app.tools.esg_flags): with an ESG limit, no flagged ticker may be held directly.
+    # The optimizer applies the same rule (weight 0), so a mix it builds never fails here and vice versa.
+    from app.tools.esg_flags import esg_exclusion_applies, excluded_by_flags, flag_text, flags_available
+    if esg_exclusion_applies(profile) and not flags_available(data_dir):
+        add("EXCLUSION_ESG_FLAGS", "UNVERIFIED", None, None, "exclusions",
+            detail="The exclusion list is unavailable, so this can't be confirmed.")
+    elif esg_exclusion_applies(profile):
+        flagged = excluded_by_flags([k for k, v in w.items() if v > 0], data_dir)
+        add("EXCLUSION_ESG_FLAGS", sev["exclusions"] if flagged else "PASS", sorted(flagged), [], "exclusions",
+            detail=flag_text(flagged) if flagged else "None of the holdings is on an exclusion list.")
 
     # 7. ESG preference (signal, never blocking): positions left out by a reference ESG index
     cfg = rules.get("esg_index_screen")

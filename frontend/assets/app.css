@@ -838,9 +838,11 @@ summary { cursor: pointer; font-weight: var(--weight-mid); min-height: 44px; dis
 .msg--user { justify-content: flex-end; }
 .msg__bubble { max-width: min(36rem, 85%); background: var(--color-slate); color: var(--color-surface); padding: var(--space-sm) var(--space-md);
   border-radius: 18px 18px 4px 18px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
-.msg__avatar { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--color-accent);
-  color: var(--color-accent-ink); font-weight: var(--weight-strong); font-size: var(--text-sm); margin-block-start: 2px; }
-.msg__avatar--lg { width: 48px; height: 48px; font-size: var(--text-lg); }
+/* The Fitfolio logo on the red disc (fitfolio-logo-circle.svg: white arrow), same colours in every theme. */
+.msg__avatar { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: #E41C23;
+  margin-block-start: 2px; }
+.msg__avatar img { width: 72%; height: 72%; display: block; }
+.msg__avatar--lg { width: 48px; height: 48px; }
 .msg__body { flex: 1; min-width: 0; display: grid; gap: var(--space-sm); background: var(--color-surface); color: var(--color-ink);
   border-radius: 4px 18px 18px 18px; padding: var(--space-md) var(--space-lg); }
 .thinking { display: flex; align-items: center; gap: var(--space-sm); color: var(--color-ink-2); min-height: 28px; }
@@ -885,15 +887,16 @@ summary { cursor: pointer; font-weight: var(--weight-mid); min-height: 44px; dis
 .fab { position: fixed; right: var(--space-lg); bottom: var(--space-lg); z-index: 30; display: flex; align-items: center; text-decoration: none;
   animation: af-pop 420ms var(--ease-out) both; }
 .fab[hidden] { display: none; }
-.fab__mark { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: var(--color-accent);
-  color: var(--color-accent-ink); font-size: var(--text-xl); font-weight: var(--weight-strong); box-shadow: var(--shadow-lift);
+.fab__mark { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: #E41C23;
+  box-shadow: var(--shadow-lift); /* the logo (white-arrow variant) keeps its colours in every theme */
   transition: transform 200ms var(--ease-out), background-color var(--dur-micro) var(--ease); }
 .fab__label { position: absolute; right: calc(100% + var(--space-xs)); white-space: nowrap; padding: var(--space-2xs) var(--space-sm);
   border-radius: var(--radius-field); background: var(--color-ink); color: var(--color-surface); font-size: var(--text-sm);
   pointer-events: none; transition: opacity 200ms var(--ease), transform 200ms var(--ease-out); }
 .js .fab__label { opacity: 0; transform: translateX(6px); } /* a tooltip once scripts run; visible without them */
 .fab:hover { text-decoration: none; }
-.fab:hover .fab__mark { transform: scale(1.08); background: var(--color-accent-hover); }
+.fab:hover .fab__mark { transform: scale(1.08); }
+.fab__mark img { width: 64%; height: 64%; display: block; }
 .fab:active .fab__mark { transform: scale(0.94); }
 .js .fab:hover .fab__label, .js .fab:focus-visible .fab__label { opacity: 1; transform: none; }
 .fab:focus-visible { outline: none; }
@@ -1070,7 +1073,7 @@ summary { cursor: pointer; font-weight: var(--weight-mid); min-height: 44px; dis
 
 /* ---------- Portfolio: actions at the top right, the portfolio switch, start choice, holdings window ---------- */
 .page-head__tools { display: grid; gap: var(--space-md); justify-items: end; }
-.page-head__tools .seg-control legend { justify-self: end; text-align: end; }
+.page-head__tools .seg-control legend { margin-inline-start: auto; text-align: end; }   /* a legend moves with its margins, not justify-self */
 .page-head__actions:empty { display: none; }
 .view-switch { animation: af-appear 460ms var(--ease-out) both; }
 .seg-control--small .seg-control__option span { min-height: 32px; font-size: var(--text-sm); }

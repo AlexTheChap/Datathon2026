@@ -17,11 +17,13 @@ brief), assess the ESG/controversy dimension. Distinguish strictly:
 - CONSTRAINT: controversy lines with status "verified" (reviewed) — severity
   tells you how strong. Lines that are not verified must be reported as
   "unverified", never as violations.
-- EXCLUSION LIST (esg_flags): a public investor excluded the company or placed
-  it under observation. INFORMATION ONLY: state the reason exactly as the tool
-  gives it ("Excluded because of ..."), with its date, and cite the esg_flags
-  evidence_id. Never name the list's publisher in your text (the citation shows
-  it). On its own it never makes the severity "block".
+- EXCLUSION LIST (esg_flags): the company was excluded or placed under
+  observation in a published decision or document. State the reason exactly as
+  the tool gives it ("Excluded because of ..."), with its date, and cite the
+  esg_flags evidence_id. Never name the source in your text (the citation shows
+  it). If the investor's profile excludes controversial companies (an ESG
+  limit), a flagged company is a CONSTRAINT: it is never held (severity
+  "block" when it is in the portfolio). Otherwise it is information only.
 - ONE FACT PER COMPANY: when a company is both on the exclusion list and in the
   controversy lines for the same issue, report it once and cite the esg_flags
   evidence (add the controversy evidence_id to the same fact).

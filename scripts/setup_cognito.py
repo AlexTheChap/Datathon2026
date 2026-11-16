@@ -76,6 +76,34 @@ def demo_password() -> str:
             return pw
 
 
+VERIFICATION_MESSAGE = {
+    "DefaultEmailOption": "CONFIRM_WITH_CODE",
+    "EmailSubject": "Your Fitfolio code",
+    "EmailMessage": "Your Fitfolio verification code is {####}. Fitfolio is a simulation; it never asks "
+                    "for bank details.",
+}
+# Settings update_user_pool accepts; any of them left out is reset to its default, so the current ones are passed back.
+_UPDATABLE = ("Policies", "DeletionProtection", "LambdaConfig", "AutoVerifiedAttributes", "SmsVerificationMessage",
+              "EmailVerificationMessage", "EmailVerificationSubject", "SmsAuthenticationMessage",
+              "UserAttributeUpdateSettings", "MfaConfiguration", "DeviceConfiguration", "EmailConfiguration",
+              "SmsConfiguration", "UserPoolTags", "AdminCreateUserConfig", "UserPoolAddOns",
+              "AccountRecoverySetting", "UserPoolTier")
+
+
+def refresh_messages(idp, pool_id: str) -> None:
+    """Put the current verification email on an existing pool (it is only set at creation otherwise)."""
+    pool = idp.describe_user_pool(UserPoolId=pool_id)["UserPool"]
+    if pool.get("VerificationMessageTemplate", {}).get("EmailMessage") == VERIFICATION_MESSAGE["EmailMessage"]             and pool["VerificationMessageTemplate"].get("EmailSubject") == VERIFICATION_MESSAGE["EmailSubject"]:
+        return
+    current = {k: pool[k] for k in _UPDATABLE if k in pool}
+    for k in ("EmailVerificationMessage", "EmailVerificationSubject"):  # superseded by the template
+        current.pop(k, None)
+    if current.get("MfaConfiguration") == "OFF":
+        current.pop("SmsAuthenticationMessage", None)
+    idp.update_user_pool(UserPoolId=pool_id, **current, VerificationMessageTemplate=VERIFICATION_MESSAGE)
+    print("• Verification email updated (Fitfolio)")
+
+
 def find_pool(idp) -> str | None:
     for page in idp.get_paginator("list_user_pools").paginate(MaxResults=60):
         for p in page["UserPools"]:
@@ -88,6 +116,7 @@ def ensure_pool(idp) -> str:
     pool_id = find_pool(idp)
     if pool_id:
         print(f"• Existing user pool: {pool_id}")
+        refresh_messages(idp, pool_id)
         return pool_id
     pool_id = idp.create_user_pool(
         PoolName=POOL,
@@ -100,12 +129,7 @@ def ensure_pool(idp) -> str:
         AccountRecoverySetting={"RecoveryMechanisms": [{"Priority": 1, "Name": "verified_email"}]},
         AdminCreateUserConfig={"AllowAdminCreateUserOnly": False},
         EmailConfiguration={"EmailSendingAccount": "COGNITO_DEFAULT"},
-        VerificationMessageTemplate={
-            "DefaultEmailOption": "CONFIRM_WITH_CODE",
-            "EmailSubject": "Your Fitfolio code",
-            "EmailMessage": "Your Fitfolio verification code is {####}. Fitfolio is a simulation; it never asks "
-                            "for bank details.",
-        },
+        VerificationMessageTemplate=VERIFICATION_MESSAGE,
         UserPoolTags=TAGS,
     )["UserPool"]["Id"]
     print(f"• User pool created: {pool_id}")

@@ -231,13 +231,13 @@ def test_brief_horizon_never_prints_none(horizon, text):
 
 # ---------- figures must come from the cited evidence ----------
 
-STRESS_EV = {EV1: {"evidence_id": EV1, "tool": "stress", "say": "Worst point -21.1%.",
-                   "output": {"portfolio": {"total_return": -0.115, "max_drawdown": -0.2112}, "loss": -76896.0}}}
+METRICS_EV = {EV1: {"evidence_id": EV1, "tool": "metrics", "say": "Worst drop -21.1%.",
+                    "output": {"portfolio": {"total_return": -0.115, "max_drawdown": -0.2112}, "value_change": -76896.0}}}
 
 
 def test_figures_in_details_must_match_the_cited_evidence():
-    ok = [f"2022 replay: maximum drawdown -21.1% ({EV1}).", f"About $76,896 lost at the trough [{EV1}]."]
-    validate_finding(finding(details=ok), [EV1], evidence=STRESS_EV)
+    ok = [f"Maximum drawdown -21.1% ({EV1}).", f"About $76,896 lost at the worst point [{EV1}]."]
+    validate_finding(finding(details=ok), [EV1], evidence=METRICS_EV)
 
 
 @pytest.mark.parametrize("line, message", [
@@ -247,13 +247,13 @@ def test_figures_in_details_must_match_the_cited_evidence():
 ])
 def test_invented_or_uncited_figures_are_rejected(line, message):
     with pytest.raises(FindingError, match=message):
-        validate_finding(finding(details=[f"anchor {EV1}", line]), [EV1], evidence=STRESS_EV)
+        validate_finding(finding(details=[f"anchor {EV1}", line]), [EV1], evidence=METRICS_EV)
 
 
 def test_a_sub_agent_that_computes_its_own_number_gets_one_repair(fake):
     invented = json.dumps(finding(details=[f"A 1pp rate rise would cost about 4% ({EV1})."]))
     ok = json.dumps(finding(details=[f"Maximum drawdown -21.1% ({EV1})."]))
-    FakeAgent.script = [([record(EV1, "stress", say="Worst point -21.1%.", output={"max_drawdown": -0.2112})], invented),
+    FakeAgent.script = [([record(EV1, "metrics", say="Worst drop -21.1%.", output={"max_drawdown": -0.2112})], invented),
                         ([], ok)]
     out = sub()(subject="q")
     assert "error" not in out and out["output"]["details"] == [f"Maximum drawdown -21.1% ({EV1})."]
@@ -261,5 +261,5 @@ def test_a_sub_agent_that_computes_its_own_number_gets_one_repair(fake):
 
 
 def test_a_citation_at_the_end_of_a_multi_sentence_detail_covers_the_whole_line():
-    line = "Replay: total return -11.5%. Worst point -21.1%, peak 2022-01-03. (ev-aaaaaaaaaa)"
-    validate_finding(finding(details=[line]), [EV1], evidence=STRESS_EV)
+    line = "Total return -11.5%. Worst drop -21.1%, from the 2024-01-03 peak. (ev-aaaaaaaaaa)"
+    validate_finding(finding(details=[line]), [EV1], evidence=METRICS_EV)

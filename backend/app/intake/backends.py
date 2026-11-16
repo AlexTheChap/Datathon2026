@@ -187,7 +187,7 @@ _TASKS = [  # priority: the first match wins
                     r"\bgrow\s+to\b|end\s+up\s+with|range\s+(?:of\s+(?:possible\s+)?outcomes|for\s+(?:my|the)\s+portfolio)")),
     ("esg_screen", r"\besg\b|controvers|ethical|sustainab"),
     ("risk_review", r"\brisk|volatil|drawdown|diversif|concentrat"),
-    ("scenario_analysis", r"crash|stress|scenario|recession|rate\s+hike"),
+    ("scenario_analysis", r"rate\s+(?:hike|cut|rise|increase)s?|interest\s+rates?|rates?\s+sensitiv"),
     ("fundamentals_review", r"fundamental|balance\s+sheet|10-k|financial\s+statements|earnings|valuation"),
     ("news_review", r"\bnews\b|headlines"),
 ]
@@ -222,7 +222,7 @@ _LEARN_ON = re.compile(r"\b(?:i'?m|i am)\s+(?:a\s+)?(?:student|learning)\b|\bwan
 _LEARN_OFF = re.compile(r"\bjust\s+(?:give\s+me\s+)?the\s+answer\b|\bkeep\s+it\s+short\b|\bno\s+explanations?\b", re.I)
 
 # Sub-agent toggles said in chat ("I don't care about the news", "bring back the ESG check").
-_AGENT_WORD = (r"(?P<word>news|headlines|esg|fundamentals|financials|scenarios?|stress[- ]tests?|macro|"
+_AGENT_WORD = (r"(?P<word>news|headlines|esg|fundamentals|financials|scenarios?|macro|"
                r"allocations?|risk(?:\s+analysis)?)\b")
 _TOGGLE_OFF = re.compile(
     r"(?:(?:don'?t|do\s+not|never)\s+(?:really\s+)?(?:care|want|need)\s+(?:about\s+|for\s+|to\s+see\s+)?"
@@ -278,7 +278,7 @@ def _agent_for(word: str) -> str:
         return "esg"
     if w in ("fundamentals", "financials"):
         return "fundamentals"
-    if w.startswith(("scenario", "stress", "macro")):
+    if w.startswith(("scenario", "macro")):
         return "macro_scenarios"
     if w.startswith("allocation"):
         return "allocation"

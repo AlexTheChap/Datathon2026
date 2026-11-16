@@ -70,10 +70,7 @@ def load_inputs(curated_dir: str | Path | None = None) -> MarketInputs:
     d = Path(curated_dir or curated_dir_default())
     uni = cs.read_extended(d, "assets_universe").set_index("ticker")   # + S&P 500 extension when built
     rets = cs.read_extended(d, "returns_daily_cad")
-    m = cs.read(d, "asset_risk_metrics")
-    if "end" in m:                       # several windows per ticker (full period, 2022): keep the full one
-        m = m.sort_values(["ticker", "end", "n_obs"]).groupby("ticker").tail(1)
-    m = m.set_index("ticker")
+    m = cs.read(d, "asset_risk_metrics").set_index("ticker")   # one row per ticker: the full period
     end = pd.Timestamp(m["end"].min()) if "end" in m else None
     corr = cs.read(d, "correlation_full")
     if "ticker" in corr.columns:

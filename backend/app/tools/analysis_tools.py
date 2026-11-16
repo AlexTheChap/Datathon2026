@@ -151,14 +151,14 @@ def esg_flags_data(tickers: list[str], as_of: str) -> dict:
     flags = {t: [f for f in (data["companies"].get(t) or {}).get("flags", []) if (f.get("since") or "") <= as_of]
              for t in tickers}
     flags = {t: f for t, f in flags.items() if f}
-    src = data["sources"].get("1") or {}
+    used = sorted({f["source"] for fl in flags.values() for f in fl}) or sorted(data["sources"])
     say = ("; ".join(f"{t}: {', '.join(x['reason'] for x in f)}" for t, f in flags.items()) + "."
            if flags else f"{tickers[0]} is not on the exclusion list." if len(tickers) == 1
            else f"None of {', '.join(tickers)} is on the exclusion list.")
     out = {"flags": flags, "not_listed": [t for t in tickers if t not in flags],
            "sources": {k: {"name": v["name"], "url": v["url"], "as_of": v.get("as_of")} for k, v in data["sources"].items()}}
     return _envelope("esg_flags", {"tickers": tickers, "as_of": as_of}, out, say,
-                     ["An exclusion list reflects the decisions of the investor that publishes it: it is information "
-                      "to discuss, not a rule of your profile.",
-                      f"The list as published on {src.get('as_of') or 'its latest update'}; decisions after {as_of} are not used."],
-                     [f"esg_flags.json (NBIM exclusion list, as of {src.get('as_of') or 'n/a'})"])
+                     ["Each flag comes from a published decision or document. With an ESG limit in your profile, "
+                      "every flagged company is left out of your portfolio; otherwise it is information to discuss.",
+                      f"Flags decided after {as_of} are not used."],
+                     [f"{data['sources'][k]['name']} (as of {data['sources'][k].get('as_of') or 'n/a'})" for k in used])
