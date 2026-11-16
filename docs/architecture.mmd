@@ -17,8 +17,9 @@
 %%     always-warm alias (deploy_quant_gateway.py) · Neptune Serverless market graph in a VPC + Yahoo refresh /
 %%     loader Lambdas on EventBridge schedules (deploy_graph.py) · Bedrock Knowledge Base on S3 Vectors
 %%     (deploy_news_kb.py) · news-alert Lambda: SEC filings → SNS SMS every 15 min (deploy_sms_alerts.py).
-%%   ③ Lambda alphaforge-intake and ④ Lambda alphaforge-context (+ explainer templates in S3) exist, but the
-%%     deployed API runs both IN-PROCESS (AF_INTAKE_MODE=bedrock, AF_CONTEXT_MODE unset = local).
+%%   ③ intake and ④ context resolution run IN-PROCESS in the API Lambda (AF_INTAKE_MODE=bedrock, AF_CONTEXT_MODE
+%%     unset = local; explainer templates read from the image). Their separate Lambdas were removed (2026-11-15);
+%%     scripts/deploy_intake_lambda.py and deploy_context_lambda.py can still deploy them as an option.
 %%   ① frontend: static S3 + CloudFront (deploy_frontend.py; --api-url routes /v1/* to the Function URL) ·
 %%     Cognito user pool + web client + 3 shared demo accounts (setup_cognito.py).
 %% BUILT IN CODE: ⑤ orchestration = Strands GRAPH by default (AF_ORCHESTRATION=graph): the plan's sub-agents run
@@ -29,11 +30,11 @@
 %%   honest fallback) · optimizer tool (cvxpy, allocation sub-agent) · projection (Monte Carlo, planning
 %%   guidelines) and vol_forecast (GARCH, SageMaker AI Processing batch, L20) · rate exposure (POST /v1/rate-exposure)
 %%   · step-by-step profile form · profile from a PDF / Word file (API: POST /v1/profile/draft/file; no longer on the
-%%   profile page) · notification settings (SMS / email) and account deletion · AgentCore entrypoint ·
+%%   profile page) · notification settings (SMS / email) and account deletion · chat memory (L17, AgentCore Memory) ·
 %%   output guardrail on the answer (L18, app/agents/output_guardrail.py: Bedrock Guardrails grounding + relevance
 %%   per statement vs its cited evidence, output-only denied topics, contact details masked; on when
 %%   AF_GUARDRAIL_ID is set; guardrail resource from scripts/deploy_guardrail.py, written but not yet deployed).
-%% DIVERGES from target: ⑤ runs inside the API Lambda, not AgentCore Runtime (entrypoint ready, not deployed) ·
+%% DESIGN CHOICES: ⑤ runs inside the API Lambda (AgentCore Runtime dropped: the 15-min async invocation is enough) ·
 %%   no API Gateway: Function URL + in-app JWT verification · uploads go through the API (5 MB, never stored),
 %%   not S3 presigned URLs.
 %% NOT BUILT: AgentCore Observability wiring · S3 offload of large run results (DynamoDB 400 KB item limit).
@@ -54,7 +55,7 @@ flowchart TB
   API["② API — Lambda Function URL (FastAPI, container image)<br/>POST /v1/runs → 202 run_id (or 200 question) · GET /v1/runs[/id, /evidence, /catalog, /replay]<br/>GET/PUT /v1/profile · POST /v1/profile/draft[/file] · GET/PUT /v1/notifications · DELETE /v1/account · GET /v1/me"]
 
   %% ===== 3. Intake =====
-  %% AWS: Bedrock (Claude Haiku, Converse API + structured outputs JSON Schema) · Guardrails (input)
+  %% AWS: Bedrock (Claude Haiku, Converse API + structured outputs JSON Schema) · Guardrails (input) — runs in the API Lambda
   subgraph INTAKE["③ Intake — Bedrock Haiku, structured output (Pydantic)"]
     ING["Intake agent (ingester)<br/>free text → validated JSON"]
     PROF[/"Profile JSON<br/>risk band · horizon · ESG / crypto prefs<br/>language · experience · agent toggles"/]
@@ -62,7 +63,7 @@ flowchart TB
   end
 
   %% ===== 4. Context =====
-  %% AWS: Lambda (plain Python code) · S3 or Bedrock Prompt Management (versioned templates)
+  %% AWS: none of its own — plain Python code in the API Lambda; templates ship in the image (option: S3)
   subgraph CTX["④ Context resolution — deterministic code, no LLM"]
     PLAN{{"Plan resolver<br/>task × profile × toggles → enabled sub-agents"}}
     LOAD{{"Prompt loader<br/>Explainer prompt by experience level × wants to learn<br/>(versioned explainer.level[.learning].md templates in S3)"}}
@@ -70,8 +71,7 @@ flowchart TB
 
   %% ===== 5. Agents =====
   %% AWS: Bedrock (Sonnet, Haiku) · AgentCore Memory. CURRENT host: the API Lambda (asynchronous self-invocation).
-  %%      Target host: Bedrock AgentCore Runtime (app/entrypoint.py is ready, not deployed).
-  subgraph RT["⑤ Agents — Strands graph (runs in the API Lambda · target: AgentCore Runtime)"]
+  subgraph RT["⑤ Agents — Strands graph (runs in the API Lambda)"]
     ORCH["Orchestrator / synthesis node<br/>Claude Sonnet"]
     MEM[("AgentCore Memory<br/>session · soft preferences")]
     subgraph SUB["Sub-agents · Claude Haiku · enabled by the plan · parallel graph fork nodes"]
@@ -163,8 +163,7 @@ flowchart TB
   %%      published to S3 by scripts/deploy_context_lambda.py (AF_PROMPT_SOURCE=s3); option: Bedrock Prompt
   %%      Management. Output: PromptRef (level, style, version, sha256).
   PROF --> LOAD
-  %% L6  Plan → Orchestrator: TARGET: DynamoDB (run QUEUED) → "dispatcher" Lambda → AgentCore Runtime
-  %%      (InvokeAgentRuntime). CURRENT (AF_DISPATCH=lambda, deployed): POST /v1/runs saves the run QUEUED, answers
+  %% L6  Plan → Orchestrator: AF_DISPATCH=lambda (deployed): POST /v1/runs saves the run QUEUED, answers
   %%      202 and invokes the SAME Lambda asynchronously ({"af_dispatch_run": run_id}); that invocation runs the
   %%      orchestrator then the Explainer and writes RUNNING → DONE / FAILED. Async retries are off (0), so a
   %%      run is never analysed twice; a run cut by the 15-min Lambda timeout is marked FAILED when next read
@@ -180,7 +179,7 @@ flowchart TB
   %%      the graph, not as a node, because it carries the memory session (Strands refuses sessions on graph agents).
   %%      AF_ORCHESTRATION=tools: agents-as-tools — ORCH calls each <domain>_subagent tool in turn. Either way the
   %%      payload is structured (subject + weights + tickers) and the investor context is rendered into the brief by
-  %%      deterministic code (render_brief). Target: the same graph hosted in AgentCore Runtime.
+  %%      deterministic code (render_brief).
   ORCH -->|"dispatch (parallel graph)"| SUB
   %% L9  Governance: governance_check is a deterministic TOOL (pure-Python rules over rules.yaml, no LLM):
   %%      the synthesis node (graph mode) or ORCH (tools mode) calls it on the weights for the reference verdict,
@@ -314,7 +313,6 @@ flowchart TB
 %% Amazon Bedrock: API access to models (Claude Sonnet / Haiku, Titan Embeddings).
 %%   Structured outputs: response that conforms to a JSON schema (replaces forced toolChoice).
 %% Bedrock Prompt Management (option): versioned prompts with variables, deployed by version.
-%% Bedrock AgentCore Runtime: hosts the agents (managed container, one isolated session per analysis).
 %% Strands Agents (AWS open-source library, not a service): agents, tools, graph, hooks.
 %% AgentCore Memory: short-term (session) and long-term (preferences) memory per user.
 %% AgentCore Gateway: exposes Lambdas / APIs as shared MCP tools, with authentication.
