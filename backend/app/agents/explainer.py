@@ -57,10 +57,6 @@ def _verdict_checks(catalog: dict[str, EvidenceItem]) -> list[dict]:
     return out
 
 
-SHORT_ANSWER_REMOVED = ("The short summary could not be matched to the evidence, so it was removed. "
-                        "The checked points below still hold.")
-
-
 def _not_analysed(plan: dict) -> list[str]:
     out = []
     for d in plan.get("disabled_agents") or []:
@@ -248,10 +244,9 @@ def explain(run: Any, orchestrator: Optional[dict], records: list[dict], *, clie
     if guarded is not None:
         draft = apply_masks(draft, guarded.masked)  # personal data anonymized by the guardrail
     final = apply(draft, issues, catalog)
-    short_failed = any(x.section == "short_answer" and not x.reason.startswith("cites evidence that does not exist")
-                       for x in issues)
+    # The short summary is shown as written, even when it failed the check: never counted as removed.
     removed = [RemovedClaim(section=x.section, text=x.text, reason=x.reason) for x in issues
-               if not x.reason.startswith("cites evidence that does not exist")]
+               if x.section != "short_answer" and not x.reason.startswith("cites evidence that does not exist")]
     def plain(t):  # citations out of the text, then the last resort of rule 9 (codes, rule ids, tickers -> words)
         return plain_words.plainify(_clean(t), {**plain_words.names_in(t), **names}) if t else t   # any ticker
 
@@ -261,8 +256,8 @@ def explain(run: Any, orchestrator: Optional[dict], records: list[dict], *, clie
                 for i in items]
     return RunAnswer(
         kind="explained",
-        short_answer=SHORT_ANSWER_REMOVED if short_failed else plain(final.short_answer),
-        short_answer_evidence=[] if short_failed else final.short_answer_evidence,
+        short_answer=plain(final.short_answer),
+        short_answer_evidence=final.short_answer_evidence,
         key_points=clean(final.key_points), checks=clean(final.checks) or _verdict_checks(catalog),
         limitations=clean(final.limitations),
         glossary=final.glossary if run.prompt_ref.style == "learning" else [],

@@ -5,7 +5,7 @@ import threading
 from test_explainer import GOOD, LEDGER, SETTINGS, FakeClient, draft, make_run  # same fixtures as the Explainer tests
 
 from app.agents.evidence import build_catalog
-from app.agents.explainer import SHORT_ANSWER_REMOVED, explain
+from app.agents.explainer import explain
 from app.agents.output_guardrail import MAX_CONTENT, MAX_QUERY, build_content, screen
 from app.context.prompt_loader import LocalPromptSource
 
@@ -135,11 +135,13 @@ def test_fixed_on_the_retry_keeps_everything(make_profile):
     assert answer.verification.output_guardrail == "passed"
 
 
-def test_ungrounded_short_answer_is_replaced(make_profile):
+def test_ungrounded_short_answer_is_kept(make_profile):
     short = GOOD["short_answer"]
     guard = FakeGuardrail(lambda t: ungrounded() if t == short else ok())
     answer = run_explain(make_run(make_profile), FakeClient(draft(), draft()), guard)
-    assert answer.short_answer == SHORT_ANSWER_REMOVED and answer.short_answer_evidence == []
+    assert answer.short_answer and answer.short_answer == short             # shown as the model wrote it
+    assert answer.short_answer_evidence == GOOD["short_answer_evidence"]
+    assert "short_answer" not in {r.section for r in answer.verification.removed}
 
 
 def test_personal_data_is_masked_not_removed(make_profile):

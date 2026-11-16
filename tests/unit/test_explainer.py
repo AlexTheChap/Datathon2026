@@ -8,7 +8,7 @@ import pytest
 
 from app.agents.claim_check import check, context_numbers, stated_numbers
 from app.agents.evidence import build_catalog, governance_items
-from app.agents.explainer import SHORT_ANSWER_REMOVED, explain
+from app.agents.explainer import explain
 from app.context import resolve_context
 from app.context.prompt_loader import LocalPromptSource
 from app.core.config import Settings
@@ -178,9 +178,9 @@ def test_what_still_fails_after_the_retry_is_removed(make_profile):
     bad = draft(short_answer="Nvidia soared, up 312%.",
                 key_points=GOOD["key_points"] + [{"text": "It returned +35%.", "evidence": ["ev-0f122ab549"]}])
     answer = run_explain(make_run(make_profile), FakeClient(bad, bad))
-    assert answer.short_answer == SHORT_ANSWER_REMOVED
+    assert answer.short_answer and answer.short_answer == bad.short_answer   # shown as the model wrote it
     assert [p.text for p in answer.key_points] == [p["text"] for p in GOOD["key_points"]]
-    assert {r.section for r in answer.verification.removed} == {"short_answer", "key_points"}
+    assert {r.section for r in answer.verification.removed} == {"key_points"}
 
 
 def test_verdicts_never_disappear(make_profile):
