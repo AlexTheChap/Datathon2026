@@ -838,9 +838,11 @@ summary { cursor: pointer; font-weight: var(--weight-mid); min-height: 44px; dis
 .msg--user { justify-content: flex-end; }
 .msg__bubble { max-width: min(36rem, 85%); background: var(--color-slate); color: var(--color-surface); padding: var(--space-sm) var(--space-md);
   border-radius: 18px 18px 4px 18px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
-.msg__avatar { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--color-accent);
-  color: var(--color-accent-ink); font-weight: var(--weight-strong); font-size: var(--text-sm); margin-block-start: 2px; }
-.msg__avatar--lg { width: 48px; height: 48px; font-size: var(--text-lg); }
+/* The Fitfolio logo, same colours in every theme: a fixed white disc keeps its navy stroke readable in dark mode. */
+.msg__avatar { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: #fff;
+  box-shadow: 0 0 0 1px rgba(23, 42, 68, .15); margin-block-start: 2px; }
+.msg__avatar img { width: 72%; height: 72%; display: block; }
+.msg__avatar--lg { width: 48px; height: 48px; }
 .msg__body { flex: 1; min-width: 0; display: grid; gap: var(--space-sm); background: var(--color-surface); color: var(--color-ink);
   border-radius: 4px 18px 18px 18px; padding: var(--space-md) var(--space-lg); }
 .thinking { display: flex; align-items: center; gap: var(--space-sm); color: var(--color-ink-2); min-height: 28px; }
