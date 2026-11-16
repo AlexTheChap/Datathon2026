@@ -95,7 +95,7 @@ def test_another_user_cannot_read_my_run(client):
 
 def test_profile_from_the_first_message_is_reused(client):
     post(client, "robert", text="Is my portfolio too risky?", profile_form=FORM)
-    r = post(client, "robert", text="What would happen in a crash?")  # no form this time
+    r = post(client, "robert", text="How would a rate hike affect my portfolio?")  # no form this time
     assert r.status_code == 202
 
 

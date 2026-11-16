@@ -24,6 +24,7 @@ RULES = {
     "SHORT_HORIZON_VOLATILITY": "the cap on big-swing assets for a short horizon",
     "SHORT_HORIZON_DEFENSIVE": "the rule that keeps enough steady assets for a short horizon",
     "EXCLUSION_CONTROVERSY": "your exclusion of companies with major controversies",
+    "EXCLUSION_ESG_FLAGS": "your exclusion of companies on an exclusion list",
     "ESG_INDEX_PREFERENCE": "your ESG preference",
 }
 _RULE = re.compile(r"\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b")

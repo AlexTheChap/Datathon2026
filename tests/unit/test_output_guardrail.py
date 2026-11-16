@@ -73,16 +73,16 @@ def test_every_statement_is_sent_as_output_with_its_evidence():
     call = guard.calls[0]
     assert call["source"] == "OUTPUT" and call["guardrailIdentifier"] == "gr-test" and call["guardrailVersion"] == "3"
     by_kind = {c["text"]["qualifiers"][0]: c["text"]["text"] for c in call["content"]}
-    assert by_kind["query"] == "20% in Nvidia?" and "ev-c5f01b9379" in by_kind["grounding_source"]
+    assert by_kind["query"] == "20% in Nvidia?" and "ev-4a54cab2ec" in by_kind["grounding_source"]
 
 
 def test_uncited_statement_gets_filters_only_no_grounding():
-    content = build_content("Only one crisis, 2022, is in the data.", [], "20% in Nvidia?")
+    content = build_content("Past results do not predict future returns.", [], "20% in Nvidia?")
     assert [c["text"]["qualifiers"] for c in content] == [["guard_content"]]
 
 
 def test_a_governance_check_is_filtered_on_its_sentence_only():
-    """Live test: "Your idea: Nvidia at 20%. Stress loss…" read as a trade instruction and scored grounding 0.47."""
+    """Live test: "Your idea: Nvidia at 20%. …" read as a trade instruction and scored grounding 0.47."""
     catalog = build_catalog(LEDGER)
     guard = FakeGuardrail()
     screen(draft(), catalog, "q", settings=GUARDED, client=guard)
@@ -92,7 +92,7 @@ def test_a_governance_check_is_filtered_on_its_sentence_only():
 
 def test_sizes_are_capped_to_the_api_limits():
     catalog = build_catalog(LEDGER)
-    item = catalog["ev-c5f01b9379"]
+    item = catalog["ev-4a54cab2ec"]
     content = build_content("x" * (MAX_CONTENT + 50), [item], "q" * (MAX_QUERY + 50))
     sizes = {c["text"]["qualifiers"][0]: len(c["text"]["text"]) for c in content}
     assert sizes["query"] == MAX_QUERY and sizes["guard_content"] == MAX_CONTENT

@@ -36,7 +36,7 @@ def queued_run(svc: ApiService, text="I'm thinking of putting 20% in Nvidia, eve
 
 
 def fake_orchestrator(inp):
-    return OrchestratorOutput(run_id=inp.run_id, summary="draft", evidence_ids=["ev-c5f01b9379"])
+    return OrchestratorOutput(run_id=inp.run_id, summary="draft", evidence_ids=["ev-4a54cab2ec"])
 
 
 def explainer_with(client):
@@ -166,10 +166,10 @@ def test_evidence_catalog_endpoint_is_owner_only(monkeypatch):
                          headers={"X-Actor-Id": "robert"}).json()["run_id"]
     items = client.get(f"/v1/runs/{run_id}/evidence/catalog", headers={"X-Actor-Id": "robert"}).json()
     by_id = {i["id"]: i for i in items}
-    assert "ev-9de6c73e44" not in by_id and by_id["ev-c5f01b9379"]["say"].startswith("In 2022")  # a rule check: left out
-    assert by_id["ev-c5f01b9379"]["sources"] == ["Yahoo Finance daily prices (downloaded 13 Nov 2026)",
+    assert "ev-5f0c1a9d27" not in by_id and by_id["ev-4a54cab2ec"]["say"].startswith("NVDA makes up")  # a rule check: left out
+    assert by_id["ev-4a54cab2ec"]["sources"] == ["Yahoo Finance daily prices (downloaded 13 Nov 2026)",
                                                  "Bank of Canada USD/CAD exchange rate"]  # publishers, not file paths
-    assert by_id["ev-c5f01b9379"]["period"] == "Jan 2022 to Dec 2022"
+    assert by_id["ev-4a54cab2ec"]["period"] == "Nov 2021 to Nov 2026"
     assert not any(i["tool"] == "governance_check" or i["tool"].endswith(" detail") for i in items)  # the fit score's job
     assert client.get(f"/v1/runs/{run_id}/evidence/catalog", headers={"X-Actor-Id": "mallory"}).status_code == 404
     raw = client.get(f"/v1/runs/{run_id}/evidence", headers={"X-Actor-Id": "robert"}).json()

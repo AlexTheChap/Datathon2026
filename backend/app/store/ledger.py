@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 from typing import Any, Protocol
 
-# Beyond this, the payload is truncated (e.g. replay: one value per day) with a
+# Beyond this, the payload is truncated (e.g. a long daily series) with a
 # marker kept: the full evidence stays recomputable via its evidence_id.
 _MAX_CHARS = 200_000
 

@@ -24,7 +24,6 @@ TITLES = {
     "risk_subagent": "Risk analysis", "macro_subagent": "Rates and economy analysis", "esg_subagent": "ESG analysis",
     "fundamentals_subagent": "Company financials analysis", "news_subagent": "News analysis",
     "allocation_subagent": "Allocation analysis",
-    "stress": "The 2022 market drop, replayed", "max_position": "Largest position your loss limit allows",
 }
 
 GOVERNANCE_TOOLS = {"governance_check"}
@@ -62,7 +61,7 @@ def period_text(period: Optional[str]) -> Optional[str]:
 _YAHOO = "Yahoo Finance daily prices"
 _RULES: list[tuple[re.Pattern, Optional[str]]] = [(re.compile(p, re.I), label) for p, label in [
     (r"sub-agent analysis", None),                        # replaced by the sources of the evidence it used
-    (r"esg_flags\.json", "NBIM exclusion list"),
+    (r"esg_flags\.json", "Exclusion lists"),
     (r"^data/curated \(prices, holdings", None),          # vague; the specific files are listed elsewhere
     (r"rules\.yaml", "Fitfolio's guideline limits for each risk profile"),
     (r"projection_assumptions\.yaml", "FP Canada and IQPF Projection Assumption Guidelines 2026"),

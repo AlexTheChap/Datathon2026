@@ -31,7 +31,7 @@ class _FakeAfterToolCallEvent:
 def test_ledger_seq_and_unique_ids(tmp_path: Path):
     led = JsonlLedger(tmp_path)
     led.append("run-1", {"tool": "metrics", "evidence_id": "ev-aaa"})
-    led.append("run-1", {"tool": "stress", "evidence_id": "ev-bbb"})
+    led.append("run-1", {"tool": "correlation", "evidence_id": "ev-bbb"})
     led.append("run-1", {"tool": "metrics", "evidence_id": "ev-aaa"})  # identical re-call
     recs = led.records("run-1")
     assert [r["seq"] for r in recs] == ["E-001", "E-002", "E-003"]  # every call = 1 record, numbered in call order
@@ -43,13 +43,13 @@ def test_hook_records_risk_tools_evidence(tmp_path: Path):
     led = JsonlLedger(tmp_path)
     hook = EvidenceHook(led, "run-2")
 
-    evidence = {"evidence_id": "ev-xyz", "tool": "stress", "say": "In 2022…",
+    evidence = {"evidence_id": "ev-xyz", "tool": "metrics", "say": "Worst drop -21%.",
                 "output": {"portfolio": {"max_drawdown": -0.21}}}
-    hook._on_tool_call(_FakeAfterToolCallEvent("stress", evidence))
+    hook._on_tool_call(_FakeAfterToolCallEvent("metrics", evidence))
 
     (r,) = led.records("run-2")
     assert r["seq"] == "E-001" and r["evidence_id"] == "ev-xyz"
-    assert r["tool"] == "stress" and r["payload"]["output"]["portfolio"]["max_drawdown"] == -0.21
+    assert r["tool"] == "metrics" and r["payload"]["output"]["portfolio"]["max_drawdown"] == -0.21
 
 
 def test_hook_non_dict_result(tmp_path: Path):

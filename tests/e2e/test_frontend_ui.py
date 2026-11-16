@@ -291,7 +291,7 @@ def test_answer_with_checks_evidence_and_glossary(page, base_url):
     first_chip = page.locator(".answer__short .chip").first
     first_chip.click()
     target = page.locator(".evidence-item.is-focus")
-    assert target.count() == 1 and "In 2022" in target.inner_text()           # chip 1 = the 2022 replay
+    assert target.count() == 1 and "NVDA makes up 20%" in target.inner_text()  # chip 1 = the risk contribution
     assert page.locator("text=Everything else this analysis measured").count() == 1
     assert "ev-" not in page.locator("#evidence-section").inner_text()            # ids are never printed
     assert page.errors == []

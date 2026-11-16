@@ -281,17 +281,3 @@ class RiskTools:
         return self._evidence("risk_contribution", {"weights": weights, "start": start, "end": end, "as_of": as_of},
                               out, say, r.index,
                               "Risk contribution = w_i (Σw)_i / wᵀΣw; diversification ratio = weighted average vol / portfolio vol.")
-
-    def replay(self, weights: dict, capital: float, start: str, end: str) -> dict:
-        """Dollar path (CAD), day by day: drives the time-machine animation."""
-        pr = self.portfolio_returns(weights, start=start, end=end).iloc[1:]
-        path = (capital * (1 + pr).cumprod()).round(2)
-        st = self._stats(pr)
-        out = {"path": {str(k.date()): v for k, v in path.items()}, "stats": st,
-               "value_start": capital, "value_end": float(path.iloc[-1]),
-               "min_value": float(path.min()), "min_date": str(path.idxmin().date())}
-        say = (f"From {_money(capital)} on {start}, the value fell to {_money(path.min())} "
-               f"on {path.idxmin().date()}, and ended at {_money(path.iloc[-1])}.")
-        return self._evidence("replay", {"weights": weights, "capital": capital, "start": start, "end": end},
-                              out, say, pr.index, "Historical replay of a fixed allocation, rebalanced daily.",
-                              ["Historical scenario, not a forecast. No fees or taxes."])

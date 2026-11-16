@@ -31,7 +31,7 @@ backend/app/
 ├── core/
 │   ├── rules.yaml                ← governance thresholds (documented assumptions)
 │   └── personas.json             ← Amira / Mateo / Robert, structured from the brief
-├── tools/risk_tools.py           ← risk tools (metrics, stress, replay, max_position...)
+├── tools/risk_tools.py           ← risk tools (metrics, correlation, risk contribution, concentration...)
 └── agents/governance/governance_check.py  ← reference check against rules.yaml
 scripts/                          ← run WITH network access (sec.gov, etc.)
 ├── build_curated.py              ← regenerates data/curated/ from data/raw/
@@ -60,9 +60,8 @@ from risk_tools import RiskTools
 from governance_check import check
 
 rt = RiskTools("data/curated")
-rt.metrics(["TLT", "ZST.TO"], start="2022-01-01", end="2022-12-31")
-rt.stress({"XIU.TO": .3, "XBB.TO": .3, "NVDA": .2, "ZST.TO": .2}, "2022", capital=400_000)
-rt.max_position(base_weights, "NVDA", max_drawdown_limit=0.15)
+rt.metrics(["TLT", "ZST.TO"])
+rt.risk_contribution({"XIU.TO": .3, "XBB.TO": .3, "NVDA": .2, "ZST.TO": .2})
 ```
 
 ## Processing decisions
@@ -87,17 +86,15 @@ Details and checks: `data/curated/quality_report.json`.
 - **Beta** vs SPY and XIU.
 - **Risk contribution** = wᵢ(Σw)ᵢ / wᵀΣw; **diversification ratio** = weighted average volatility / portfolio volatility.
 - **Concentration**: Herfindahl index Σw² and effective number of positions 1/HHI. ETFs are decomposed if `holdings` is provided.
-- **Stress / replay**: fixed allocation, rebalanced daily, replayed over the window (no fees or taxes).
-- **max_position**: maximum weight of an asset (other positions scaled down pro rata) that keeps the scenario's maximum drawdown under the profile's limit.
 
 ## Evidence format (contract with the agents team)
 
 Each tool returns:
 
 ```json
-{"evidence_id": "ev-…", "tool": "stress", "inputs": {…}, "output": {…},
- "say": "In 2022 (…), this portfolio would have returned -12.9% (worst point -21.1%, in CAD)…",
- "currency": "CAD", "as_of": "…", "period": "2022-01-03/2022-12-30",
+{"evidence_id": "ev-…", "tool": "metrics", "inputs": {…}, "output": {…},
+ "say": "NVDA: volatility 51% per year, worst drop -63.5% (in CAD).",
+ "currency": "CAD", "as_of": "…", "period": "2021-11-15/2026-11-12",
  "method": "…", "assumptions": ["…"], "data_sources": ["…"]}
 ```
 
@@ -120,9 +117,8 @@ ZST's low R² is expected: its duration is almost zero, so noise dominates.
 
 **Demo scenario, Robert** (simulated portfolio in `personas.json`, simulated capital of $400,000):
 
-- Current portfolio in 2022: -4.6% (worst point -10.1%, i.e. -$40,264). Governance: **WARN** once the ETFs are decomposed: RY.TO = 10% direct + 2.9% via XIU = 12.9% (cap 10%). Without `etf_holdings.csv`: PASS.
-- With 20% NVDA: -12.9% (worst point -21.1%, i.e. **-$84,232**). Governance: **BLOCK** (maximum loss and short-horizon rule).
-- `max_position`: with his -15% limit, NVDA can go up to about **9%**. But the short-horizon rule (assets with volatility > 40% ≤ 5%) caps it at **5%**.
+- Current portfolio: governance **WARN** once the ETFs are decomposed: RY.TO = 10% direct + 2.9% via XIU = 12.9% (cap 10%). Without `etf_holdings.csv`: PASS.
+- With 20% NVDA: NVDA is 20% of the money but about 78% of the risk. Governance: **BLOCK** (short-horizon rule: assets with volatility > 40% ≤ 5%, so NVDA is capped at **5%**).
 
 ## What is still missing, and how to get it
 
@@ -141,7 +137,6 @@ While the ESG and controversy files are missing, `governance_check` returns **`U
 
 ## Limits to show in the demo
 
-- A single stress scenario in the current data (2022).
 - Current durations, not historical.
 - Estimated macro release lags.
 - Survivorship bias.

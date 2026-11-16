@@ -26,7 +26,7 @@ const AGENT_ORDER = ["risk", "macro_scenarios", "esg", "fundamentals", "news", "
 
 const TASKS = {
   risk_review: "risk review",
-  scenario_analysis: "scenario question",
+  scenario_analysis: "interest-rate question",
   allocation_proposal: "allocation proposal",
   esg_screen: "ESG screen",
   fundamentals_review: "fundamentals review",

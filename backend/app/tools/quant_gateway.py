@@ -221,7 +221,7 @@ assert set(HANDLERS) == {t["name"] for ts in TARGETS.values() for t in ts}, "sch
 
 
 def call(tool_name: str, args: dict | None) -> dict:
-    """Run one tool. `tool_name` may carry the Gateway prefix ("scenarios___stress")."""
+    """Run one tool. `tool_name` may carry the Gateway prefix ("metrics___metrics")."""
     name = tool_name.split(DELIMITER, 1)[-1]
     if name not in HANDLERS:
         return {"error": f"Unknown tool: {tool_name}", "available": sorted(HANDLERS)}

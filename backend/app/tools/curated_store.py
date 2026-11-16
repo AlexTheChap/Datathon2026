@@ -24,7 +24,7 @@ ENGINE = "fastparquet"  # small enough for a Lambda zip (pyarrow is not)
 
 # table -> pandas.read_csv kwargs that reproduce what the tools expect
 TABLES: dict[str, dict[str, Any]] = {
-    "returns_daily_cad": {"index_col": "date", "parse_dates": True},      # risk metrics, stress, optimizer
+    "returns_daily_cad": {"index_col": "date", "parse_dates": True},      # risk metrics, optimizer
     "prices_cad": {"index_col": "date", "parse_dates": True},             # prices converted to CAD
     "fx_usdcad_filled": {"parse_dates": ["date"]},                        # Bank of Canada USD/CAD
     "macro_daily_asof": {"parse_dates": ["date"]},                        # release-aware macro (point-in-time)

@@ -5,6 +5,11 @@
       "name": "NBIM – Observation and exclusion of companies",
       "url": "https://www.nbim.no/en/responsibility/exclusion-of-companies",
       "as_of": "2026-11-15"
+    },
+    "2": {
+      "name": "ExxonMobil 2025 Form 10-K, Note 7 (Litigation and Other Contingencies)",
+      "url": "https://www.sec.gov/Archives/edgar/data/34088/000003408826000045/xom-20251231.htm",
+      "as_of": "2026-02-18"
     }
   },
   "companies": {
@@ -285,6 +290,16 @@
           "reason": "Excluded because of production of coal or coal-based energy",
           "source": "1",
           "since": "2016-04-14"
+        }
+      ]
+    },
+    "XOM": {
+      "name": "Exxon Mobil",
+      "flags": [
+        {
+          "reason": "Excluded because of pending climate change lawsuits brought by U.S. state and local governments",
+          "source": "2",
+          "since": "2026-02-18"
         }
       ]
     }

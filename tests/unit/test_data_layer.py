@@ -80,9 +80,9 @@ class FakeTable:
 def test_dynamodb_ledger_keys_order_and_ids():
     t = FakeTable()
     led = DynamoDBLedger(t)
-    led.append("r1", {"tool": "scenarios___stress", "evidence_id": "ev-a", "agent": "risk_subagent", "say": "x"})
+    led.append("r1", {"tool": "metrics___metrics", "evidence_id": "ev-a", "agent": "risk_subagent", "say": "x"})
     led.append("r1", {"tool": "search_news", "evidence_id": "ev-b"})
-    led.append("r1", {"tool": "scenarios___stress", "evidence_id": "ev-a"})
+    led.append("r1", {"tool": "metrics___metrics", "evidence_id": "ev-a"})
     led.append("r2", {"tool": "other"})
     assert ("RUN#r1", "EVID#E-001#ev-a") in t.items and t.items[("RUN#r1", "EVID#E-001#ev-a")]["agent"] == "risk_subagent"
     assert [r["seq"] for r in led.records("r1")] == ["E-001", "E-002", "E-003"]

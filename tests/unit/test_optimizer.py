@@ -141,3 +141,36 @@ def test_controversy_exclusion_does_not_touch_a_profile_without_it(rt):
     w0 = {"CNQ.TO": .05, "SPY": .5, "XBB.TO": .45}
     ev = run(rt, w0, profile=ROBERT)                 # Robert excludes crypto only
     assert ev["output"]["status"] == "ok" and "CNQ.TO" in ev["output"]["weights"]
+
+
+# ---------- Exclusion lists (data/curated/esg_flags.json): same rule in the optimizer and in governance ----------
+
+MATEO = PERSONAS["mateo"]                    # his profile excludes controversial companies: an ESG limit
+FLAGGED = {"XOM", "TD.TO", "CNQ.TO"}         # Excluded (XOM, CNQ.TO) and Under observation (TD.TO) alike
+WITH_FLAGGED = {"XOM": .10, "TD.TO": .10, "CNQ.TO": .10, "XIU.TO": .20, "XBB.TO": .35, "SPY": .15}
+
+
+def _flag_check(weights, profile, rt):
+    return next((c for c in check(weights, profile, RULES, rt, ROOT / "data")["checks"]
+                 if c["id"] == "EXCLUSION_ESG_FLAGS"), None)
+
+
+def test_an_esg_profile_never_holds_a_flagged_company(rt):
+    out = run(rt, WITH_FLAGGED, profile=MATEO)["output"]
+    assert out["status"] == "ok" and not FLAGGED & set(out["weights"])
+    removed = {e["ticker"]: e for e in out["esg_excluded"]}
+    assert FLAGGED <= set(removed)                                             # each removal keeps its reason
+    assert removed["XOM"]["source"] == "2" and removed["XOM"]["reason"].startswith("Excluded because of")
+    assert removed["TD.TO"]["source"] == "1" and removed["TD.TO"]["reason"].startswith("Under observation because of")
+    # Governance applies the same rule: the request is blocked, the optimizer's mix passes.
+    before = _flag_check(WITH_FLAGGED, MATEO, rt)
+    assert before["status"] == "BLOCK" and set(before["value"]) == FLAGGED and "[2]" in before["detail"]
+    assert _flag_check(out["weights"], MATEO, rt)["status"] == "PASS"
+
+
+def test_a_profile_without_esg_exclusions_is_unaffected(rt):
+    no_esg = {**MATEO, "exclusions": []}
+    out = run(rt, WITH_FLAGGED, profile=no_esg)["output"]
+    assert out["status"] == "ok" and out["esg_excluded"] == []
+    assert FLAGGED & set(out["weights"])                                       # flagged companies may stay
+    assert _flag_check(WITH_FLAGGED, no_esg, rt) is None                       # and governance has no such rule

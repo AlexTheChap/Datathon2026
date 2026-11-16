@@ -105,8 +105,8 @@ def test_form_beats_free_text(mock):
     assert res.profile.risk_band == "moderate"
 
 
-def test_crash_routes_to_scenario_analysis(mock):
-    res = run_intake("Show me what would happen to my portfolio in a crash.", "robert",
+def test_rate_hike_routes_to_scenario_analysis(mock):
+    res = run_intake("How would a rate hike affect my portfolio?", "robert",
                      backend=mock, profile_form=ROBERT_FORM)
     assert res.request.task == "scenario_analysis"
 
@@ -212,7 +212,6 @@ def store_with_portfolio(make_profile):
 
 
 @pytest.mark.parametrize("text", ["How exposed is my portfolio to a rate hike?", "Is my portfolio too risky?",
-                                  "What would a crash do to my holdings?",
                                   "is my portofolio is mainly ESG compliant",            # typo (real question)
                                   "Is my porfolio aligned with ESG?",
                                   "Est-ce que mon portefeuille est conforme ESG ?",      # French
