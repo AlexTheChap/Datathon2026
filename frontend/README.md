@@ -80,7 +80,7 @@ bars grow from the left to their value, then their labels fade in; buttons lift 
 red bar under the main nav and the thumb of the Simple / Standard / Detailed switch slide to the new choice
 (transform only); the fit score counts up; the dashboard cross-fades when the detail level changes; a new answer is
 written out word by word in reading order, each part appearing as the text reaches it (the API answers in one piece:
-real token streaming would need a streaming endpoint). A red "A" button, bottom right, opens Ask from any page.
+real token streaming would need a streaming endpoint). A red button with the Fitfolio logo, bottom right, opens Ask from any page.
 
 ## Design
 

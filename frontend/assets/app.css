@@ -838,9 +838,9 @@ summary { cursor: pointer; font-weight: var(--weight-mid); min-height: 44px; dis
 .msg--user { justify-content: flex-end; }
 .msg__bubble { max-width: min(36rem, 85%); background: var(--color-slate); color: var(--color-surface); padding: var(--space-sm) var(--space-md);
   border-radius: 18px 18px 4px 18px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
-/* The Fitfolio logo, same colours in every theme: a fixed white disc keeps its navy stroke readable in dark mode. */
-.msg__avatar { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: #fff;
-  box-shadow: 0 0 0 1px rgba(23, 42, 68, .15); margin-block-start: 2px; }
+/* The Fitfolio logo on the red disc (fitfolio-logo-circle.svg: white arrow), same colours in every theme. */
+.msg__avatar { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: #E41C23;
+  margin-block-start: 2px; }
 .msg__avatar img { width: 72%; height: 72%; display: block; }
 .msg__avatar--lg { width: 48px; height: 48px; }
 .msg__body { flex: 1; min-width: 0; display: grid; gap: var(--space-sm); background: var(--color-surface); color: var(--color-ink);
@@ -887,8 +887,8 @@ summary { cursor: pointer; font-weight: var(--weight-mid); min-height: 44px; dis
 .fab { position: fixed; right: var(--space-lg); bottom: var(--space-lg); z-index: 30; display: flex; align-items: center; text-decoration: none;
   animation: af-pop 420ms var(--ease-out) both; }
 .fab[hidden] { display: none; }
-.fab__mark { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: #fff;
-  box-shadow: var(--shadow-lift), 0 0 0 1px rgba(23, 42, 68, .15); /* the logo keeps its colours in every theme */
+.fab__mark { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: #E41C23;
+  box-shadow: var(--shadow-lift); /* the logo (white-arrow variant) keeps its colours in every theme */
   transition: transform 200ms var(--ease-out), background-color var(--dur-micro) var(--ease); }
 .fab__label { position: absolute; right: calc(100% + var(--space-xs)); white-space: nowrap; padding: var(--space-2xs) var(--space-sm);
   border-radius: var(--radius-field); background: var(--color-ink); color: var(--color-surface); font-size: var(--text-sm);
