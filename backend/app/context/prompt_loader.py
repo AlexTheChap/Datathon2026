@@ -4,7 +4,7 @@ Deterministic code, no LLM. Two steps, as in the diagram:
 
 - `resolve_explainer_prompt(profile)` (context Lambda, L5) → PromptRef: keys only
   (level, style, version, sha256) that travel in the InvokeAgentRuntime payload (L7);
-- `load_prompt(ref)` (AgentCore Runtime, before the Explainer) → PromptTemplate: reloads the
+- `load_prompt(ref)` (dispatcher, before the Explainer) → PromptTemplate: reloads the
   template and refuses to use it if its version or content changed since resolution.
 
 Templates: backend/app/prompts/explainer.<experience>.md, plus explainer.<experience>.learning.md for a reader who

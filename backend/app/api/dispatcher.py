@@ -5,8 +5,9 @@
 - `LocalDispatcher` (AF_DISPATCH=local, the default with the in-memory store): runs the orchestrator, then the
   Explainer (dispatch.attach_answer), in a background thread of the same process and writes the outcome back to the run store (L18), so that
   `GET /v1/runs/{id}` goes QUEUED -> RUNNING -> DONE / FAILED. For local development and demos.
-- `NoDispatcher` (api/service.py): the run stays QUEUED. Used with DynamoDB until the AgentCore dispatcher Lambda
-  (InvokeAgentRuntime) is deployed: a thread would not survive the end of a Lambda invocation.
+- `LambdaDispatcher` (AF_DISPATCH=lambda, deployed): asynchronous self-invocation of the API Lambda (a thread
+  would not survive the end of a Lambda invocation).
+- `NoDispatcher` (api/service.py): the run stays QUEUED.
 """
 from __future__ import annotations
 

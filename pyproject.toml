@@ -5,7 +5,7 @@ requires-python = ">=3.10"
 dependencies = [
     "boto3",
     "strands-agents",
-    "bedrock-agentcore[strands-agents]>=0.4",   # orchestrator entrypoint (node ⑤)
+    "bedrock-agentcore[strands-agents]>=0.4",   # AgentCore Memory session (L17) + Gateway client (node ⑤)
     "pydantic>=2.7",
     "pydantic-settings>=2.3",                    # AF_* settings
     "pandas>=3,<4",                              # pandas 4 drops the fastparquet engine (see below)
@@ -43,7 +43,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 # The backend `app` package (agents, tools, schemas, context) is installed editable so
-# the AgentCore entrypoint and scripts import `app.*` from anywhere.
+# the API and scripts import `app.*` from anywhere.
 [tool.setuptools.packages.find]
 where = ["backend"]
 include = ["app*"]

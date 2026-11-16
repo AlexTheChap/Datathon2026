@@ -1,8 +1,7 @@
 """Inline dispatcher (link L6 → box ⑤, result written back L18): runs the orchestrator for a QUEUED run.
 
-The architecture's target is an asynchronous "dispatcher" Lambda invoking AgentCore Runtime. Until that is
-deployed, InlineDispatcher runs the same orchestrator in-process and keeps the run record up to date in the
-RunStore (DynamoDB when AF_STORE=dynamodb):
+InlineDispatcher runs the orchestrator in-process (in the API Lambda's asynchronous self-invocation when
+deployed, AF_DISPATCH=lambda) and keeps the run record up to date in the RunStore (DynamoDB when AF_STORE=dynamodb):
 
     QUEUED (API, L6) → RUNNING → DONE / FAILED + result (summary, evidence_ids, duration) (L18)
                                          + result["answer"]: the Explainer's checked answer (L7, L16, L18)

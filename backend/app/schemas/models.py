@@ -2,7 +2,7 @@
 
 Profile and Request are the CANONICAL schemas owned by the Intake/Plan teams
 (app/schemas/profile.py and request.py); this module re-exports them and adds
-what only the orchestrator needs: OrchestratorInput (AgentCore entrypoint payload, L6) and
+what only the orchestrator needs: OrchestratorInput (dispatcher payload, L6) and
 OrchestratorOutput. ExecutionPlan and PromptRef are box 4's canonical schemas (app/schemas/execution_plan.py,
 prompt_ref.py), re-exported here.
 `profile_from_persona` adapts core/personas.json entries to the canonical Profile
@@ -59,7 +59,7 @@ def profile_from_persona(persona: dict[str, Any]) -> Profile:
 
 
 class OrchestratorInput(BaseModel):
-    """Payload received by the AgentCore entrypoint (L6): profile + request + portfolio.
+    """Payload the dispatcher hands to the orchestrator (L6): profile + request + portfolio.
     `portfolio_weights`: current weights inline (Intake/upload phase comes later)."""
 
     model_config = ConfigDict(extra="allow")

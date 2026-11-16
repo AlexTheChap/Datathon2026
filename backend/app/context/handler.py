@@ -3,7 +3,7 @@
 Input  : {"profile": <Profile JSON or null>, "request": <Request JSON or null>}   (outputs of ③ Intake)
 Output : ContextResult JSON (schemas/context_result.py)
   - {"status": "planned", "execution_plan": {...}, "prompt_ref": {...}}
-        → stored with the QUEUED run, then passed to AgentCore Runtime by the dispatcher (L6, L7);
+        → stored with the QUEUED run, then passed to the orchestrator by the dispatcher (L6, L7);
   - {"status": "profile_required", "message": "..."}
         → the user has no investor profile yet: the dispatcher shows `message`, no run is started.
 

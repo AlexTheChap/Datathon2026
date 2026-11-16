@@ -1,7 +1,7 @@
 """Central configuration (AF_* environment variables, no secrets in code).
 
 Maps to the cross-cutting "IAM / config" concern of docs/architecture.mmd:
-the code is identical locally and on AgentCore Runtime; only environment
+the code is identical locally and in the API Lambda; only environment
 variables change (model, region, AgentCore memory, data paths).
 
 Local development: a .env file at the repo root (never committed — see

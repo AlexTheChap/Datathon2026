@@ -11,7 +11,7 @@ Two ways to reach the quant tools published by scripts/deploy_quant_gateway.py:
            agent = Agent(model=..., tools=mcp.list_tools_sync())
 
 The Gateway uses the AWS_IAM authorizer: every HTTP request is signed with SigV4 (service
-"bedrock-agentcore") using the caller's AWS credentials (IAM role on AgentCore Runtime, .env locally).
+"bedrock-agentcore") using the caller's AWS credentials (the API Lambda's IAM role, .env locally).
 URL: AF_GATEWAY_URL (printed by the deploy script).
 """
 from __future__ import annotations
