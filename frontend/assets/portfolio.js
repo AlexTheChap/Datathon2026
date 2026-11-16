@@ -280,9 +280,7 @@ export async function renderPortfolio(main, ctx) {
     // The current portfolio: a mix the user picked (holdings, what-if) while no newer build finished, else the latest build.
     let chosen = D.chosenIsCurrent(profile, build) ? D.cleanWeights(profile.portfolio) : null;
     if (!chosen && !build && hasHoldings) chosen = holdings;
-    toolsSlot.replaceChildren(...(hasHoldings ? [h("button", { class: "btn btn--primary", type: "button", disabled: building,
-      onclick: () => { ctx.store.set(VIEW_KEY(ctx), null); startJob(ctx, "portfolio", D.optimizePrompt(holdings)); ctx.route(); } },
-      building ? "Optimizing…" : "Optimize my portfolio")] : []));
+    toolsSlot.replaceChildren();   // "Improve my score" appears once a portfolio is on screen (below)
 
     if (!chosen && !build) {
       if (job && job.done && (job.error || (job.run && job.run.status !== "DONE"))) {
@@ -352,7 +350,14 @@ export async function renderPortfolio(main, ctx) {
       window.setTimeout(draw, 160);
     }) : null;
 
-    const view = { ctx, h, profile, p, risk, riskState, riskRunId, level, learn: Boolean(profile.wants_to_learn) && level !== "detailed", uni, hasHoldings };
+    // "Improve my score": the what-if's improve step on the portfolio shown (deterministic, ~1 s, aims at the fit
+    // score). It only suggests: the portfolio changes when the person clicks "Make this my portfolio". It replaces the
+    // AI "Optimize my portfolio" run, which only aimed at the governance rules and replaced a chosen mix when it ended.
+    let whatIf = null;
+    const improveShown = () => { if (whatIf) whatIf.improveFrom(p.weights); };
+    toolsSlot.replaceChildren(h("button", { class: "btn btn--primary", type: "button", onclick: improveShown }, "Improve my score"));
+    const view = { ctx, h, profile, p, risk, riskState, riskRunId, level, learn: Boolean(profile.wants_to_learn) && level !== "detailed", uni, hasHoldings, improveShown };
+    whatIf = whatIfSection(view);
     body.classList.remove("is-switching");
     body.replaceChildren(...[ // sections that don't apply are null: dropped, never rendered as text
       switcher,
@@ -360,7 +365,7 @@ export async function renderPortfolio(main, ctx) {
       heroCard(view),
       kpis(view),
       allocationSection(view),
-      whatIfSection(view),
+      whatIf,
       riskSection(view),
       projectionSection(view),
       analysisOn(profile, "macro_scenarios") ? ratesSection(view) : null,
@@ -463,7 +468,7 @@ function banners(view, building) {
   const { ctx, h, p, profile, hasHoldings } = view;
   const out = [];
   const job = jobFor(ctx, "portfolio");
-  const rebuild = hasHoldings ? D.optimizePrompt(D.cleanWeights(profile.holdings)) : D.PORTFOLIO_PROMPT;
+  const rebuild = D.PORTFOLIO_PROMPT;   // with holdings, the banner offers the improve step instead (no AI run)
   if (building) {
     out.push(h("div", { class: "banner", role: "status" }, h("span", { class: "spinner", "aria-hidden": "true" }),
       h("span", null, hasHoldings
@@ -480,8 +485,10 @@ function banners(view, building) {
   } else if (D.profileChanged(p.profileSnapshot, profile)) {
     out.push(h("div", { class: "banner banner--action" },
       h("span", null, "Your profile changed since this portfolio was built."),
-      h("button", { class: "btn btn--primary", type: "button", onclick: () => { startJob(ctx, "portfolio", rebuild); ctx.route(); } },
-        hasHoldings ? "Optimize again" : "Rebuild my portfolio")));
+      hasHoldings
+        ? h("button", { class: "btn btn--primary", type: "button", onclick: view.improveShown }, "Improve my score")
+        : h("button", { class: "btn btn--primary", type: "button", onclick: () => { startJob(ctx, "portfolio", rebuild); ctx.route(); } },
+          "Rebuild my portfolio")));
   }
   return out;
 }
@@ -761,7 +768,7 @@ function whatIfSection(view) {
 
   drawRows();
   setWeights(weights, false);
-  return h("section", { class: "panel stack", "aria-labelledby": "whatif-title" },
+  const section = h("section", { class: "panel stack", "aria-labelledby": "whatif-title" },
     h("div", { class: "stack-sm" },
       h("h2", { id: "whatif-title", class: "section-title" }, level === "simple" ? "Try a different mix" : "What if you changed the weights?"),
       h("p", { class: "small muted" }, "Move a slider: the others adjust so the total stays 100%. The fit with your profile is measured again each time. Nothing is saved.")),
@@ -772,6 +779,13 @@ function whatIfSection(view) {
         reset),
       result),
     suggestion);
+  /** "Improve my score" at the top: start from these weights, scroll here, and show the suggestion. */
+  section.improveFrom = (w) => {
+    if (!D.sameWeights(weights, w)) setWeights({ ...w }, true);
+    section.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    improve();
+  };
+  return section;
 }
 
 function suggestionCard(view, data, { apply, dismiss, close }) {

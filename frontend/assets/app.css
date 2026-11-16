@@ -1073,7 +1073,7 @@ summary { cursor: pointer; font-weight: var(--weight-mid); min-height: 44px; dis
 
 /* ---------- Portfolio: actions at the top right, the portfolio switch, start choice, holdings window ---------- */
 .page-head__tools { display: grid; gap: var(--space-md); justify-items: end; }
-.page-head__tools .seg-control legend { justify-self: end; text-align: end; }
+.page-head__tools .seg-control legend { margin-inline-start: auto; text-align: end; }   /* a legend moves with its margins, not justify-self */
 .page-head__actions:empty { display: none; }
 .view-switch { animation: af-appear 460ms var(--ease-out) both; }
 .seg-control--small .seg-control__option span { min-height: 32px; font-size: var(--text-sm); }
