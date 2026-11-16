@@ -187,6 +187,11 @@ def lambda_policy(account: str, region: str, table: str) -> dict:
          "Resource": f"arn:aws:bedrock:{region}:{account}:knowledge-base/*"},
         {"Effect": "Allow", "Action": ["bedrock:ApplyGuardrail"],
          "Resource": f"arn:aws:bedrock:{region}:{account}:guardrail/*"},
+        {"Effect": "Allow", "Action": ["bedrock-agentcore:CreateEvent", "bedrock-agentcore:ListEvents",   # L17
+                                       "bedrock-agentcore:GetEvent", "bedrock-agentcore:GetMemory",
+                                       "bedrock-agentcore:RetrieveMemoryRecords",
+                                       "bedrock-agentcore:ListMemoryRecords", "bedrock-agentcore:GetMemoryRecord"],
+         "Resource": f"arn:aws:bedrock-agentcore:{region}:{account}:memory/*"},
         {"Effect": "Allow", "Action": "bedrock-agentcore:InvokeGateway",
          "Resource": f"arn:aws:bedrock-agentcore:{region}:{account}:gateway/*"},
         {"Effect": "Allow", "Action": "lambda:InvokeFunction", "Resource": fn_arn},   # AF_DISPATCH=lambda
