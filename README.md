@@ -91,9 +91,6 @@ The full table, with retrieval dates, coverage, processing, limitations and term
 | News | SEC 8-K filings and central bank rate decisions | News sub-agent and SMS alerts |
 | Expected returns for projections | FP Canada / IQPF Projection Assumption Guidelines 2026 | Range of possible values (never estimated from past prices) |
 
-All sources are public. Yahoo Finance is an unofficial, unlicensed feed and the exclusion lists are for
-non-commercial use: both are acceptable for this datathon prototype only.
-
 ## 5. Configuration
 
 | File | Role |
@@ -207,8 +204,6 @@ The site's demo accounts only appear if `AF_DEMO_PASSWORD` is set in `.env` when
 
 ## 9. Known limits
 
-- Five years of daily data (Nov 2021 – Nov 2026); past results do not predict future returns.
-- The investable list is the 31 starting assets plus the S&P 500; most Canadian companies are not covered.
-- The S&P 500 extension uses today's constituents (survivorship bias) and has no fundamentals or ESG detail.
-- Projections are a range of simulated scenarios under planning guidelines, not forecasts.
-- Exclusion lists cover only the companies that could be matched to the investable list.
+- Historical window. Indicators use five years of daily data (Nov 2021 – Nov 2026), which includes the 2022 drawdown. Past results do not predict future returns.
+- Coverage. The universe is the 31 starting assets plus the S&P 500 constituents. Canadian coverage beyond the starting list, and fundamentals and ESG data for the S&P 500 additions, are the next data extensions. Exclusion lists apply to every company we could match to this universe.
+- Survivorship bias. The S&P 500 extension uses current constituents, which can flatter historical metrics for those names. Every indicator shows its period and source, so users can see what it rests on.
